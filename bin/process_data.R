@@ -43,9 +43,10 @@ deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90
   select(-X__1)
 
 #### Forsyth 2013 igg ####
-deep_mut_data$forsyth_2013_igg <- read_tsv('data/raw/processed/forsyth_2013_igg_cdr.tsv') %>%
+deep_mut_data$forsyth_2013_igg <- read_xlsx('data/raw/processed/forsyth_2013_igg_cdr.xlsx', na = 'NA') %>%
   rename(ref_codon = `WT codon`) %>%
-  gather(key = 'alt_codon', value = enrichment, -position, -ref_codon, -distance)
+  gather(key = 'alt_codon', value = 'enrichment', -position, -ref_codon, -distance)
+
 #### Melamed 2013 pab1 ####
 deep_mut_data$melamed_2013_pab1 <- read_xlsx('data/raw/processed/melamed_2013_pab1_rrm_enrichment_ratios.xlsx') %>%
   rename(ref_aa = WT_aa) %>%
@@ -257,25 +258,49 @@ deep_mut_data$mishra_2016_hsp90 <- map(excel_sheets(mishra_2016_path), read_mish
   bind_rows()
 
 #### Sarkisyan 2016 GFP ####
+# A file with just AAs is also available, but includes less info
+deep_mut_data$sarkisyan_2016_gfp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_nucleotides.tsv')
 
 #### Brenan 2016 Erk2 ####
+deep_mut_data$brenan_2016_erk2 <- read_xlsx('data/raw/processed/brenan_2016_erk2.xlsx', sheet = 'Supplemental_Table_1') %>%
+  rename_all(funs(gsub(' ', '_', tolower(.))))
 
 #### Ashenberg 2016 Flu Nucleoprotein ####
+deep_mut_data$ashenberg_2016_np <- read_csv('data/raw/processed/ashenberg_2017_flu_np.csv')
 
 #### Weile 2017 ube2l ####
+deep_mut_data$weile_2017_ube2l <- read_csv('data/raw/processed/weile_2017_ube2l_score_comp.csv', na = c('NA','','None'))
 
 #### Weile 2017 sumo1 ####
+deep_mut_data$weile_2017_sumo1 <- read_csv('data/raw/processed/weile_2017_sumo1_score_comp.csv', na = c('NA','','None'))
 
 #### Weile 2017 tpk1 ####
+deep_mut_data$weile_2017_tpk1 <- read_csv('data/raw/processed/weile_2017_tpk1_score_comp.csv', na = c('NA','','None'))
 
 #### Weile 2017 calm ####
+deep_mut_data$weile_2017_calm <- read_csv('data/raw/processed/weile_2017_calm_score_comp.csv', na = c('NA','','None'))
 
 #### Findlay 2018 Brca1 ####
+deep_mut_data$findlay_2018_brca1 <- read_xlsx('data/raw/processed/findlay_2018_brca1_ring_brct.xlsx', skip = 2, na = 'NA') %>%
+  rename_all(funs(gsub('[\\/ \\(\\)]+', '_', .))) %>%
+  rename(ref_nuc = reference,
+         alt_nuc = alt,
+         ref_aa = aa_ref,
+         alt_aa = aa_alt)
 
 #### Lee 2018 Flu haemagglutinin ####
+# Xlsx also has sheets with preferences for each repeat, but importing just the average result for now
+# Reports per site AA preference, which is fairly dissimilar to other metrics
+deep_mut_data$lee_2018_flu_ha <- read_xlsx('data/raw/processed/lee_2018_influenza_ha.xlsx', sheet = 'avg_prefs') %>%
+  rename(position = site) %>%
+  gather(key = 'alt_aa', value = 'aa_pref', -position, -entropy, -neffective)
 
 #### Giacomelli 2018 tp53 ####
+deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2018_tp53.xlsx', skip=1) %>%
+  rename_all(funs(tolower(gsub('[\\/ \\(\\)\\-]+', '_', gsub('\\*', '_2', .))))) %>%
+  rename(ref_aa = aa_wt,
+         alt_aa = aa_variant)
 
 #### Save processed output ####
 saveRDS(deep_mut_data, 'data/deep_mut_data.RDS')
-
+dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()
