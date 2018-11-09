@@ -16,7 +16,7 @@ deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pd
          name = 'hsp90',
          gene = 'hsc82',
          uniprot_acc = 'P02829',
-         mut_id = gen_mut_id(uniprot_acc, position, aa))
+         mut_id = gen_mut_id(uniprot_acc, NA, aa, position))
 
 #### Araya 2012 hYAP65 ####
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na')
@@ -36,7 +36,7 @@ deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_f
          gene = 'ubc',
          uniprot_acc = 'P0CH08',
          species = 'saccaromyces_cerevisiae',
-         mut_id = gen_mut_id(uniprot_acc, position, alt))
+         mut_id = gen_mut_id(uniprot_acc, NA, alt, position))
 
 #### Jiang 2013 hsp90 ####
 deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90.xlsx', skip = 2) %>%
@@ -149,13 +149,112 @@ deep_mut_data$findlay_2014_dbr1 <- read_xlsx('data/raw/processed/findlay_2014_db
          ref_aa = `Reference AA`,
          alt_aa = `Substituted AA`,
          mut_type = `Variant Class`)
+
 #### Olson 2014 Protein G ####
+single_muts <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = cell_limits(ul = c(3, 14), lr = c(NA, 18))) %>%
+  rename(ref_aa1 = `WT amino acid`,
+         pos1 = `Position`,
+         alt_aa1 = `Mutation`,
+         input_count = `Input Count`,
+         selection_count = `Selection Count`)
+
+double_muts <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = cell_limits(ul = c(3, 2), lr = c(NA, 11))) %>%
+  rename(ref_aa1 = `Mut1 WT amino acid`,
+         pos1 = `Mut1 Position`,
+         alt_aa1 = `Mut1 Mutation`,
+         ref_aa2 = `Mut2 WT amino acid`,
+         pos2 = `Mut2 Position`,
+         alt_aa2 = `Mut2 Mutation`,
+         input_count = `Input Count`,
+         selection_count = `Selection Count`,
+         fitness1 = `Mut1 Fitness`,
+         fitness2 = `Mut2 Fitness`)
+
+wt <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = "U3:V4") %>%
+  rename(input_count = `Input Count`,
+         selection_count = `Selection Count`)
+
+# Simplistic combining of data to get everying in, needs more complex processing
+deep_mut_data$olson_2014_protein_g <- bind_rows(wt, single_muts, double_muts)
 
 #### Starita 2015 Brca1 ####
+deep_mut_data$starita_2015_brac1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
+  rename_all(tolower)
 
 #### Kitzman 2015 Gal4 ####
+kitzman_2015_path <- 'data/raw/processed/kitzman_2015_gal4_enrichment.xlsx'
+read_kitzman_sheet <- function(sheet){
+  tbl <- read_xlsx(kitzman_2015_path, skip = 1, na = 'ND', sheet = sheet) %>%
+    rename(position = `Residue #`) %>%
+    mutate(ref_aa = apply(., 1, function(x, nam){nam[x == 'wt' & !is.na(x)]}, nam = names(.)),
+           label = sheet) %>%
+    gather(key = 'alt_aa', value = 'log2_enrichment', -position, -ref_aa, -label) %>%
+    mutate(log2_enrichment = if_else(log2_enrichment == 'wt', '0', log2_enrichment)) %>% # set wt to 0 log2 enrichment ratio
+    mutate(log2_enrichment = as.numeric(log2_enrichment))
+  return(tbl)
+}
+
+deep_mut_data$kitzman_2015_gal4 <- lapply(excel_sheets(kitzman_2015_path),
+                                          read_kitzman_sheet) %>%
+  bind_rows(.) %>%
+  spread(key = 'label', value = 'log2_enrichment')
 
 #### Mishra 2016 Hsp90 ####
+## Each sheet also contains meta info that might be useful later
+mishra_2016_path <- 'data/raw/processed/mishra_2016_hsp90_enrichment.xlsx'
+read_mishra_sheet <- function(sheet){
+  tbl <- read_xlsx(mishra_2016_path, sheet = sheet, col_names = FALSE)
+  
+  # Check sheet type
+  if (tbl[1,1] == 'Stop counts'){
+    ## Process sheets with a single replicate
+    nom <- tbl[7,] %>% unlist(., use.names = FALSE)
+    tbl <- tbl[8:length(tbl),] %>%
+      set_names(nom) %>%
+      rename_at(vars(-position, -aa), funs(paste0('rep1_', .))) %>%
+      mutate_at(vars(-aa), as.numeric) %>%
+      rename(alt_aa = aa) %>%
+      mutate(avg_norm_ratiochange = rep1_norm_ratiochange)
+    
+  } else {
+    ## Process sheets with replicates
+    # Get first row of sub-tables
+    top_row <- which(tbl$X__1 == 'position') + 1
+    
+    # Get bottom row of sub-tables
+    bot_row <- sapply(top_row, find_next_na_row, tbl=tbl) - 1
+    
+    # Extract sub-table names
+    rep_nom <- tbl[top_row[1] - 1,] %>% unlist(., use.names = FALSE)
+    ave_nom <- tbl[top_row[length(top_row)] - 1,] %>% unlist(., use.names = FALSE)
+    ave_nom <- ave_nom[!is.na(ave_nom)]
+    
+    # Extract Subtables and add names
+    rep1 <- tbl[top_row[1]:bot_row[1],] %>% 
+      set_names(rep_nom) %>%
+      rename_at(vars(-position, -aa), funs(paste0('rep1_', .)))
+    
+    rep2 <- tbl[top_row[2]:bot_row[2],] %>%
+      set_names(rep_nom) %>%
+      rename_at(vars(-position, -aa), funs(paste0('rep2_', .)))
+    
+    ave <- tbl[top_row[3]:bot_row[3],] %>%
+      select_if(colSums(!is.na(.)) > 0) %>%
+      set_names(ave_nom) %>%
+      select(-s1, -s2) %>%
+      rename(aa = `amino acid`)
+    
+    tbl <- full_join(rep1, rep2, by=c('position', 'aa')) %>%
+      full_join(., ave, by=c('position', 'aa')) %>%
+      mutate_at(vars(-aa), as.numeric) %>%
+      rename(alt_aa = aa,
+             avg_norm_ratiochange = avg)
+  }
+  return(tbl)
+}
+
+deep_mut_data$mishra_2016_hsp90 <- map(excel_sheets(mishra_2016_path), read_mishra_sheet) %>%
+  bind_rows()
 
 #### Sarkisyan 2016 GFP ####
 
