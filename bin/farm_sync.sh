@@ -19,7 +19,7 @@ then
 fi
 
 #Meta folder
-printf "\n%s\n" "${green}Files List: Meta/${normal}"
+printf "\n%s\n" "${green}File List: Meta/${normal}"
 rsync -vauh --exclude-from $HOME/.rsync_exclude  --dry-run $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
 
 read -p "Transfer? " -n 1 -r
@@ -43,7 +43,7 @@ then
 fi
 
 # Meta Folder
-printf "\n\n%s\n" "${green}Files List: Meta${normal}"
+printf "\n\n%s\n" "${green}File List: Meta${normal}"
 rsync -vauh --exclude-from $HOME/.rsync_exclude  --dry-run ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
 
 read -p "Transfer? " -n 1 -r
