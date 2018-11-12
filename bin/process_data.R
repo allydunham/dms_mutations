@@ -4,6 +4,7 @@
 ## accession, species, common name, gene name, mut_id, position(s), variant(s)
 
 library(tidyverse)
+library(magrittr)
 library(readxl)
 
 source('bin/functions.R')
@@ -19,7 +20,8 @@ deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pd
          mut_id = gen_mut_id(uniprot_acc, NA, aa, position))
 
 #### Araya 2012 hYAP65 ####
-deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na')
+deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
+                                            col_types = cols(positions=col_character()))
 
 #### Starita 2013 Ube4b ####
 deep_mut_data$starita_2013_ube4b <- read_xlsx('data/raw/processed/starita_2013_ube4b_ubox.xlsx', na = c('NA', ''))
@@ -116,6 +118,33 @@ deep_mut_data$roscoe_2014_ubi_excess_e1 <- read_xlsx('data/raw/processed/roscoe_
 
 #### Melnikov 2014 APH(3')II ####
 ## Large folder of different conditions, needs more processing
+melnikov_count_files <- dir('data/raw/processed/melnikov_2014_counts/') %>%
+  grep('\\.aacounts\\.txt', ., value = TRUE)
+
+# Function to read aa count tables from melnikov et al. 2014
+read_melnikov_table <- function(fi){
+  tbl <- read_tsv(paste0('data/raw/processed/melnikov_2014_counts/', fi), skip = 1, col_names = FALSE) %>%
+    t() %>%
+    set_rownames(NULL) %>%
+    as_tibble() %>%
+    set_colnames(.[1,]) %>%
+    filter(!Position == 'Position') %>%
+    rename(position = Position,
+           ref_aa = `Wild-type`) %>%
+    mutate_at(vars(-ref_aa), as.numeric) %>%
+    gather(key = 'alt_aa', value = 'count', -position, -ref_aa)
+  return(tbl)
+}
+
+melnikov_counts <- sapply(melnikov_count_files, read_melnikov_table, simplify = FALSE) %>%
+  set_names(gsub('(KKA2\\_|\\.aacounts\\.txt)', '', names(.))) %>%
+  bind_rows(.id='experiment') %>%
+  separate(experiment, c('selection', 'drug', 'library'), sep='_', remove = TRUE, fill = 'right')
+
+melnikov_bkg_counts <- filter(melnikov_counts, selection %in% c('Bkg1', 'Bkg2')) %>%
+  mutate(library = paste0('L', str_sub(selection, -1))) %>%
+  select(-selection, -drug)
+
 deep_mut_data$melnikov_2014_aph3ii <- NA
 
 #### Findlay 2014 BRCA1 ####
