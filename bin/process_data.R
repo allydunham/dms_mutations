@@ -131,19 +131,16 @@ read_melnikov_table <- function(fi){
     filter(!Position == 'Position') %>%
     rename(position = Position,
            ref_aa = `Wild-type`) %>%
-    mutate_at(vars(-ref_aa), as.numeric) %>%
-    gather(key = 'alt_aa', value = 'count', -position, -ref_aa)
+    mutate_at(vars(-ref_aa), as.numeric)
   return(tbl)
 }
 
 melnikov_counts <- sapply(melnikov_count_files, read_melnikov_table, simplify = FALSE) %>%
-  set_names(gsub('(KKA2\\_|\\.aacounts\\.txt)', '', names(.))) %>%
-  bind_rows(.id='experiment') %>%
-  separate(experiment, c('selection', 'drug', 'library'), sep='_', remove = TRUE, fill = 'right')
+  set_names(gsub('(KKA2\\_|\\.aacounts\\.txt)', '', names(.)))
 
-melnikov_bkg_counts <- filter(melnikov_counts, selection %in% c('Bkg1', 'Bkg2')) %>%
-  mutate(library = paste0('L', str_sub(selection, -1))) %>%
-  select(-selection, -drug)
+melnikov_bkg_counts <- melnikov_counts[c('Bkg1', 'Bkg2')]
+
+melnikov_counts <- melnikov_counts[which(!names(melnikov_counts) %in% c('Bkg1', 'Bkg2'))]
 
 deep_mut_data$melnikov_2014_aph3ii <- NA
 
