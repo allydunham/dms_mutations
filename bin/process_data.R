@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript 
 # Script to load and process deep mutagenesis study data for grouped analysis
 # Fields each dataset needs:
-## accession, species, common name, gene name, mut_id, position(s), variant(s)
+## accession, species, common name, gene name, domain name, mut_id, position(s), variant(s)
 
 library(tidyverse)
 library(magrittr)
@@ -13,15 +13,22 @@ deep_mut_data <- list()
 
 #### Hietpas 2011 Hsp90 ####
 deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pdz_ligands_fitness.csv') %>%
+  rename(alt_aa = aa) %>%
   mutate(species = 'saccharomyces_cerevisiae',
          name = 'hsp90',
          gene = 'hsc82',
          uniprot_acc = 'P02829',
-         mut_id = gen_mut_id(uniprot_acc, NA, aa, position))
+         domain = NA,
+         mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
 
 #### Araya 2012 hYAP65 ####
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
-                                            col_types = cols(positions=col_character()))
+                                            col_types = cols(positions=col_character())) %>%
+  mutate(species = 'homo_sapiens',
+         name = 'hYAP65',
+         gene = 'yap65',
+         domain = 'ww',
+         uniprot_acc = 'P46937')
 
 #### Starita 2013 Ube4b ####
 deep_mut_data$starita_2013_ube4b <- read_xlsx('data/raw/processed/starita_2013_ube4b_ubox.xlsx', na = c('NA', ''))
@@ -42,17 +49,29 @@ deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_f
 
 #### Jiang 2013 hsp90 ####
 deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90.xlsx', skip = 2) %>%
-  select(-X__1)
+  select(-X__1) %>%
+  rename_all(tolower) %>%
+  rename(alt_aa = `amino acid`,
+         sd = `standard deviation`) %>%
+  mutate(uniprot_acc = 'P02829',
+         mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position),
+         average_num = as.numeric(average))
 
 #### Forsyth 2013 igg ####
 deep_mut_data$forsyth_2013_igg <- read_xlsx('data/raw/processed/forsyth_2013_igg_cdr.xlsx', na = 'NA') %>%
   rename(ref_codon = `WT codon`) %>%
-  gather(key = 'alt_codon', value = 'enrichment', -position, -ref_codon, -distance)
+  gather(key = 'alt_codon', value = 'enrichment', -position, -ref_codon, -distance) %>%
+  separate(position, c('chain', 'position'), remove = TRUE) %>%
+  mutate(ref_aa = str_sub(position, 1, 1),
+         position = str_sub(position, 2))
 
 #### Melamed 2013 pab1 ####
 deep_mut_data$melamed_2013_pab1 <- read_xlsx('data/raw/processed/melamed_2013_pab1_rrm_enrichment_ratios.xlsx') %>%
   rename(ref_aa = WT_aa) %>%
-  gather(key = 'alt_aa', value = 'enrichment_ratio', -position, -ref_aa)
+  gather(key = 'alt_aa', value = 'enrichment_ratio', -position, -ref_aa) %>%
+  mutate(species = 'saccharomyces_cerevisiae',
+         uniprot_acc = 'P04147',
+         mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
 
 #### Wagenaar 2014 braf ####
 ## Only includes position/aa combos deemed significant
@@ -74,7 +93,12 @@ deep_mut_data$wagenaar_2014_braf <- read_xls('data/raw/processed/wagenaar_2014_b
          rep2_codon6 = X__10,
          ic50_vs_brafV600E = BRAFV600E,
          individually_tested = `mutant?`,
-         possible_by_single_sub = `substitution?`)
+         possible_by_single_sub = `substitution?`) %>%
+  filter(!is.na(rep1_codon1) & !rep1_codon1 == 'Replicate 1') %>%
+  mutate_at(vars(-alt_aa, -individually_tested, -possible_by_single_sub, -ic50_vs_brafV600E), as.numeric) %>%
+  mutate(species = 'homo_sapiens',
+         uniprot_acc = 'P15056',
+         mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
 
 #### Firnberg 2014 tem1 ####
 deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_tem1.xlsx') %>%
@@ -142,7 +166,13 @@ melnikov_bkg_counts <- melnikov_counts[c('Bkg1', 'Bkg2')]
 
 melnikov_counts <- melnikov_counts[which(!names(melnikov_counts) %in% c('Bkg1', 'Bkg2'))]
 
-deep_mut_data$melnikov_2014_aph3ii <- NA
+melnikov_e_scores <- mapply(melnikov_fitness, melnikov_counts, names(melnikov_counts),
+                            MoreArgs = list(bkg=melnikov_bkg_counts), SIMPLIFY = FALSE) %>%
+  bind_rows(.id = 'experiment') %>%
+  separate(experiment, c('round', 'drug', 'library'), sep='_')
+
+# Currently poorly normalised against wt performance so no comparable
+deep_mut_data$melnikov_2014_aph3ii <- melnikov_e_scores
 
 #### Findlay 2014 BRCA1 ####
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%
@@ -249,7 +279,7 @@ read_mishra_sheet <- function(sheet){
     top_row <- which(tbl$X__1 == 'position') + 1
     
     # Get bottom row of sub-tables
-    bot_row <- sapply(top_row, find_next_na_row, tbl=tbl) - 1
+    bot_row <- sapply(top_row, find_next_empty_row, tbl=tbl) - 1
     
     # Extract sub-table names
     rep_nom <- tbl[top_row[1] - 1,] %>% unlist(., use.names = FALSE)
