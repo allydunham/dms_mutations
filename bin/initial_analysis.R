@@ -13,45 +13,48 @@ library(ggpubr)
 source('bin/process_data.R')
 
 ## Import temp sift/foldx values for initial examinations
-hsp90_sift <- read_tsv('data/yeast_hsp90_sift.tsv') %>%
-  mutate(mut_id = paste(acc, pos, alt, sep = '_'))
-hsp90_foldx <- read_tsv('data/yeast_hsp90_foldx.tsv') %>%
-  mutate(mut_id = paste(uniprot_id, uniprot_pos, aa_mt, sep = '_'))
+import_sift <- function(path){
+  return(
+    read_tsv(path) %>% mutate(mut_id = paste(acc, pos, alt, sep = '_'))
+  )
+}
 
-ubi_sift <- read_tsv('data/yeast_ubi_sift.tsv') %>%
-  mutate(mut_id = paste(acc, pos, alt, sep = '_'))
-ubi_foldx <- read_tsv('data/yeast_ubi_foldx.tsv') %>%
-  mutate(mut_id = paste(uniprot_id, uniprot_pos, aa_mt, sep = '_'))
+import_foldx <- function(path){
+  return(
+    read_tsv(path) %>% mutate(mut_id = paste(uniprot_id, uniprot_pos, aa_mt, sep = '_'))
+  )
+}
 
-pab1_sift <- read_tsv('data/yeast_pab1_sift.tsv') %>%
-  mutate(mut_id = paste(acc, pos, alt, sep = '_'))
-pab1_foldx <- read_tsv('data/yeast_pab1_foldx.tsv') %>%
-  mutate(mut_id = paste(uniprot_id, uniprot_pos, aa_mt, sep = '_'))
+sift <- sapply(c('data/yeast_hsp90_sift.tsv',
+                 'data/yeast_ubi_sift.tsv',
+                 'data/yeast_pab1_sift.tsv',
+                 'data/human_braf_sift.tsv'),
+               import_sift, simplify = FALSE) %>%
+  set_names(gsub('(data/|\\_sift\\.tsv)', '', names(.)))
 
-braf_sift <- read_tsv('data/human_braf_sift.tsv') %>%
-  mutate(mut_id = paste(acc, pos, alt, sep = '_'))
-braf_foldx <- read_tsv('data/human_braf_foldx.tsv') %>%
-  mutate(mut_id = paste(uniprot_id, uniprot_pos, aa_mt, sep = '_'))
+foldx <- sapply(c('data/yeast_hsp90_foldx.tsv',
+                  'data/yeast_ubi_foldx.tsv',
+                  'data/yeast_pab1_foldx.tsv',
+                  'data/human_braf_foldx.tsv'),
+                import_foldx, simplify = FALSE) %>%
+  set_names(gsub('(data/|\\_foldx\\.tsv)', '', names(.)))
 
 
 ## Add Sift/FoldX Scores to Data
-hietpas_2011 <- left_join(deep_mut_data$hietpas_2011_hsp90, select(hsp90_sift, ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
-  left_join(., select(hsp90_foldx, aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
+join_metrics <- function(tbl, gene){
+  return(
+    left_join(deep_mut_data[[tbl]], select(sift[[gene]], ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
+      left_join(., select(foldx[[gene]], aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
+  )
+}
 
-roscoe_2013 <- left_join(deep_mut_data$roscoe_2013_ubi, select(ubi_sift, ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
-  left_join(., select(ubi_foldx, aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
-
-jiang_2013 <- left_join(deep_mut_data$jiang_2013_hsp90, select(hsp90_sift, ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
-  left_join(., select(hsp90_foldx, aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
-
-melamed_2013 <- left_join(deep_mut_data$melamed_2013_pab1, select(pab1_sift, ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
-  left_join(., select(pab1_foldx, aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
-
-wagenaar_2014 <- left_join(deep_mut_data$wagenaar_2014_braf, select(braf_sift, ref, score, median_ic, n_aa, n_seq, mut_id), by = 'mut_id') %>%
-  left_join(., select(braf_foldx, aa_wt, ddG, ddG_sd, mut_id), by='mut_id')
+studies <- mapply(join_metrics,
+                  c('hietpas_2011_hsp90', 'roscoe_2013_ubi', 'jiang_2013_hsp90', 'melamed_2013_pab1', 'wagenaar_2014_braf'),
+                  c('yeast_hsp90', 'yeast_ubi', 'yeast_hsp90', 'yeast_pab1', 'human_braf'),
+                  SIMPLIFY = FALSE)
 
 ## Sift/FoldX Plots
-plot_metrics <- function(tbl, colname, ylabel=NULL){
+plot_metrics <- function(tbl, colname, ylabel=NULL, title=''){
   if (!all(is.na(tbl$score))){
     p_sift <- ggplot(tbl, aes_string(x='score', y=colname)) +
       geom_point() +
@@ -75,15 +78,18 @@ plot_metrics <- function(tbl, colname, ylabel=NULL){
   plots <- list(p_sift, p_foldx)
   plots <- plots[!is.na(plots)]
   if (length(plots) > 0){
-    return(ggarrange(plotlist = plots))
+    return(ggarrange(plotlist = plots) %>% annotate_figure(., top=text_grob(title)))
   } else {
     warning('Neither SIF scores nor FoldX ddG scores avilable')
     return(NULL)
   }
 }
 
-p_hietpas_2011 <- plot_metrics(hietpas_2011, 'selection_coefficient')
-p_roscoe_2013 <- plot_metrics(roscoe_2013, 'selection_num')
-p_jiang_2013 <- plot_metrics(jiang_2013, 'average_num')
-p_melamed_2013 <- plot_metrics(melamed_2013, 'enrichment_ratio')
-p_wagenaar_2014 <- plot_metrics(wagenaar_2014, 'median_enrichment')
+p_metrics <- mapply(function(x, y){plot_metrics(studies[[x]], y, title=x)},
+                    names(studies),
+                    c('selection_coefficient', 'selection_num', 'average_num', 'enrichment_ratio', 'median_enrichment'),
+                    SIMPLIFY = FALSE)
+
+for (n in names(p_metrics)){
+  ggsave(paste0('figures/initial_analysis/', n, '_sift_foldx.pdf'), p_metrics[[n]], width = 7, height = 5)
+}
