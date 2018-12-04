@@ -6,10 +6,18 @@
 library(tidyverse)
 library(magrittr)
 library(readxl)
+library(Biostrings)
 
 source('bin/functions.R')
 
 deep_mut_data <- list()
+formatted_deep_data <- list()
+raw_seqs <- list()
+
+#### Import Seqs ####
+fasta_files <- dir('meta/seq', full.names = TRUE)
+raw_seqs <- sapply(fasta_files, readAAStringSet)
+names(raw_seqs) <- sapply(str_split(names(raw_seqs),'[\\/\\.]'), function(x){x[3]})
 
 #### Hietpas 2011 Hsp90 ####
 deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pdz_ligands_fitness.csv') %>%
