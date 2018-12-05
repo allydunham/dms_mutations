@@ -15,66 +15,85 @@ gen_mut_id <- function(acc, ref, alt, pos){
 # score & raw_score, supports other orig columns too)
 # gene_name = name string
 # alt_name = alternative gene name
-# domain = domain string
 # accessions = named chr vector of accessions
 # study = named chr vector of paper metadata
 # species = species string
 # ref_seq = reference AA seq string
-# len = gene length (overwritten by ref_seq len if given)
+# authour = paper authours
+# year = paper year (minimal info to locate, best to include more (such as url) in misc)
 # transform = method used to transform score
-DeepMut <- function(variant_data, gene_name=NULL, alt_name = NULL, domain=NULL, accessions=NULL,
-                    study=NULL, species=NULL, ref_seq=NULL, len=NULL, transform='None'){
-  
+# misc = named list of other meta data to attach (e.g. other protein accessions, other study data.
+# Various special misc values are expected and are written in a logical positon - alt_name, doi, pubmed_id, url, title
+# anything else with _id is treated as a gene id
+DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None',
+                    uniprot_id=NA, authour=NA, year=NA, misc=NULL){
   # (minimal) Error Checking
   if (!all(c('variants', 'score', 'raw_score') %in% colnames(variant_data))) {
     stop('variant_data does not contain the required columns (dna_variants, protein_variants, score, raw_score)')
   }
-  if (!is_null(ref_seq)){
-    len <- nchar(ref_seq)
+  
+  # Construct List of required fields
+  deep_mut <- list(variant_data=variant_data,
+                   gene_name=gene_name,
+                   domain=domain,
+                   species=species,
+                   uniprot_id=uniprot_id,
+                   ref_seq=ref_seq,
+                   authour=authour,
+                   year=year,
+                   transform=transform)
+  
+  if (!is_null(misc)){
+    deep_mut <- c(deep_mut, misc)
   }
-
-  # Construct List
-  deep_mut <- list(varaiant_data = variant_data,
-                   gene_name = gene_name,
-                   alt_name = alt_name,
-                   domain = domain,
-                   accessions = accessions,
-                   study = study,
-                   species = species,
-                   ref_seq = ref_seq,
-                   len = len)
   
   class(deep_mut) <- 'DeepMut'
   return(deep_mut)
 }
 
-# write 'DeepMut' classed objects to a consistent file type
+# write 'DeepMut' classed objects to a consistent file type (termed dm file for now)
 write_deep_mut <- function(x, outfile){
   if (!'DeepMut' %in% class(x)){
     stop('x must be an object of class DeepMut (see DeepMut() function)')
   }
+  keys <- names(x)
   
-  # Write file meta data
-  write_lines(c('#deep_mut_file_version:1.0'), outfile)
+  ## Write meta data
+  write_lines(c('#deep_mut_file_version:1.1'), outfile)
   
-  # Write gene data
-  write_lines(str_c('#gene_name:', x$gene_name), outfile, append = TRUE)
+  # Write essential gene data
+  for (k in c('gene_name', 'domain', 'species')){
+    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
+  }
   
-  if (!is_null(x$alt_name)){
+  # Add alt_name if it exists
+  if ('alt_name' %in% keys){
     write_lines(str_c('#alt_name:', x$alt_name), outfile, append = TRUE)
   }
   
-  write_lines(str_c('#', names(x$accessions), ':', x$accessions), outfile, append = TRUE)
-  write_lines(str_c('#domain:', x$domain), outfile, append = TRUE)
-  write_lines(str_c('#species:', x$species), outfile, append = TRUE)
-  write_lines(str_c('#amino_acid_length:', x$len), outfile, append = TRUE)
+  # Write accessions
+  acc_keys <- keys[grepl('_id', keys) & !keys == 'pubmed_id']
+  for (k in acc_keys){
+    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
+  }
   
   # Write study information
-  write_lines(str_c('#study_', names(x$study), ':', x$study), outfile, append = TRUE)
+  study_keys <- c('authour', 'year', 'title', 'pubmed_id', 'url', 'doi')
+  for (k in study_keys[study_keys %in% keys]){
+    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
+  }
   
-  # Write ref sequence
-  # Header line
-  write_lines('#ref_seq:', outfile, append = TRUE)
+  write_lines(str_c('#transform:', x$transform), outfile, append = TRUE)
+  
+  # Write any misc keys
+  misc_keys <- keys[!keys %in% c('gene_name', 'domain', 'species', 'alt_name', 'authour', 'year', 'title',
+                                 'pubmed_id', 'url', 'doi', 'transform', 'ref_seq', 'variant_data') &
+                      !grepl('_id', keys)]
+  for (k in misc_keys){
+    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
+  }
+  
+  ## Write ref sequence
   seq <- str_split(x$ref_seq, '')[[1]]
   l <- ceiling(length(seq)/80)
 
@@ -84,14 +103,78 @@ write_deep_mut <- function(x, outfile){
     return(str_c(t[!is.na(t)], collapse = ''))
     })
   
+  # Header with number of seq lines to follow
+  write_lines(str_c('#ref_seq:', length(split_seq)), outfile, append = TRUE)
+  # Seq lines, led by #+
   write_lines(str_c('#+', split_seq), outfile, append = TRUE)
   
-  # Write variant table (header line (& final metadata line) denoted by '#?')
-  write_lines(str_c(c(str_c('#?',colnames(x$varaiant_data)[1]),
-                      colnames(x$varaiant_data)[-1]),
+  ## Write variant table (header line (& final metadata line) denoted by '?')
+  write_lines(str_c(c(str_c('?',colnames(x$variant_data)[1]),
+                      colnames(x$variant_data)[-1]),
                    collapse = '\t'),
               outfile, append = TRUE)
-  write_tsv(x$varaiant_data, outfile, append = TRUE, col_names = FALSE)
+  write_tsv(x$variant_data, outfile, append = TRUE, col_names = FALSE)
+}
+
+# Read deep mutagenesis data from a 'dm' file and return a DeepMut object
+read_deep_mut <- function(filepath){
+  tbl <- rename_all(read_tsv(filepath, comment = '#', col_names = TRUE), funs(gsub('\\?', '', .)))
+  dm <- DeepMut(tbl)
+  
+  fi <- file(filepath, 'r')
+  ln <- readLines(fi, n = 1)
+  while (TRUE){
+    # Check for end of file
+    if (length(ln) == 0){
+      close(fi)
+      stop('Reached end of file without encountering header line (marked "?")')
+    } 
+    
+    first_char <- str_sub(ln, end=1)
+    # Check line is a meta line
+    if (first_char == '#'){
+      ln <- str_sub(ln, 2)
+      
+      # Check for seq line before leader
+      if (str_sub(ln, end=1) == '+'){
+        close(fi)
+        stop('Error: Reached sequence lines before finding a "#ref_seq" line')
+      }
+      
+      # process meta pair
+      pair <- str_split(ln, ':')[[1]]
+      if (length(pair) > 2){
+        # Reform any values that contain ':' chars
+        pair <- c(pair[1], str_c(pair[-1], collapse = ':'))
+      }
+      
+      if (pair[1] == 'ref_seq'){
+        # Read in seq lines
+        seq <- readLines(fi, n = pair[2])
+        dm$ref_seq <- gsub('\\#\\+', '', str_c(seq, collapse = ''))
+        
+      } else if (!pair[1] == 'deep_mut_file_version'){
+        # Read normal meta pairs (ignore file version), cheking if they look like a number
+        if (grepl('^\\-?[0-9]*(\\.[0-9]*)?$', pair[2])){
+          dm[[pair[1]]] <- as.numeric(pair[2])
+        } else {
+          dm[[pair[1]]] <- pair[2]
+        }
+      }
+      ln <- readLines(fi, n = 1)
+      
+    } else if (first_char == '?'){
+      # Detect header line and stop parsing
+      close(fi)
+      break
+      
+    } else {
+      # Otherwise file is not formatted properly
+      close(fi)
+      stop('Reached end of meta lines without encountering header line (marked "?")')
+    }
+  }
+  return(dm)
 }
 
 # tt <- deep_mut_data$hietpas_2011_hsp90

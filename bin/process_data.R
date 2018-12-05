@@ -37,12 +37,12 @@ df <- deep_mut_data$hietpas_2011_hsp90 %>%
          variants = str_c('p.', ref_aa, position, alt_aa)) %>%
   select(variants, score, raw_score, alt_codon = codon)
 
-formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', alt_name = 'HSP82', species = 'Saccharomyces cerevisiae',
-                                                  accessions = list(uniprot_id='P02829', ensembl_gene_id='YPL240C'),
-                                                  study = list(authour='Hietpas et al.', year=2011, doi='https://doi.org/10.1073/pnas.1016024108',
-                                                               url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
-                                                               title='Experimental illumination of a fitness landscape'),
-                                                  transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]))
+formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', species = 'Saccharomyces cerevisiae', domain = '-',
+                                                  uniprot_id='P02829', authour='Hietpas et al.', year=2011,
+                                                  transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]),
+                                                  misc=list(ensembl_gene_id='YPL240C', doi='https://doi.org/10.1073/pnas.1016024108',
+                                                            url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
+                                                            title='Experimental illumination of a fitness landscape', alt_name = 'Hsp82'))
 
 #### Araya 2012 hYAP65 ####
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
