@@ -30,7 +30,7 @@ DeepMut <- function(variant_data, gene_name=NULL, alt_name = NULL, domain=NULL, 
     stop('variant_data does not contain the required columns (dna_variants, protein_variants, score, raw_score)')
   }
   if (!is_null(ref_seq)){
-    len <- length(ref_seq)
+    len <- nchar(ref_seq)
   }
 
   # Construct List
@@ -55,22 +55,22 @@ write_deep_mut <- function(x, outfile){
   }
   
   # Write file meta data
-  write_lines(c('#deep_mut_file_version: 1.0'), outfile)
+  write_lines(c('#deep_mut_file_version:1.0'), outfile)
   
   # Write gene data
-  write_lines(str_c('#gene_name: ', x$gene_name), outfile, append = TRUE)
+  write_lines(str_c('#gene_name:', x$gene_name), outfile, append = TRUE)
   
   if (!is_null(x$alt_name)){
-    write_lines(str_c('#alt_name: ', x$alt_name), outfile, append = TRUE)
+    write_lines(str_c('#alt_name:', x$alt_name), outfile, append = TRUE)
   }
   
-  write_lines(str_c('#', names(x$accessions), ': ', x$accessions), outfile, append = TRUE)
-  write_lines(str_c('#domain: ', x$domain), outfile, append = TRUE)
-  write_lines(str_c('#species: ', x$species), outfile, append = TRUE)
-  write_lines(str_c('#amino_acid_length: ', x$len), outfile, append = TRUE)
+  write_lines(str_c('#', names(x$accessions), ':', x$accessions), outfile, append = TRUE)
+  write_lines(str_c('#domain:', x$domain), outfile, append = TRUE)
+  write_lines(str_c('#species:', x$species), outfile, append = TRUE)
+  write_lines(str_c('#amino_acid_length:', x$len), outfile, append = TRUE)
   
   # Write study information
-  write_lines(str_c('#study_', names(x$study), ': ', x$study), outfile, append = TRUE)
+  write_lines(str_c('#study_', names(x$study), ':', x$study), outfile, append = TRUE)
   
   # Write ref sequence
   # Header line
@@ -84,7 +84,7 @@ write_deep_mut <- function(x, outfile){
     return(str_c(t[!is.na(t)], collapse = ''))
     })
   
-  write_lines(str_c('#+ ', split_seq), outfile, append = TRUE)
+  write_lines(str_c('#+', split_seq), outfile, append = TRUE)
   
   # Write variant table (header line (& final metadata line) denoted by '#?')
   write_lines(str_c(c(str_c('#?',colnames(x$varaiant_data)[1]),
@@ -94,13 +94,13 @@ write_deep_mut <- function(x, outfile){
   write_tsv(x$varaiant_data, outfile, append = TRUE, col_names = FALSE)
 }
 
-tt <- deep_mut_data$hietpas_2011_hsp90
-tt$variants <- paste0('X', tt$position, tt$alt_aa)
-tt$score <- tt$selection_coefficient
-tt$raw_score <- tt$selection_coefficient
-tt <- tt[,c('variants', 'score', 'raw_score')]
-dm <- DeepMut(tt, gene_name = 'hsc82', alt_name = 'hsp90', accessions = c(uniprot_id='P02829', ensembl_id='AJS72977'),
-              species = 'Saccharomyces cerevisiae', study = c(year='2011', authour='Hietpas et al.'))
+# tt <- deep_mut_data$hietpas_2011_hsp90
+# tt$variants <- paste0('X', tt$position, tt$alt_aa)
+# tt$score <- tt$selection_coefficient
+# tt$raw_score <- tt$selection_coefficient
+# tt <- tt[,c('variants', 'score', 'raw_score')]
+# dm <- DeepMut(tt, gene_name = 'hsc82', alt_name = 'hsp90', accessions = c(uniprot_id='P02829', ensembl_id='AJS72977'),
+#               species = 'Saccharomyces cerevisiae', study = c(year='2011', authour='Hietpas et al.'))
 
 #### Analysis ####
 # Find the next empty row (All NA or bottom) in a tbl

@@ -3,10 +3,10 @@
 # Fields each dataset needs:
 ## accession, species, common name, gene name, domain name, mut_id, position(s), variant(s)
 
+library(Biostrings)
 library(tidyverse)
 library(magrittr)
 library(readxl)
-library(Biostrings)
 
 source('bin/functions.R')
 
@@ -24,10 +24,25 @@ deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pd
   rename(alt_aa = aa) %>%
   mutate(species = 'saccharomyces_cerevisiae',
          name = 'hsp90',
-         gene = 'hsc82',
+         gene = 'hsp82',
          uniprot_acc = 'P02829',
          domain = NA,
          mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
+
+df <- deep_mut_data$hietpas_2011_hsp90 %>%
+  rename(score = selection_coefficient) %>%
+  mutate(raw_score = score) %>%
+  select(position, alt_aa, score, raw_score, codon) %>%
+  mutate(ref_aa = as.vector(raw_seqs$s_cerevisiae_hsp82[[1]])[position],
+         variants = str_c('p.', ref_aa, position, alt_aa)) %>%
+  select(variants, score, raw_score, alt_codon = codon)
+
+formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', alt_name = 'HSP82', species = 'Saccharomyces cerevisiae',
+                                                  accessions = list(uniprot_id='P02829', ensembl_gene_id='YPL240C'),
+                                                  study = list(authour='Hietpas et al.', year=2011, doi='https://doi.org/10.1073/pnas.1016024108',
+                                                               url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
+                                                               title='Experimental illumination of a fitness landscape'),
+                                                  transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]))
 
 #### Araya 2012 hYAP65 ####
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
@@ -366,5 +381,11 @@ deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2
          alt_aa = aa_variant)
 
 #### Save processed output ####
-saveRDS(deep_mut_data, 'data/deep_mut_data.RDS')
+saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
+saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
+
+for (i in names(formatted_deep_data)){
+  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '.dm'))
+}
+
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()
