@@ -76,7 +76,7 @@ write_deep_mut <- function(x, outfile){
   }
   
   ## Write ref sequence
-  if (!(is.na(x$ref_seq) & is.null(x$ref_seq))){
+  if (!(is.na(x$ref_seq) & !is.null(x$ref_seq))){
     seq <- str_split(x$ref_seq, '')[[1]]
     l <- ceiling(length(seq)/80)
     
@@ -165,14 +165,6 @@ read_deep_mut <- function(filepath){
   }
   return(dm)
 }
-
-# tt <- deep_mut_data$hietpas_2011_hsp90
-# tt$variants <- paste0('X', tt$position, tt$alt_aa)
-# tt$score <- tt$selection_coefficient
-# tt$raw_score <- tt$selection_coefficient
-# tt <- tt[,c('variants', 'score', 'raw_score')]
-# dm <- DeepMut(tt, gene_name = 'hsc82', alt_name = 'hsp90', accessions = c(uniprot_id='P02829', ensembl_id='AJS72977'),
-#               species = 'Saccharomyces cerevisiae', study = c(year='2011', authour='Hietpas et al.'))
 
 #### Analysis ####
 # Find the next empty row (All NA or bottom) in a tbl

@@ -37,7 +37,7 @@ df <- deep_mut_data$hietpas_2011_hsp90 %>%
          variants = str_c('p.', ref_aa, position, alt_aa)) %>%
   select(variants, score, raw_score, alt_codon = codon)
 
-formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', species = 'Saccharomyces cerevisiae', domain = '-',
+formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', species = 'Saccharomyces cerevisiae',
                                                   uniprot_id='P02829', authour='Hietpas et al.', year=2011,
                                                   transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]),
                                                   misc=list(ensembl_gene_id='YPL240C', doi='https://doi.org/10.1073/pnas.1016024108',
