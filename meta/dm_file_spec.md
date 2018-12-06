@@ -6,7 +6,8 @@ The basic format is a glorified tsv file with a series of meta data header lines
 
 ## Current notes/todos
 * Might be good to rename ref\_seq to something indicating its the protein seq
-* Make saving more freeform so arbitary meta fields can be saved?
+    * make more general so that arbitatry multi-line fields are supported
+    * Use this to add full gene ref seq to Araya et al. 2012
 
 ## Version 1.0
 Initial version. Current rules:
