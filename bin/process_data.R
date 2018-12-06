@@ -14,6 +14,8 @@ deep_mut_data <- list()
 formatted_deep_data <- list()
 raw_seqs <- list()
 
+species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens')
+
 #### Import Seqs ####
 fasta_files <- dir('meta/seq', full.names = TRUE)
 raw_seqs <- sapply(fasta_files, readAAStringSet)
@@ -37,12 +39,12 @@ df <- deep_mut_data$hietpas_2011_hsp90 %>%
          variants = str_c('p.', ref_aa, position, alt_aa)) %>%
   select(variants, score, raw_score, alt_codon = codon)
 
-formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'Hsp90', species = 'Saccharomyces cerevisiae',
+formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'HSP90', species = species_options$cerevisiae,
                                                   uniprot_id='P02829', authour='Hietpas et al.', year=2011,
                                                   transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]),
                                                   misc=list(ensembl_gene_id='YPL240C', doi='https://doi.org/10.1073/pnas.1016024108',
                                                             url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
-                                                            title='Experimental illumination of a fitness landscape', alt_name = 'Hsp82'))
+                                                            title='Experimental illumination of a fitness landscape', alt_name = 'HSP82'))
 
 #### Araya 2012 hYAP65 ####
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
@@ -52,6 +54,26 @@ deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP6
          gene = 'yap65',
          domain = 'ww',
          uniprot_acc = 'P46937')
+
+# extract ww ref seq
+s <- as.character(as.vector(raw_seqs$h_sapiens_yap1[[1]][170:203]))
+
+df <- deep_mut_data$araya_2012_hYAP65 %>%
+  select(slope, fitness, rsquared, mutations, positions, amino.acids) %>%
+  mutate(mutations = str_split(mutations, ','),
+         alt_aas = str_split(amino.acids, ','),
+         # position from Araya et al. appears to be offset by 9 compared to their seq
+         positions = sapply(str_split(positions, ','), function(x){as.numeric(x)-9}),
+         ref_aas = sapply(positions, function(x){s[x]}),
+         variants = mapply(function(pos, ref, alt){str_c('p.', ref_aas[[1]], positions[[1]], alt_aas[[1]], collapse = ',')},
+                           positions, ref_aas, alt_aas),
+         score = log2(fitness)) %>%
+  rename(raw_score = fitness) %>%
+  select(variants, score, raw_score, slope, rsquared)
+
+formatted_deep_data$araya_2012_hYAP65 <- DeepMut(variant_data = df, gene_name = 'YAP1', domain = 'WW', species = species_options$sapiens,
+                                                 ref_seq = s, transform = 'log2', uniprot_id = 'P46937',
+                                                 misc = list(alt_name = 'hYAP65', note='Sequence given is just the WW domain,as used by the authours (differs slightly from uniprot, 170-203 vs 171-204). Numbering is relative to this domain.'))
 
 #### Starita 2013 Ube4b ####
 deep_mut_data$starita_2013_ube4b <- read_xlsx('data/raw/processed/starita_2013_ube4b_ubox.xlsx', na = c('NA', ''))
