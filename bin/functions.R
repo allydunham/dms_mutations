@@ -136,24 +136,27 @@ read_deep_mut <- function(filepath){
       
       if (pair[1] == 'ref_seq'){
         # Read in seq lines
-        seq <- readLines(fi, n = pair[2])
-        dm$ref_seq <- gsub('\\#\\+', '', str_c(seq, collapse = ''))
-        
+        if (is.na(pair[2])){
+          dm$ref_seq <- NA
+        } else {
+          seq <- readLines(fi, n = as.numeric(pair[2]))
+          dm$ref_seq <- gsub('\\#\\+', '', str_c(seq, collapse = ''))
+        }
       } else if (!pair[1] == 'deep_mut_file_version'){
-        # Read normal meta pairs (ignore file version), cheking if they look like a number
-        if (grepl('^\\-?[0-9]*(\\.[0-9]*)?$', pair[2])){
+        # Read normal meta pairs (ignore file version)
+        if (pair[2] == 'NA'){
+          dm[[pair[1]]] <- NA
+        } else if (grepl('^\\-?[0-9]*(\\.[0-9]*)?$', pair[2])){
           dm[[pair[1]]] <- as.numeric(pair[2])
         } else {
           dm[[pair[1]]] <- pair[2]
         }
       }
       ln <- readLines(fi, n = 1)
-      
     } else if (first_char == '?'){
       # Detect header line and stop parsing
       close(fi)
       break
-      
     } else {
       # Otherwise file is not formatted properly
       close(fi)
