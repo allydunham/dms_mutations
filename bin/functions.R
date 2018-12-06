@@ -61,52 +61,38 @@ write_deep_mut <- function(x, outfile){
   ## Write meta data
   write_lines(c('#deep_mut_file_version:1.1'), outfile)
   
-  # Write essential gene data
-  for (k in c('gene_name', 'domain', 'species')){
-    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
-  }
-  
-  # Add alt_name if it exists
-  if ('alt_name' %in% keys){
-    write_lines(str_c('#alt_name:', x$alt_name), outfile, append = TRUE)
-  }
-  
-  # Write accessions
+  gene_keys <- c('gene_name', 'domain', 'species', 'alt_name')
   acc_keys <- keys[grepl('_id', keys) & !keys == 'pubmed_id']
-  for (k in acc_keys){
-    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
-  }
-  
-  # Write study information
   study_keys <- c('authour', 'year', 'title', 'pubmed_id', 'url', 'doi')
-  for (k in study_keys[study_keys %in% keys]){
-    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
-  }
-  
-  write_lines(str_c('#transform:', x$transform), outfile, append = TRUE)
-  
-  # Write any misc keys
   misc_keys <- keys[!keys %in% c('gene_name', 'domain', 'species', 'alt_name', 'authour', 'year', 'title',
                                  'pubmed_id', 'url', 'doi', 'transform', 'ref_seq', 'variant_data') &
                       !grepl('_id', keys)]
-  for (k in misc_keys){
-    write_lines(str_c('#', k, ':', x[[k]]), outfile, append = TRUE)
+  
+  ordered_keys <- c(gene_keys, acc_keys, study_keys, 'transform', misc_keys)
+  ordered_keys <- ordered_keys[ordered_keys %in% keys]
+  
+  for (k in ordered_keys){
+    write_lines(str_c('#', k, ':', ifelse(is.na(x[[k]]), 'NA', x[[k]])), outfile, append = TRUE)
   }
   
   ## Write ref sequence
-  seq <- str_split(x$ref_seq, '')[[1]]
-  l <- ceiling(length(seq)/80)
-
-  # Following sequence lines denoted as '#+'
-  split_seq <- sapply(1:l, function(i){
-    t <- seq[((i - 1) * 80 + 1):(i*80)];
-    return(str_c(t[!is.na(t)], collapse = ''))
+  if (!(is.na(x$ref_seq) & is.null(x$ref_seq))){
+    seq <- str_split(x$ref_seq, '')[[1]]
+    l <- ceiling(length(seq)/80)
+    
+    # Following sequence lines denoted as '#+'
+    split_seq <- sapply(1:l, function(i){
+      t <- seq[((i - 1) * 80 + 1):(i*80)];
+      return(str_c(t[!is.na(t)], collapse = ''))
     })
-  
-  # Header with number of seq lines to follow
-  write_lines(str_c('#ref_seq:', length(split_seq)), outfile, append = TRUE)
-  # Seq lines, led by #+
-  write_lines(str_c('#+', split_seq), outfile, append = TRUE)
+    
+    # Header with number of seq lines to follow
+    write_lines(str_c('#ref_seq:', length(split_seq)), outfile, append = TRUE)
+    # Seq lines, led by #+
+    write_lines(str_c('#+', split_seq), outfile, append = TRUE)
+  } else {
+    write_lines('#ref_seq:NA', outfile, append = TRUE)
+  }
   
   ## Write variant table (header line (& final metadata line) denoted by '?')
   write_lines(str_c(c(str_c('?',colnames(x$variant_data)[1]),
