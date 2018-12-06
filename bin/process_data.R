@@ -14,7 +14,7 @@ deep_mut_data <- list()
 formatted_deep_data <- list()
 raw_seqs <- list()
 
-species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens')
+species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus')
 
 #### Import Seqs ####
 fasta_files <- dir('meta/seq', full.names = TRUE)
@@ -42,7 +42,7 @@ df <- deep_mut_data$hietpas_2011_hsp90 %>%
 formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'HSP90', species = species_options$cerevisiae,
                                                   uniprot_id='P02829', authour='Hietpas et al.', year=2011,
                                                   transform = 'None', ref_seq = as.character(raw_seqs$s_cerevisiae_hsp82[[1]]),
-                                                  misc=list(ensembl_gene_id='YPL240C', doi='https://doi.org/10.1073/pnas.1016024108',
+                                                  misc=list(ensembl_gene_id='YPL240C', doi='10.1073/pnas.1016024108',
                                                             url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
                                                             title='Experimental illumination of a fitness landscape', alt_name = 'HSP82'))
 
@@ -65,18 +65,43 @@ df <- deep_mut_data$araya_2012_hYAP65 %>%
          # position from Araya et al. appears to be offset by 9 compared to their seq
          positions = sapply(str_split(positions, ','), function(x){as.numeric(x)-9}),
          ref_aas = sapply(positions, function(x){s[x]}),
-         variants = mapply(function(pos, ref, alt){str_c('p.', ref_aas[[1]], positions[[1]], alt_aas[[1]], collapse = ',')},
+         variants = mapply(function(pos, ref, alt){str_c('p.', ref, pos, alt, collapse = ',')},
                            positions, ref_aas, alt_aas),
          score = log2(fitness)) %>%
   rename(raw_score = fitness) %>%
   select(variants, score, raw_score, slope, rsquared)
 
 formatted_deep_data$araya_2012_hYAP65 <- DeepMut(variant_data = df, gene_name = 'YAP1', domain = 'WW', species = species_options$sapiens,
-                                                 ref_seq = s, transform = 'log2', uniprot_id = 'P46937',
-                                                 misc = list(alt_name = 'hYAP65', note='Sequence given is just the WW domain,as used by the authours (differs slightly from uniprot, 170-203 vs 171-204). Numbering is relative to this domain.'))
+                                                 ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'P46937',
+                                                 authour = 'Araya at al.',year = 2012,
+                                                 misc = list(alt_name = 'hYAP65', title='A fundamental protein property, thermodynamic stability, revealed solely from large-scale measurements of protein function',
+                                                             url='http://www.pnas.org/content/109/42/16858', doi='10.1073/pnas.1209751109',
+                                                             pubmed_id='23035249',
+                                                             note='Sequence given is just the WW domain,as used by the authours (differs slightly from uniprot, 170-203 vs 171-204). Numbering is relative to this domain.'))
 
 #### Starita 2013 Ube4b ####
 deep_mut_data$starita_2013_ube4b <- read_xlsx('data/raw/processed/starita_2013_ube4b_ubox.xlsx', na = c('NA', ''))
+
+s <- as.character(as.vector(raw_seqs$m_musculus_ube4b[[1]]))
+df <- deep_mut_data$starita_2013_ube4b %>%
+  rename(score = nscor_log2_ratio) %>%
+  mutate(raw_score = score) %>%
+  separate(seqID, into = c('position', 'alt_aa'), sep='-') %>%
+  mutate(position = str_split(position, ','),
+         position = sapply(position, as.numeric)) %>%
+  filter(sapply(position, function(x){!any(is.na(x))})) %>%
+  mutate(alt_aa = str_split(alt_aa, ','),
+         ref_aa = sapply(position, function(x){s[1072 + x]}),  # tested region starts at +1072 according to Starita (slightly before uniprot UBOX)
+         variants = mapply(function(pos, ref, alt){str_c('p.', ref, pos, alt, collapse = ',')}, position, ref_aa, alt_aa)) %>%
+  select(variants, score, raw_score, log2_ratio) %>%
+  rename(score_without_nscor_adjust = log2_ratio)
+
+formatted_deep_data$starita_2013_ube4b <- DeepMut(variant_data = df, gene_name = 'UBE4B', domain = 'UBOX', species = species_options$musculus,
+                                                  ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'Q9ES00',
+                                                  authour = 'Starita et al.', year = 2013,
+                                                  misc = list(title='Activity-enhancing mutations in an E3 ubiquitin ligaseidentified by high-throughput mutagenesis',
+                                                              url='http://www.pnas.org/content/110/14/E1263.long',
+                                                              doi='10.1073/pnas.1303309110', pubmed_id='23509263'))
 
 #### Roscoe 2013 Ubiquitin ####
 deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_fitness.xlsx', skip = 4) %>%
@@ -92,6 +117,22 @@ deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_f
          species = 'saccaromyces_cerevisiae',
          mut_id = gen_mut_id(uniprot_acc, NA, alt, position))
 
+s <- as.character(as.vector(raw_seqs$s_cerevisiae_ubi1[[1]]))
+df <- deep_mut_data$roscoe_2013_ubi %>%
+  mutate(ref = s[position],
+         variants = str_c('p.', ref, position, alt),
+         raw_score = selection_num) %>%
+  rename(score = selection_num,
+         score_chr = selection_chr) %>%
+  select(variants, score, raw_score, sd_num, score_chr, sd_chr)
+
+formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae, uniprot_id = 'P0CH08',
+                                               ref_seq = str_c(s, collapse = ''), authour = 'Roscoe et al.', year = 2013,
+                                               misc = list(alt_name = 'Ubiquitin', pubmed_id = '23376099',
+                                                           title = 'Analyses of the effects of all ubiquitin point mutants on yeast growth rate',
+                                                           url='https://www.sciencedirect.com/science/article/pii/S0022283613000636',
+                                                           doi='10.1016/j.jmb.2013.01.032'))
+
 #### Jiang 2013 hsp90 ####
 deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90.xlsx', skip = 2) %>%
   select(-X__1) %>%
@@ -101,6 +142,21 @@ deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90
   mutate(uniprot_acc = 'P02829',
          mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position),
          average_num = as.numeric(average))
+
+s <- as.character(as.vector(raw_seqs$s_cerevisiae_hsp82[[1]]))
+df <- deep_mut_data$jiang_2013_hsp90 %>%
+  mutate(ref = s[position],
+         variants = str_c('p.',ref,position,alt_aa),
+         score = log2(average_num)) %>%
+  rename(raw_score = average_num) %>%
+  select(variants, score, raw_score, sd, gpd, tef, tefdter, cyc, adh, cycdter, adhdter)
+
+formatted_deep_data$jiang_2013_hsp90 <- DeepMut(variant_data = df, gene_name = 'HSP90', domain = 'Putative substrate binding loop',
+                                                species = species_options$cerevisiae, transform = 'log2', uniprot_id = 'P02829',
+                                                ref_seq = str_c(s, collapse = ''), authour = 'Jiang et al.', year = 2013,
+                                                misc = list(alt_name='HSP82', url='https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1003600',
+                                                            doi='10.1371/journal.pgen.1003600', pubmed_id='23825969',
+                                                            title='Latent Effects of Hsp90 Mutants Revealed at Reduced Expression Levels'))
 
 #### Forsyth 2013 igg ####
 deep_mut_data$forsyth_2013_igg <- read_xlsx('data/raw/processed/forsyth_2013_igg_cdr.xlsx', na = 'NA') %>%
@@ -117,6 +173,19 @@ deep_mut_data$melamed_2013_pab1 <- read_xlsx('data/raw/processed/melamed_2013_pa
   mutate(species = 'saccharomyces_cerevisiae',
          uniprot_acc = 'P04147',
          mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
+
+s <- as.character(as.vector(raw_seqs$s_cerevisiae_pab1[[1]]))
+df <- deep_mut_data$melamed_2013_pab1 %>%
+  mutate(variants = str_c('p.', ref_aa, position, alt_aa),
+         score = enrichment_ratio) %>%
+  rename(raw_score = enrichment_ratio) %>%
+  select(variants, score, raw_score)
+
+formatted_deep_data$melamed_2013_pab1 <- DeepMut(variant_data = df, gene_name = 'PAB1', domain = 'RRM', species = species_options$cerevisiae,
+                                                 ref_seq = str_c(s, collapse = ''), uniprot_id = 'P04147', authour = 'Melamed et al.',
+                                                 year = 2013, misc = list(title='Deep mutational scanning of an RRM domain of the Saccharomyces cerevisiae poly(A)-binding protein',
+                                                                          url='https://rnajournal.cshlp.org/content/19/11/1537',
+                                                                          doi='10.1261/rna.040709.113', pubmed_id='24064791'))
 
 #### Wagenaar 2014 braf ####
 ## Only includes position/aa combos deemed significant
@@ -144,6 +213,21 @@ deep_mut_data$wagenaar_2014_braf <- read_xls('data/raw/processed/wagenaar_2014_b
   mutate(species = 'homo_sapiens',
          uniprot_acc = 'P15056',
          mut_id = gen_mut_id(uniprot_acc, NA, alt_aa, position))
+
+s <- as.character(as.vector(raw_seqs$h_sapiens_braf_v600e[[1]]))
+df <- deep_mut_data$wagenaar_2014_braf %>%
+  mutate(ref = s[position],
+         variants = str_c('p.', ref, position, alt_aa),
+         score = log2(median_enrichment),
+         raw_score = median_enrichment) %>%
+  select(variants, score, raw_score, ic50_vs_brafV600E, individually_tested, possible_by_single_sub)
+
+formatted_deep_data$wagenaar_2014_braf <- DeepMut(variant_data = df, gene_name = 'BRAF', species = species_options$sapiens,
+                                                  ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'P15056',
+                                                  authour = 'Wagenaar et al.', year = 2014,
+                                                  misc = list(notes='Only retained variants they deemed significantly different from wt',
+                                                              title='Resistance to vemurafenib resulting from a novel mutation in the BRAFV600E kinase domain',
+                                                              pubmed_id='24112705', doi='10.1111/pcmr.12171', url='https://onlinelibrary.wiley.com/doi/full/10.1111/pcmr.12171'))
 
 #### Firnberg 2014 tem1 ####
 deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_tem1.xlsx') %>%
