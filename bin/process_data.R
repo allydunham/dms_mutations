@@ -14,7 +14,7 @@ deep_mut_data <- list()
 formatted_deep_data <- list()
 raw_seqs <- list()
 
-species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus')
+species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus', coli='Escherichia coli')
 
 #### Import Seqs ####
 fasta_files <- dir('meta/seq', full.names = TRUE)
@@ -253,6 +253,22 @@ deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_
          total_seq_count = `Total Counts`,
          fitness = Fitness,
          fitness_err = `Estimated error in fitness`)
+
+s <- as.character(as.vector(raw_seqs$e_coli_tem1[[1]]))
+df <- deep_mut_data$firnberg_2014_tem1 %>%
+  mutate(variants = str_c('p.', ref_aa, position-2, alt_aa),
+         score=log2(fitness),
+         genomic_variants = str_c('c.', (position-3)*3 + 1, '_', (position-2)*3, 'del', ref_codon,  'ins', alt_codon)) %>%
+  select(variants, score, raw_score=fitness, raw_score_err=fitness_err, genomic_variants, base_changes, total_seq_count) %>%
+  filter(!is.na(variants))
+
+formatted_deep_data$firnberg_2014_tem1 <- DeepMut(variant_data = df, gene_name = 'TEM1', species = species_options$coli,
+                                                  ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'Q6SJ61',
+                                                  authour = 'Firnberg et al.', year = 2014,
+                                                  misc = list(title='A Comprehensive, High-Resolution Map of a Gene’s Fitness Landscape',
+                                                              doi='10.1093/molbev/msu081', pubmed_id='24567513',
+                                                              url='https://academic.oup.com/mbe/article/31/6/1581/2925654'))
+
 #### Roscoe 2014 Ubiquitin (E1 reactivity) ####
 deep_mut_data$roscoe_2014_ubi_limiting_e1 <- read_xlsx('data/raw/processed/roscoe_2014_ubi_limiting_E1_reactivity.xlsx', skip = 3) %>%
   rename(position = Position,
@@ -260,14 +276,16 @@ deep_mut_data$roscoe_2014_ubi_limiting_e1 <- read_xlsx('data/raw/processed/rosco
          log2_e1_react_vs_display = `log2 (E1react/display)`,
          rel_e1_reactivity = `Relative E1-reactivity (avg WT=1, avg STOP=0)`,
          sd_in_symonoymous_codons = `Standard deviation among synonymous codons`,
-         notes = Notes)
+         notes = Notes) %>%
+  mutate_at(.vars = vars(log2_e1_react_vs_display, rel_e1_reactivity, sd_in_symonoymous_codons), as.numeric)
 
 deep_mut_data$roscoe_2014_ubi_excess_e1 <- read_xlsx('data/raw/processed/roscoe_2014_ubi_excess_E1_reactivity.xlsx', skip = 2) %>%
   rename(position = Position,
          alt_aa = `Amino Acid`,
          log2_e1_react_vs_display = `log2 (E1react/display)`,
          rel_e1_reactivity = `Relative Reactivity with Excess E1 (avg WT=1; avg STOP=0)`,
-         sd_in_symonoymous_codons = `Standard deviation among synonymous codons`)
+         sd_in_symonoymous_codons = `Standard deviation among synonymous codons`) %>%
+  mutate_at(.vars = vars(log2_e1_react_vs_display, rel_e1_reactivity, sd_in_symonoymous_codons), as.numeric)
 
 #### Melnikov 2014 APH(3')II ####
 ## Large folder of different conditions, needs more processing
@@ -306,7 +324,7 @@ deep_mut_data$melnikov_2014_aph3ii <- melnikov_e_scores
 #### Findlay 2014 BRCA1 ####
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%
   rename(exon_position = `Exon Position`,
-         alt_aa = Variant,
+         alt = Variant,
          average_effect_size = `Average effect size (both reps of L and R)`,
          mutPredSplice_score = `MutPredSplice score`,
          mutPredSplice_output = `MutPredSplice output`,
