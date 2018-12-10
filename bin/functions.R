@@ -30,7 +30,7 @@ DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=N
                     uniprot_id=NA, authour=NA, year=NA, misc=NULL){
   # (minimal) Error Checking
   if (!all(c('variants', 'score', 'raw_score') %in% colnames(variant_data))) {
-    stop('variant_data does not contain the required columns (dna_variants, protein_variants, score, raw_score)')
+    stop('variant_data does not contain the required columns (protein_variants, score, raw_score)')
   }
   
   # Construct List of required fields

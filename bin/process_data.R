@@ -14,7 +14,8 @@ deep_mut_data <- list()
 formatted_deep_data <- list()
 raw_seqs <- list()
 
-species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus', coli='Escherichia coli')
+species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus', coli='Escherichia coli',
+                        strep='Streptococcus')
 
 #### Import Seqs ####
 fasta_files <- dir('meta/seq', full.names = TRUE)
@@ -288,31 +289,31 @@ deep_mut_data$roscoe_2014_ubi_excess_e1 <- read_xlsx('data/raw/processed/roscoe_
   mutate_at(.vars = vars(log2_e1_react_vs_display, rel_e1_reactivity, sd_in_symonoymous_codons), as.numeric)
 
 s <- as.character(as.vector(raw_seqs$s_cerevisiae_ubi1[[1]]))
-df <- deep_mut_data$roscoe_2014_ubi_limiting_e1 %>%
+df1 <- deep_mut_data$roscoe_2014_ubi_limiting_e1 %>%
   mutate(ref_aa = s[position],
          variants = str_c('p.', ref_aa, position, alt_aa),
          raw_score = log2_e1_react_vs_display) %>%
   select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons, notes)
 
-formatted_deep_data$roscoe_2014_ubi_limiting_e1 <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
-                                                           ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
-                                                           authour = 'Roscoe and Bolon', year = 2014,
-                                                           misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
-                                                                       url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
-                                                                       title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))
-
-df <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
+df2 <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
   mutate(ref_aa = s[position],
          variants = str_c('p.', ref_aa, position, alt_aa),
          raw_score = log2_e1_react_vs_display) %>%
   select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons)
 
-formatted_deep_data$roscoe_2014_ubi_excess_e1 <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
-                                                         ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
-                                                         authour = 'Roscoe and Bolon', year = 2014,
-                                                         misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
-                                                                     url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
-                                                                     title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))
+
+formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
+                                                                           ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
+                                                                           authour = 'Roscoe and Bolon', year = 2014,
+                                                                           misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                                       url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
+                                                                                       title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast')),
+                                                       excess_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
+                                                                         ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
+                                                                         authour = 'Roscoe and Bolon', year = 2014,
+                                                                         misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                                     url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
+                                                                                     title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))))
 
 #### Melnikov 2014 APH(3')II ####
 ## Large folder of different conditions, needs more processing
@@ -345,8 +346,24 @@ melnikov_e_scores <- mapply(melnikov_fitness, melnikov_counts, names(melnikov_co
   bind_rows(.id = 'experiment') %>%
   separate(experiment, c('round', 'drug', 'library'), sep='_')
 
+  
 # Currently poorly normalised against wt performance so no comparable
+
+s <- as.character(as.vector(raw_seqs$`e_coli_aph-3prime-II`))
 deep_mut_data$melnikov_2014_aph3ii <- melnikov_e_scores
+
+# TODO - deal with the different library/round/drug data in a more satisfactory manner
+df <- deep_mut_data$melnikov_2014_aph3ii %>%
+  mutate(variants = str_c('p.', ref_aa, position, alt_aa),
+         score=log2(e_score)) %>%
+  select(variants, score, raw_score='e_score', drug, round, library)
+
+formatted_deep_data$melnikov_2014_aph3ii <- DeepMut(variant_data = df, gene_name = "APH(3')II", species = species_options$coli,
+                                                    ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'Q58HT3',
+                                                    authour = 'Melnikov et al.', year = 2014,
+                                                    misc = list(title='Comprehensive mutational scanning of a kinase in vivo reveals substrate-dependent fitness landscapes',
+                                                                doi='10.1093/nar/gku511', pubmed_id='24914046',
+                                                                url='https://academic.oup.com/nar/article/42/14/e112/1266940'))
 
 #### Findlay 2014 BRCA1 ####
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%
@@ -362,6 +379,16 @@ deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay
          lib_R_rep2_effect_size = `Library R Replicate 2 effect size`,
          lib_L_rep1_effect_size = `Library L Replicate 1 effect size`,
          lib_L_rep2_effect_size = `Library L Replicate 2 effect size`)
+
+s_dna <- deep_mut_data$findlay_2014_brca1_exon18 %>%
+  group_by(exon_position) %>%
+  summarise(ref = Biostrings::DNA_BASES[!Biostrings::DNA_BASES %in% alt]) %>%
+  pull(ref)
+
+# Foun Exon18 location using EBI Water tool, based on exon18 being in +1 frame and aligning translated sequence below
+# s_prot <- translate(DNAString(str_c('G', str_c(s_dna, collapse = ''), 'GG')))
+# s_prot_leader <- raw_seqs$h_sapiens_brca1[[1]][1:1691] # aa seq before 
+# s_prot_follower <- raw_seqs$h_sapiens_brca1[[1]][1719:1863]
 
 deep_mut_data$findlay_2014_brca1_hexamers <- read_xlsx('data/raw/processed/findlay_2014_brca1_hexamer_counts.xlsx', skip=3) %>%
   rename(hexamer = Hexamer,
@@ -405,12 +432,37 @@ wt <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = "
   rename(input_count = `Input Count`,
          selection_count = `Selection Count`)
 
+E_wt <- wt$selection_count/wt$input_count
+
 # Simplistic combining of data to get everying in, needs more complex processing
-deep_mut_data$olson_2014_protein_g <- bind_rows(wt, single_muts, double_muts)
+deep_mut_data$olson_2014_protein_g <- bind_rows(single_muts, double_muts) %>%
+  mutate(er = selection_count/input_count,
+         f = er/E_wt,
+         score = log2(f))
+
+s <- as.character(as.vector(raw_seqs$strep_protein_g[[1]]))
+df <- deep_mut_data$olson_2014_protein_g %>%
+  mutate(variants = ifelse(is.na(pos2), str_c('p.', ref_aa1, pos1, alt_aa1),str_c('p.', ref_aa1, pos1, alt_aa1,',p.', ref_aa2, pos2, alt_aa2))) %>%
+  select(variants, score, raw_score=er)
+  
+formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name = 'Protein G', species = species_options$strep,
+                                                     ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'P19909',
+                                                     authour = 'Olson et al.', year = 2014,
+                                                     misc = list(notes='Uniprot ID is for the Protein G precurssor which has a slightly different sequence',
+                                                                 doi='10.1016/j.cub.2014.09.072', url='https://www.sciencedirect.com/science/article/pii/S0960982214012688',
+                                                                 pubmed_id='25455030', title='A Comprehensive Biophysical Description of Pairwise Epistasis throughout an Entire Protein Domain'))
 
 #### Starita 2015 Brca1 ####
-deep_mut_data$starita_2015_brac1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
+deep_mut_data$starita_2015_brca1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
   rename_all(tolower)
+
+s <- as.character(as.vector(raw_seqs$h_sapiens_brca1[[1]]))
+formatted_deep_data$starita_2015_brca1 <- DeepMut(NA, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
+                                                  ref_seq = str_c(s, collapse = ''), transform = 'log2', uniprot_id = 'P38398',
+                                                  authour = 'Starita et al.', year = 2015,
+                                                  misc = list(title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
+                                                              url='http://www.genetics.org/content/200/2/413',
+                                                              doi='10.1534/genetics.115.175802', pubmed_id='25823446'))
 
 #### Kitzman 2015 Gal4 ####
 kitzman_2015_path <- 'data/raw/processed/kitzman_2015_gal4_enrichment.xlsx'
@@ -425,10 +477,21 @@ read_kitzman_sheet <- function(sheet){
   return(tbl)
 }
 
+s <- as.character(raw_seqs$s_cerevisiae_gal4[[1]])
 deep_mut_data$kitzman_2015_gal4 <- lapply(excel_sheets(kitzman_2015_path),
                                           read_kitzman_sheet) %>%
   bind_rows(.) %>%
-  spread(key = 'label', value = 'log2_enrichment')
+  spread(key = 'label', value = 'log2_enrichment') %>%
+  mutate(score = (SEL_A_40h + SEL_B_40h + SEL_C_40h)/3,
+         raw_score=score,
+         variants = str_c('p.', ref_aa, position, alt_aa))
+
+formatted_deep_data$kitzman_2015_gal4 <- DeepMut(variant_data = select(deep_mut_data$kitzman_2015_gal4, variants, score, raw_score,
+                                                                       NONSEL_24h, SEL_A_24h, SEL_A_40h, SEL_B_40h, SEL_C_40h, SEL_C_64h),
+                                                 transform = 'Log2, Average of A,B,C at 40h', gene_name = 'GAL4', species = species_options$cerevisiae,
+                                                 authour = 'Kitzman et al.', year = 2015, ref_seq = s, uniprot_id = 'P04386',
+                                                 misc = list(title='Massively parallel single amino-acid mutagenesis', pubmed_id='25559584',
+                                                             doi='10.1038/nmeth.3223', url='https://www.nature.com/articles/nmeth.3223'))
 
 #### Mishra 2016 Hsp90 ####
 ## Each sheet also contains meta info that might be useful later
@@ -487,6 +550,8 @@ read_mishra_sheet <- function(sheet){
 deep_mut_data$mishra_2016_hsp90 <- map(excel_sheets(mishra_2016_path), read_mishra_sheet) %>%
   bind_rows()
 
+
+
 #### Sarkisyan 2016 GFP ####
 # A file with just AAs is also available, but includes less info
 deep_mut_data$sarkisyan_2016_gfp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_nucleotides.tsv')
@@ -536,12 +601,7 @@ saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
 saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
 
 for (i in names(formatted_deep_data)){
-  if (i %in% c('roscoe_2014_ubi_limiting_e1', 'roscoe_2014_ubi_excess_e1')){
-    i <- str_c(str_split(i, '_')[[1]][c(4,5)], '_')
-    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/roscoe_2014_ubi/variants_', i, '_.dm'))
-  } else {
-    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
-  }
+  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
 }
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()
