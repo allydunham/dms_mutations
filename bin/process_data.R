@@ -509,7 +509,7 @@ saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
 saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
 
 for (i in names(formatted_deep_data)){
-  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '.dm'))
+  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
 }
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()

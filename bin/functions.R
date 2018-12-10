@@ -52,11 +52,22 @@ DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=N
 }
 
 # write 'DeepMut' classed objects to a consistent file type (termed dm file for now)
-write_deep_mut <- function(x, outfile){
+write_deep_mut <- function(x, outfile, create_dir=TRUE){
   if (!'DeepMut' %in% class(x)){
     stop('x must be an object of class DeepMut (see DeepMut() function)')
   }
   keys <- names(x)
+  
+  # Check if dir exists and create if necessary
+  target_dir <- str_split(outfile, '/')[[1]]
+  target_dir <- str_c(target_dir[-length(target_dir)], collapse = '/')
+  if (!dir.exists(target_dir)){
+    if (create_dir){
+      dir.create(target_dir, recursive = TRUE)
+    } else {
+      stop('Target directory does not exist')
+    }
+  }
   
   ## Write meta data
   write_lines(c('#deep_mut_file_version:1.1'), outfile)
