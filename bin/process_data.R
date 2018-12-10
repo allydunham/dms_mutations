@@ -287,6 +287,33 @@ deep_mut_data$roscoe_2014_ubi_excess_e1 <- read_xlsx('data/raw/processed/roscoe_
          sd_in_symonoymous_codons = `Standard deviation among synonymous codons`) %>%
   mutate_at(.vars = vars(log2_e1_react_vs_display, rel_e1_reactivity, sd_in_symonoymous_codons), as.numeric)
 
+s <- as.character(as.vector(raw_seqs$s_cerevisiae_ubi1[[1]]))
+df <- deep_mut_data$roscoe_2014_ubi_limiting_e1 %>%
+  mutate(ref_aa = s[position],
+         variants = str_c('p.', ref_aa, position, alt_aa),
+         raw_score = log2_e1_react_vs_display) %>%
+  select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons, notes)
+
+formatted_deep_data$roscoe_2014_ubi_limiting_e1 <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
+                                                           ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
+                                                           authour = 'Roscoe and Bolon', year = 2014,
+                                                           misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                       url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
+                                                                       title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))
+
+df <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
+  mutate(ref_aa = s[position],
+         variants = str_c('p.', ref_aa, position, alt_aa),
+         raw_score = log2_e1_react_vs_display) %>%
+  select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons)
+
+formatted_deep_data$roscoe_2014_ubi_excess_e1 <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
+                                                         ref_seq = str_c(s, collapse = ''), transform = 'None', uniprot_id = 'P0CH08',
+                                                         authour = 'Roscoe and Bolon', year = 2014,
+                                                         misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                     url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
+                                                                     title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))
+
 #### Melnikov 2014 APH(3')II ####
 ## Large folder of different conditions, needs more processing
 melnikov_count_files <- dir('data/raw/processed/melnikov_2014_counts/') %>%
@@ -509,7 +536,12 @@ saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
 saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
 
 for (i in names(formatted_deep_data)){
-  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
+  if (i %in% c('roscoe_2014_ubi_limiting_e1', 'roscoe_2014_ubi_excess_e1')){
+    i <- str_c(str_split(i, '_')[[1]][c(4,5)], '_')
+    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/roscoe_2014_ubi/variants_', i, '_.dm'))
+  } else {
+    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
+  }
 }
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()

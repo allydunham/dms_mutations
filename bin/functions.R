@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript 
 # Script containing general functions for deep mutagenesis analysis
+library(tidyverse)
 
 #### Formatting and Storage ####
 # generate mut id for variants
@@ -47,15 +48,29 @@ DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=N
     deep_mut <- c(deep_mut, misc)
   }
   
-  class(deep_mut) <- 'DeepMut'
+  class(deep_mut) <- c('DeepMut', class(deep_mut))
   return(deep_mut)
 }
 
+# Class for grounping similar DeepMut datasets
+# lst - named list of DeepMut Objects
+DeepMutSet <- function(lst){
+  class(lst) <- c('DeepMutSet', class(lst))
+  return(lst)
+}
+
+# Generic for writing deep mut file
+write_deep_mut <- function(x, ...){
+  UseMethod('write_deep_mut', x)
+}
+
+# Default Write deep mut method
+write_deep_mut.default <- function(x){
+  stop(str_c('Error: to write a dm file(s) "x" must be of class "DeepMut" or "DeepMutSet" but class(x) = ', class(x)))
+}
+
 # write 'DeepMut' classed objects to a consistent file type (termed dm file for now)
-write_deep_mut <- function(x, outfile, create_dir=TRUE){
-  if (!'DeepMut' %in% class(x)){
-    stop('x must be an object of class DeepMut (see DeepMut() function)')
-  }
+write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   keys <- names(x)
   
   # Check if dir exists and create if necessary
@@ -111,6 +126,19 @@ write_deep_mut <- function(x, outfile, create_dir=TRUE){
                    collapse = '\t'),
               outfile, append = TRUE)
   write_tsv(x$variant_data, outfile, append = TRUE, col_names = FALSE)
+}
+
+write_deep_mut.DeepMutSet <- function(x, root_dir, create_dir=TRUE){
+  if (!dir.exists(root_dir)){
+    if (create_dir){
+      dir.create(root_dir, recursive = TRUE)
+    } else {
+      stop('Directory does not exist')
+    }
+  }
+  for (set in names(x)){
+    write_deep_mut(x[[set]], str_c(root_dir, '/variants_', set, '.dm'))
+  }
 }
 
 # Read deep mutagenesis data from a 'dm' file and return a DeepMut object
