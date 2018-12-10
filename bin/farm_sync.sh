@@ -20,13 +20,13 @@ fi
 
 #Meta folder
 printf "\n%s\n" "${green}File List: Meta/${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude  --dry-run $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
+rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude=*.md --dry-run $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
 
 read -p "Transfer? " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
+   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude=*.md $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
 fi
 
 ## Sync From Farm
@@ -44,12 +44,12 @@ fi
 
 # Meta Folder
 printf "\n\n%s\n" "${green}File List: Meta${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude  --dry-run ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
+rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude=*.md --dry-run ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
 
 read -p "Transfer? " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
+   rsync -auh --info=progress2 --exclude=*.md --exclude-from $HOME/.rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
 fi
 
