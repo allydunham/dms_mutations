@@ -14,7 +14,7 @@ deep_mut_data <- list()
 formatted_deep_data <- list()
 
 species_options <- list(cerevisiae='Saccharomyces cerevisiae', sapiens='Homo sapiens', musculus='Mus musculus', coli='Escherichia coli',
-                        strep='Streptococcus')
+                        strep='Streptococcus', flu='Influenza')
 
 #### Import Seqs ####
 fasta_files <- dir('meta/seq', full.names = TRUE)
@@ -536,22 +536,80 @@ read_mishra_sheet <- function(sheet){
 deep_mut_data$mishra_2016_hsp90 <- map(excel_sheets(mishra_2016_path), read_mishra_sheet) %>%
   bind_rows()
 
+df <- deep_mut_data$mishra_2016_hsp90 %>%
+  mutate(ref_aa = raw_seqs$s_cerevisiae_hsp82[position],
+         variants = str_c('p.', ref_aa, position, alt_aa),
+         score = avg_norm_ratiochange,
+         raw_score = score)
+
+formatted_deep_data$mishra_2016_hsp90 <- DeepMut(variant_data = df, gene_name = 'HSP90', species = species_options$cerevisiae,
+                                                  authour = 'Mishra et al.', year = 2016, ref_seq = str_c(raw_seqs$s_cerevisiae_hsp82, collapse = ''),
+                                                  transform = 'None', uniprot_id = 'P02829',
+                                                  misc = list(alt_name='HSP82', title='Systematic Mutant Analyses Elucidate General and Client-Specific Aspects of Hsp90 Function',
+                                                              doi='10.1016/j.celrep.2016.03.046', pubmed_id='27068472',
+                                                              url='https://www.sciencedirect.com/science/article/pii/S2211124716303175'))
+
 #### Sarkisyan 2016 GFP ####
 # A file with just AAs is also available, but includes less info
+tmp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_AAs.tsv')
 deep_mut_data$sarkisyan_2016_gfp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_nucleotides.tsv')
 
 #### Brenan 2016 Erk2 ####
 deep_mut_data$brenan_2016_erk2 <- read_xlsx('data/raw/processed/brenan_2016_erk2.xlsx', sheet = 'Supplemental_Table_1') %>%
   rename_all(funs(gsub(' ', '_', tolower(.))))
 
+df <- deep_mut_data$brenan_2016_erk2 %>%
+  mutate(variants = str_c('p.', erk2_mutant),
+         score = `lfc_(etp_vs._dox)`) %>%
+  select(variants, score, raw_score=`lfc_(etp_vs._dox)`, nuc_acid_changes, lfc_etp_vs_sch=`lfc_(etp_vs._sch)`, lfc_etp_vs_vrt=`lfc_(etp_vs._vrt)`,
+         dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele)
+
+formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = 'None',
+                                                authour = 'Brenan et al. 2016', year = 2016, ref_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
+                                                uniprot_id = 'P28482',
+                                                misc = list(alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pubmed_id='27760319',
+                                                            url='https://www.sciencedirect.com/science/article/pii/S2211124716313171',
+                                                            notes='Also includes scores in two other drug conditions. Used A375 cells with BRAFV600E.',
+                                                            title='Phenotypic Characterization of a Comprehensive Set of MAPK1/ERK2 Missense Mutants'))
+
 #### Ashenberg 2016 Flu Nucleoprotein ####
 deep_mut_data$ashenberg_2016_np <- read_csv('data/raw/processed/ashenberg_2017_flu_np.csv')
 
-#### Weile 2017 ube2l ####
-deep_mut_data$weile_2017_ube2l <- read_csv('data/raw/processed/weile_2017_ube2l_score_comp.csv', na = c('NA','','None'))
+df <- deep_mut_data$ashenberg_2016_np %>%
+  mutate(variants = str_c('p.', wt, site, mut),
+         raw_score = diffsel) %>%
+  select(variants, score = diffsel, raw_score)
+
+formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 'Nucleoprotein', species = species_options$flu,
+                                                 ref_seq = str_c(raw_seqs$`H3N2_A-Aichi-2-1968-nucleoprotein`, collapse = ''), transform = 'None',
+                                                 authour = 'Ashenberg et al.', year = 2016,
+                                                 misc = list(substrain = 'Human adapted strain A/Aichi/2/1968, H3N2',
+                                                             title='Deep mutational scanning identifies sites in influenza nucleoprotein that affect viral inhibition by MxA',
+                                                             doi='10.1371/journal.ppat.1006288', pubmed_id='28346537',
+                                                             url='https://journals.plos.org/plospathogens/article?id=10.1371/journal.ppat.1006288'))
+
+#### Weile 2017 ube2i ####
+deep_mut_data$weile_2017_ube2i <- read_csv('data/raw/processed/weile_2017_ube2i_score_comp.csv', na = c('NA','','None'))
+
+aa_code <- structure(names(Biostrings::AMINO_ACID_CODE), names=Biostrings::AMINO_ACID_CODE)
+df <- deep_mut_data$weile_2017_ube2i %>%
+  mutate(variants = str_replace_all(hgvs_pro, aa_code),
+         score = log2(abs(pred.score))) %>%
+  select(variants, score, raw_score = pred.score)
+
+formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = 'UBE2I', species = species_options$sapiens,
+                                                ref_seq = str_c(raw_seqs$h_sapiens_ube2i), transform = 'log2(abs(x))', uniprot_id = 'P63279',
+                                                authour = 'Weile et al.', year = 2017,
+                                                misc = list(title='A framework for exhaustively mapping functional missense variants',
+                                                            doi='10.15252/msb.20177908', pubmed_id='29269382',
+                                                            url='http://msb.embopress.org/content/13/12/957'))
 
 #### Weile 2017 sumo1 ####
 deep_mut_data$weile_2017_sumo1 <- read_csv('data/raw/processed/weile_2017_sumo1_score_comp.csv', na = c('NA','','None'))
+
+df <- deep_mut_data$weile_2017_sumo1 %>%
+  mutate(variants = str_replace_all(hgvs_pro, aa_code)) %>%
+  select(variants, score, raw_score = pred.score)
 
 #### Weile 2017 tpk1 ####
 deep_mut_data$weile_2017_tpk1 <- read_csv('data/raw/processed/weile_2017_tpk1_score_comp.csv', na = c('NA','','None'))
@@ -567,12 +625,53 @@ deep_mut_data$findlay_2018_brca1 <- read_xlsx('data/raw/processed/findlay_2018_b
          ref_aa = aa_ref,
          alt_aa = aa_alt)
 
+# Currently only interested in protein variants
+df <- drop_na(deep_mut_data$findlay_2018_brca1, aa_pos) %>%
+  mutate(score = function.score.mean,
+         raw_score = score,
+         variants = protein_variant) %>%
+  select(variants, score, raw_score, p.nonfunctional, transcript_variant, position_hg19_)
+
+formatted_deep_data$findlay_2018_brca1 <- DeepMut(variant_data = df, gene_name = 'BRCA1', species = species_options$sapiens,
+                                                  ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'None',
+                                                  uniprot_id = 'P38398', authour = 'Findlay et al.', year = 2018,
+                                                  misc = list(title='Accurate classification of BRCA1 variants with saturation genome editing',
+                                                              doi='10.1038/s41586-018-0461-z', pubmed_id='',
+                                                              url='https://www.nature.com/articles/s41586-018-0461-z'))
+
 #### Lee 2018 Flu haemagglutinin ####
 # Xlsx also has sheets with preferences for each repeat, but importing just the average result for now
 # Reports per site AA preference, which is fairly dissimilar to other metrics
 deep_mut_data$lee_2018_flu_ha <- read_xlsx('data/raw/processed/lee_2018_influenza_ha.xlsx', sheet = 'avg_prefs') %>%
   rename(position = site) %>%
   gather(key = 'alt_aa', value = 'aa_pref', -position, -entropy, -neffective)
+
+lee_position <- function(x){
+  if (grepl('\\-', x)){
+    return(as.numeric(x) + 17)
+  } else if (grepl('HA2', x)) {
+    x <- gsub('\\(HA2\\)', '', x)
+    return(as.numeric(x) + 345)
+  } else {
+    return(as.numeric(x) + 16)
+  }
+}
+
+# TODO use a more objective transformation to turn AA prefs into an approximation of fitness
+df <- deep_mut_data$lee_2018_flu_ha %>%
+  mutate(score = log2(aa_pref * 5),
+         pos = sapply(position, lee_position),
+         ref_aa = raw_seqs$`H3N2_A-Perth-16-2009-Hemagglutinin`[pos],
+         variants = str_c('p.', ref_aa, pos, alt_aa)) %>%
+  select(variants, score, raw_score=aa_pref, entropy, neffective)
+
+formatted_deep_data$lee_2018_flu_ha <- DeepMut(variant_data = df, gene_name = 'HA', species = species_options$flu,
+                                               ref_seq = str_c(raw_seqs$`H3N2_A-Perth-16-2009-Hemagglutinin`, collapse = ''), transform = 'log2(x*5)',
+                                               authour = 'Lee et al.', year = 2018,
+                                               misc = list(notes='Used a simple placeholder transformation to change AA preference (raw_score) into something resembling other studies',
+                                                           substrain='Human adapted A/Perth/16/2009, H3N2', pubmed_id='30104379', doi='10.1073/pnas.1806133115',
+                                                           url='www.pnas.org/cgi/doi/10.1073/pnas.1806133115',
+                                                           title='Deep mutational scanning of hemagglutinin helps predict evolutionary fates of human H3N2 influenza variants'))
 
 #### Giacomelli 2018 tp53 ####
 deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2018_tp53.xlsx', skip=1) %>%
