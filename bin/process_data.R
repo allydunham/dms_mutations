@@ -589,13 +589,35 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
                                                              url='https://journals.plos.org/plospathogens/article?id=10.1371/journal.ppat.1006288'))
 
 #### Weile 2017 ube2i ####
-deep_mut_data$weile_2017_ube2i <- read_csv('data/raw/processed/weile_2017_ube2i_score_comp.csv', na = c('NA','','None'))
+# deep_mut_data$weile_2017_ube2i <- read_csv('data/raw/processed/weile_2017_ube2i_score_comp.csv', na = c('NA','','None'))
+# 
+# aa_code <- structure(names(Biostrings::AMINO_ACID_CODE), names=Biostrings::AMINO_ACID_CODE)
+# df <- deep_mut_data$weile_2017_ube2i %>%
+#   mutate(variants = str_replace_all(hgvs_pro, aa_code),
+#          score = log2(abs(pred.score))) %>%
+#   select(variants, score, raw_score = pred.score)
+# 
+# formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = 'UBE2I', species = species_options$sapiens,
+#                                                 ref_seq = str_c(raw_seqs$h_sapiens_ube2i), transform = 'log2(abs(x))', uniprot_id = 'P63279',
+#                                                 authour = 'Weile et al.', year = 2017,
+#                                                 misc = list(title='A framework for exhaustively mapping functional missense variants',
+#                                                             doi='10.15252/msb.20177908', pubmed_id='29269382',
+#                                                             url='http://msb.embopress.org/content/13/12/957'))
 
-aa_code <- structure(names(Biostrings::AMINO_ACID_CODE), names=Biostrings::AMINO_ACID_CODE)
+deep_mut_data$weile_2017_ube2i <- read_tsv('data/raw/processed/weile_2017_raw_counts_ube2i_tileseq.tsv') %>%
+  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), funs(pseudocount = . + min(.[. > 0]))) %>%
+  mutate(mean_nonselect = (nonselect1_pseudocount + nonselect2_pseudocount)/2,
+         mean_select = (select1_pseudocount + select2_pseudocount)/2,
+         er = mean_select / mean_nonselect)
+
+wt_er <- median(filter(t, annotation == 'SYN') %>% pull(er))
+
+deep_mut_data$weile_2017_ube2i %<>% mutate(fitness = er/wt_er,
+                                           log2 = log2(fitness))
+
 df <- deep_mut_data$weile_2017_ube2i %>%
-  mutate(variants = str_replace_all(hgvs_pro, aa_code),
-         score = log2(abs(pred.score))) %>%
-  select(variants, score, raw_score = pred.score)
+  mutate(variants = str_c('p.', wt_aa, pos, mut_aa)) %>%
+  select(variants, score = log2, raw_score = fitness, wt_codon, mut_codon, annotation)
 
 formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = 'UBE2I', species = species_options$sapiens,
                                                 ref_seq = str_c(raw_seqs$h_sapiens_ube2i), transform = 'log2(abs(x))', uniprot_id = 'P63279',
@@ -605,16 +627,40 @@ formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = '
                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 #### Weile 2017 sumo1 ####
-deep_mut_data$weile_2017_sumo1 <- read_csv('data/raw/processed/weile_2017_sumo1_score_comp.csv', na = c('NA','','None'))
+# deep_mut_data$weile_2017_sumo1 <- read_csv('data/raw/processed/weile_2017_sumo1_score_comp.csv', na = c('NA','','None'))
+# 
+# df <- deep_mut_data$weile_2017_sumo1 %>%
+#   mutate(variants = str_replace_all(hgvs_pro, aa_code)) %>%
+#   select(variants, score, raw_score = pred.score)
+
+deep_mut_data$weile_2017_sumo1 <- read_tsv('data/raw/processed/weile_2017_raw_counts_sumo1_tileseq.tsv') %>%
+  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), funs(pseudocount = . + min(.[. > 0]))) %>%
+  mutate(mean_nonselect = (nonselect1_pseudocount + nonselect2_pseudocount)/2,
+         mean_select = (select1_pseudocount + select2_pseudocount)/2,
+         er = mean_select / mean_nonselect)
+
+wt_er <- median(filter(t, annotation == 'SYN') %>% pull(er))
+
+deep_mut_data$weile_2017_sumo1 %<>% mutate(fitness = er/wt_er,
+                                           log2 = log2(fitness))
 
 df <- deep_mut_data$weile_2017_sumo1 %>%
-  mutate(variants = str_replace_all(hgvs_pro, aa_code)) %>%
-  select(variants, score, raw_score = pred.score)
+  mutate(variants = str_c('p.', wt_aa, pos, mut_aa)) %>%
+  select(variants, score = log2, raw_score = fitness, wt_codon, mut_codon, annotation)
+
+formatted_deep_data$weile_2017_sumo1 <- DeepMut(variant_data = df, gene_name = 'SUMO1', species = species_options$sapiens, transform = 'log2',
+                                                ref_seq = str_c(raw_seqs$h_sapiens_sumo1, collapse = ''), uniprot_id = 'P63165',
+                                                authour = 'Weile et al.', year = 2017,
+                                                misc = list(title='A framework for exhaustively mapping functional missense variants',
+                                                            doi='10.15252/msb.20177908', pubmed_id='29269382',
+                                                            url='http://msb.embopress.org/content/13/12/957'))
 
 #### Weile 2017 tpk1 ####
+## Does not have raw count data on lab website
 deep_mut_data$weile_2017_tpk1 <- read_csv('data/raw/processed/weile_2017_tpk1_score_comp.csv', na = c('NA','','None'))
 
 #### Weile 2017 calm ####
+## Does not have raw count data on lab website
 deep_mut_data$weile_2017_calm <- read_csv('data/raw/processed/weile_2017_calm_score_comp.csv', na = c('NA','','None'))
 
 #### Findlay 2018 Brca1 ####
