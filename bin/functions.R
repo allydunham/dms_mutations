@@ -102,7 +102,7 @@ write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   }
   
   ## Write ref sequence
-  if (!(is.na(x$ref_seq) & !is.null(x$ref_seq))){
+  if (!(is.na(x$ref_seq) | is.null(x$ref_seq))){
     seq <- str_split(x$ref_seq, '')[[1]]
     l <- ceiling(length(seq)/80)
     

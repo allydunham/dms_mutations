@@ -35,7 +35,7 @@ df <- deep_mut_data$hietpas_2011_hsp90 %>%
   rename(score = selection_coefficient) %>%
   mutate(raw_score = score) %>%
   select(position, alt_aa, score, raw_score, codon) %>%
-  mutate(ref_aa = as.vector(raw_seqs$s_cerevisiae_hsp82[[1]])[position],
+  mutate(ref_aa = raw_seqs$s_cerevisiae_hsp82[position],
          variants = str_c('p.', ref_aa, position, alt_aa)) %>%
   select(variants, score, raw_score, alt_codon = codon)
 
@@ -443,12 +443,35 @@ formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name
 deep_mut_data$starita_2015_brca1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
   rename_all(tolower)
 
-formatted_deep_data$starita_2015_brca1 <- DeepMut(NA, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
-                                                  ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'log2',
-                                                  uniprot_id = 'P38398', authour = 'Starita et al.', year = 2015,
-                                                  misc = list(title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
-                                                              url='http://www.genetics.org/content/200/2/413',
-                                                              doi='10.1534/genetics.115.175802', pubmed_id='25823446'))
+# TODO Better ways of making scores initially non negative
+df_y2h <- deep_mut_data$starita_2015_brca1 %>%
+  filter(!variant_id == 'NA-NA') %>%
+  mutate(variants = str_c('p.', variant_id),
+         score = log2((y2h_score + 1)/2)) %>%
+  select(variants, score, raw_score = y2h_score)
+
+df_e3 <- deep_mut_data$starita_2015_brca1 %>%
+  filter(!variant_id == 'NA-NA') %>%
+  mutate(variants = str_c('p.', variant_id),
+         tmp = if_else(e3_score > 0, e3_score, min(abs(e3_score), na.rm = TRUE)),
+         score = log2(tmp)) %>%
+  select(variants, score, raw_score = e3_score)
+
+formatted_deep_data$starita_2015_brca1 <- DeepMutSet(list(
+  bard1_ring_binding = DeepMut(df_y2h, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
+                               ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'log2',
+                               uniprot_id = 'P38398', authour = 'Starita et al.', year = 2015,
+                               misc = list(notes='Y2H experiment measured binding to BARD1 RING domain',
+                                           title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
+                                           url='http://www.genetics.org/content/200/2/413',
+                                           doi='10.1534/genetics.115.175802', pubmed_id='25823446')),
+  e3_activity = DeepMut(variant_data = df_e3, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
+                               ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'log2(set < 0 to min > 0)',
+                               uniprot_id = 'P38398', authour = 'Starita et al.', year = 2015,
+                               misc = list(notes='Phage display assay measures E3 ubiquitin ligase activity',
+                                           title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
+                                           url='http://www.genetics.org/content/200/2/413',
+                                           doi='10.1534/genetics.115.175802', pubmed_id='25823446'))))
 
 #### Kitzman 2015 Gal4 ####
 kitzman_2015_path <- 'data/raw/processed/kitzman_2015_gal4_enrichment.xlsx'
@@ -610,7 +633,7 @@ deep_mut_data$weile_2017_ube2i <- read_tsv('data/raw/processed/weile_2017_raw_co
          mean_select = (select1_pseudocount + select2_pseudocount)/2,
          er = mean_select / mean_nonselect)
 
-wt_er <- median(filter(t, annotation == 'SYN') %>% pull(er))
+wt_er <- median(filter(deep_mut_data$weile_2017_ube2i, annotation == 'SYN') %>% pull(er))
 
 deep_mut_data$weile_2017_ube2i %<>% mutate(fitness = er/wt_er,
                                            log2 = log2(fitness))
@@ -620,8 +643,8 @@ df <- deep_mut_data$weile_2017_ube2i %>%
   select(variants, score = log2, raw_score = fitness, wt_codon, mut_codon, annotation)
 
 formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = 'UBE2I', species = species_options$sapiens,
-                                                ref_seq = str_c(raw_seqs$h_sapiens_ube2i), transform = 'log2(abs(x))', uniprot_id = 'P63279',
-                                                authour = 'Weile et al.', year = 2017,
+                                                ref_seq = str_c(raw_seqs$h_sapiens_ube2i, collapse = ''), transform = 'log2(abs(x))',
+                                                uniprot_id = 'P63279', authour = 'Weile et al.', year = 2017,
                                                 misc = list(title='A framework for exhaustively mapping functional missense variants',
                                                             doi='10.15252/msb.20177908', pubmed_id='29269382',
                                                             url='http://msb.embopress.org/content/13/12/957'))
@@ -639,7 +662,7 @@ deep_mut_data$weile_2017_sumo1 <- read_tsv('data/raw/processed/weile_2017_raw_co
          mean_select = (select1_pseudocount + select2_pseudocount)/2,
          er = mean_select / mean_nonselect)
 
-wt_er <- median(filter(t, annotation == 'SYN') %>% pull(er))
+wt_er <- median(filter(deep_mut_data$weile_2017_sumo1, annotation == 'SYN') %>% pull(er))
 
 deep_mut_data$weile_2017_sumo1 %<>% mutate(fitness = er/wt_er,
                                            log2 = log2(fitness))
@@ -724,6 +747,50 @@ deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2
   rename_all(funs(tolower(gsub('[\\/ \\(\\)\\-]+', '_', gsub('\\*', '_2', .))))) %>%
   rename(ref_aa = aa_wt,
          alt_aa = aa_variant)
+
+df1 <- deep_mut_data$giacomelli_2018_tp53 %>%
+  mutate(score = a549_p53wt_nutlin_3_z_score,
+         raw_score = score,
+         variants = str_c('p.', allele)) %>%
+  select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
+
+df2 <- deep_mut_data$giacomelli_2018_tp53 %>% 
+  mutate(score = a549_p53null_nutlin_3_z_score,
+         raw_score = score,
+         variants = str_c('p.', allele)) %>%
+  select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
+
+df3 <- deep_mut_data$giacomelli_2018_tp53 %>%
+  mutate(score = a549_p53null_etoposide_z_score,
+         raw_score = score,
+         variants = str_c('p.', allele)) %>%
+  select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
+
+formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
+  list(p53_wt_nutlin3=DeepMut(variant_data = df1, gene_name = 'TP53', species = species_options$sapiens,
+                              authour = 'Giacomelli et al.', year = 2018, transform = 'None',
+                              uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                              misc = list(notes='Score is in Z-score format, with wt p53 background and nutlin3 selecting for dominant negative variants (see paper)',
+                                          title='Mutational processes shape the landscape of TP53 mutations in human cancer',
+                                          doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                          url='https://www.nature.com/articles/s41588-018-0204-y')),
+       p53_null_nutlin3=DeepMut(variant_data = df2,
+                                gene_name = 'TP53', species = species_options$sapiens,
+                                authour = 'Giacomelli et al.', year = 2018, transform = 'None',
+                                uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                                misc = list(notes='Score is in Z-score format, with null p53 background and nutlin3 selecting for LOF variants (see paper)',
+                                            title='Mutational processes shape the landscape of TP53 mutations in human cancer',
+                                            doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                            url='https://www.nature.com/articles/s41588-018-0204-y')),
+       p53_null_etoposide=DeepMut(variant_data = df3,
+                                  gene_name = 'TP53', species = species_options$sapiens,
+                                  authour = 'Giacomelli et al.', year = 2018, transform = 'None',
+                                  uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                                  misc = list(notes='Score is in Z-score format, with null p53 background and etoposide selecting for WT like (or better) variants (see paper)',
+                                              title='Mutational processes shape the landscape of TP53 mutations in human cancer',
+                                              doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                              url='https://www.nature.com/articles/s41588-018-0204-y'))
+       ))
 
 #### Save processed output ####
 saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
