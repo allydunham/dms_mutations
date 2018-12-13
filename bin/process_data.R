@@ -353,6 +353,7 @@ formatted_deep_data$melnikov_2014_aph3ii <- DeepMut(variant_data = df, gene_name
                                                                 doi='10.1093/nar/gku511', pubmed_id='24914046',
                                                                 url='https://academic.oup.com/nar/article/42/14/e112/1266940'))
 
+
 #### Findlay 2014 BRCA1 ####
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%
   rename(exon_position = `Exon Position`,
