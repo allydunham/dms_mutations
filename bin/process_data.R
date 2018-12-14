@@ -842,7 +842,18 @@ for (i in names(formatted_deep_data)){
   } else {
     stop('Incorrect object added to formatted_deep_data, not of class DeepMut or DeepMutSet')
   }
-  
 }
+
+# Save meta data about proteins
+get_meta <- function(x, var){
+  if ('DeepMutSet' %in% class(x)){
+    return(unique(sapply(x, get_meta, var=var)))
+  } else if ('DeepMut' %in% class(x)){
+    return(x[[var]])
+  }
+}
+meta <- data_frame(gene_name = sapply(formatted_deep_data, get_meta, var='gene_name'),
+                   uniprot_id = sapply(formatted_deep_data, get_meta, var='uniprot_id'))
+write_tsv(meta, 'meta/gene_meta_data.tsv')
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()
