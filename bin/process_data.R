@@ -835,7 +835,14 @@ saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
 saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
 
 for (i in names(formatted_deep_data)){
-  write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
+  if ('DeepMutSet' %in% class(formatted_deep_data[[i]])){
+    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i))
+  } else if ('DeepMut' %in% class(formatted_deep_data[[i]])){
+    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
+  } else {
+    stop('Incorrect object added to formatted_deep_data, not of class DeepMut or DeepMutSet')
+  }
+  
 }
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()
