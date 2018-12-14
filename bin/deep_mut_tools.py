@@ -40,6 +40,21 @@ class DeepMut:
 
         print(self.variant_data.head(num))
 
+    def genotypes(self, inc_wt=True):
+        """Generate a list of genotypes for the data"""
+        geno = []
+        for i in self.variant_data.variants:
+            if not pd.isna(i):
+                i = [x.strip('p.') for x in i.split(',')]
+                geno.append([(x[0], int(x[1:-1]), x[-1]) for x in i])
+            elif inc_wt:
+                # Assume empty variants field means wt
+                geno.append('WT')
+        return geno
+
+
+
+
 def read_deep_mut(path):
     """Import deep mutational scanning data from '.dm' file and return a DeepMut object"""
     # Import variants
