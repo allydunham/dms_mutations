@@ -310,6 +310,8 @@ formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(varia
 melnikov_count_files <- dir('data/raw/processed/melnikov_2014_counts/') %>%
   grep('\\.aacounts\\.txt', ., value = TRUE)
 
+melnikov_count_files <- melnikov_count_files[!grepl('(S[12]\\_Ami|S3\\_Kan)', melnikov_count_files)]
+
 # Function to read aa count tables from melnikov et al. 2014
 read_melnikov_table <- function(fi){
   tbl <- read_tsv(paste0('data/raw/processed/melnikov_2014_counts/', fi), skip = 1, col_names = FALSE) %>%
@@ -341,18 +343,53 @@ melnikov_e_scores <- mapply(melnikov_fitness, melnikov_counts, names(melnikov_co
 deep_mut_data$melnikov_2014_aph3ii <- melnikov_e_scores
 
 # TODO - deal with the different library/round/drug data in a more satisfactory manner
+# Round and library contain the same information (plus round notes which needed a re-test at different MIC)
+#  -> discard round since we hae already selected the right MIC experiments
 df <- deep_mut_data$melnikov_2014_aph3ii %>%
   mutate(variants = str_c('p.', ref_aa, position, alt_aa),
          score=log2(e_score)) %>%
-  select(variants, score, raw_score='e_score', drug, round, library)
+  select(variants, score, raw_score='e_score', drug, library) %>%
+  select(-raw_score) %>%
+  spread(key = 'library', value = 'score') %>%
+  mutate(diff = abs(L1 - L2))
 
-formatted_deep_data$melnikov_2014_aph3ii <- DeepMut(variant_data = df, gene_name = "APH(3')II", species = species_options$coli,
-                                                    ref_seq = str_c(raw_seqs$e_coli_aph_3prime_II, collapse = ''), transform = 'log2',
-                                                    uniprot_id = 'Q58HT3', authour = 'Melnikov et al.', year = 2014,
-                                                    misc = list(title='Comprehensive mutational scanning of a kinase in vivo reveals substrate-dependent fitness landscapes',
-                                                                doi='10.1093/nar/gku511', pubmed_id='24914046',
-                                                                url='https://academic.oup.com/nar/article/42/14/e112/1266940'))
+# Broad correlation between the two libraries, discard outliers and take mean
+#p_melnikov_lib_test <- ggplot(df, aes(x=L1, y=L2, col=drug)) + geom_point() 
+#ggsave('figures/initial_analysis/melnikov_library_correlation.pdf', p_melnikov_lib_test, width = 8, height = 6)
 
+max_diff <- sd(df$diff, na.rm = TRUE) * 3
+
+df %<>% filter(diff < max_diff) %>%
+  mutate(score = (L1 + L2)/2) %>%
+  drop_na(score) %>%
+  select(variants, drug, score) %>% 
+  mutate(rel_conc = 1/as.numeric(str_sub(drug, -1)),
+         drug = str_sub(drug, 1, -3))
+
+## Currently take the unweighted mean across drug concs, which might not be the most scientific method
+# although will give a measure that relates severity of variant
+df_mean <- group_by(df, variants, drug) %>%
+  summarise(mscore = mean(score)) %>%
+  full_join(., df, by = c("variants", "drug")) %>%
+  spread(key = rel_conc, value = score, sep = '_') %>%
+  mutate(raw_score = rel_conc_1) %>%
+  rename(score=mscore) %>%
+  ungroup()
+
+lst <- sapply(unique(df_mean$drug),
+              function(x){DeepMut(variant_data = filter(df_mean, drug == x) %>% select(variants, score, raw_score, rel_conc_0.125, rel_conc_0.25, rel_conc_0.5, rel_conc_1),
+                                  gene_name = "APH(3')II", species = species_options$coli,
+                                  ref_seq = str_c(raw_seqs$e_coli_aph_3prime_II, collapse = ''),
+                                  transform = 'mean of different drug concs (raw is at 1:1 MIC)',
+                                  uniprot_id = 'Q58HT3', authour = 'Melnikov et al.', year = 2014,
+                                  misc = list(title='Comprehensive mutational scanning of a kinase in vivo reveals substrate-dependent fitness landscapes',
+                                              doi='10.1093/nar/gku511', pubmed_id='24914046',
+                                              url='https://academic.oup.com/nar/article/42/14/e112/1266940',
+                                              notes='concs are given relative to esstimated drug minimum inhibitory concentration (MIC)',
+                                              drug=x))},
+              simplify = FALSE)
+
+formatted_deep_data$melnikov_2014_aph3ii <- DeepMutSet(lst)
 
 #### Findlay 2014 BRCA1 ####
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%

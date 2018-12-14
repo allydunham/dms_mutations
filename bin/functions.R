@@ -243,6 +243,11 @@ melnikov_fitness <- function(sel, exp_name, bkg){
   sel[wt_inds] <- NA
   bkg[wt_inds] <- NA
   
+  # Apply simple pseudocount of minimum non zero
+  pseudo <- min(sel[sel>0], na.rm = TRUE)
+  sel <- sel + pseudo
+  bkg <- bkg + pseudo
+  
   e_scores <- e_score(sel, bkg)
   
   # Currently don't convert E score to fitness since hard to determine number of WT seqs in library (counted many times over)
