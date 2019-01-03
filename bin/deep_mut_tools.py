@@ -4,7 +4,7 @@ Functions and Classes for processing Deep Mutational Scanning data
 """
 import fileinput
 import re
-import numpy as np
+#import numpy as np
 import pandas as pd
 
 RE_FILE_VERSION = re.compile(r'#deep_mut_file_version')
@@ -96,4 +96,4 @@ def read_deep_mut(path):
 
 
 if __name__ == "__main__":
-    t = read_deep_mut('data/standardised/araya_2012_hYAP65/variants.dm')
+    TEST = read_deep_mut('data/standardised/araya_2012_hYAP65/variants.dm')

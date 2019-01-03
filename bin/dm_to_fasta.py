@@ -25,8 +25,6 @@ def main(args):
                 seq[var[1] - 1] = var[2]
             print(''.join(seq), '\n')
 
-
-
 def parse_args():
     """Process input arguments"""
     parser = argparse.ArgumentParser(description=__doc__,
