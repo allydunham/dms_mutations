@@ -11,9 +11,10 @@ FA_LINE_LEN = 80
 def main(args):
     """Main script"""
     deep_data = dm.read_deep_mut(args.dm_file)
+    out_dir = args.out.rstrip('/') + '/'
 
     # Export fasta file
-    with open(f"{deep_data.meta_data['gene_name']}.fa", 'w') as fasta_file:
+    with open(f"{out_dir}{deep_data.meta_data['gene_name']}.fa", 'w') as fasta_file:
         seq = deep_data.meta_data['ref_seq']
         print(f">{deep_data.meta_data['gene_name']}", file=fasta_file)
         for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
@@ -23,7 +24,7 @@ def main(args):
     variants = deep_data.variant_data.variants.str.split(',').dropna()
     variants = list(set([i.strip('p.') for x in variants for i in x]))
     variants.sort(key=lambda x: int(x[1:-1]))
-    with open(f"{deep_data.meta_data['gene_name']}.subst", mode='w') as subst_file:
+    with open(f"{out_dir}{deep_data.meta_data['gene_name']}.subst", mode='w') as subst_file:
         print(*variants, sep='\n', file=subst_file)
 
 def parse_args():
@@ -33,7 +34,7 @@ def parse_args():
 
     parser.add_argument('dm_file', metavar='D', help="Input deep mutagenesis data (dm file)")
 
-    parser.add_argument('--out', '-o', help='Output directory (default current dir)')
+    parser.add_argument('--out', '-o', default='.', help='Output directory (default current dir)')
 
     return parser.parse_args()
 
