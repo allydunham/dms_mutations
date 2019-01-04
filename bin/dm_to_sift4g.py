@@ -10,17 +10,17 @@ import deep_mut_tools as dm
 def main(args):
     """Main script"""
     deep_data = dm.read_deep_mut(args.dm_file)
-    out_dir = args.out.rstrip('/') + '/'
+    out_dir = args.out.rstrip('/')
 
     # Export fasta file if it does not already exist (assumes a correctly named .fa file is right)
-    fasta_path = f"{out_dir}{deep_data.meta_data['gene_name']}.fa"
+    fasta_path = f"{out_dir}/{deep_data.meta_data['gene_name']}.fa"
     deep_data.write_ref_fasta(path=fasta_path, overwrite=False)
 
     # Export list of variants
     variants = deep_data.variant_data.variants.str.split(',').dropna()
     variants = list(set([i.strip('p.') for x in variants for i in x]))
     variants.sort(key=lambda x: int(x[1:-1]))
-    with open(f"{out_dir}{deep_data.meta_data['gene_name']}.subst", mode='w') as subst_file:
+    with open(f"{out_dir}/{deep_data.meta_data['gene_name']}.subst", mode='w') as subst_file:
         print(*variants, sep='\n', file=subst_file)
 
 def parse_args():
