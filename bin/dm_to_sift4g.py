@@ -14,9 +14,7 @@ def main(args):
 
     # Export fasta file if it does not already exist (assumes a correctly named .fa file is right)
     fasta_path = f"{out_dir}{deep_data.meta_data['gene_name']}.fa"
-    if not os.path.isfile(fasta_path):
-        print('making new fasta')
-        deep_data.write_ref_fasta(path=fasta_path)
+    deep_data.write_ref_fasta(path=fasta_path, overwrite=False)
 
     # Export list of variants
     variants = deep_data.variant_data.variants.str.split(',').dropna()

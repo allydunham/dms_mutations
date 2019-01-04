@@ -4,6 +4,7 @@ Functions and Classes for processing Deep Mutational Scanning data
 """
 import fileinput
 import re
+import os
 #import numpy as np
 import pandas as pd
 
@@ -53,16 +54,18 @@ class DeepMut:
                 geno.append('WT')
         return geno
 
-    def write_ref_fasta(self, path=""):
+    def write_ref_fasta(self, path="", overwrite=False):
         """Write gene reference sequence to a fasta file"""
         if not path:
             path = f"{self.meta_data['gene_name']}.fa"
 
-        with open(path, 'w') as fasta_file:
-            seq = self.meta_data['ref_seq']
-            print(f">{self.meta_data['gene_name']}", file=fasta_file)
-            for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
-                print(sub, file=fasta_file)
+        # Overwrite assumes the existing file will be correct
+        if not os.path.isfile(path) or overwrite:
+            with open(path, 'w') as fasta_file:
+                seq = self.meta_data['ref_seq']
+                print(f">{self.meta_data['gene_name']}", file=fasta_file)
+                for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
+                    print(sub, file=fasta_file)
 
 
 
