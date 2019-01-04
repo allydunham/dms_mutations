@@ -4,13 +4,12 @@ Convert a dm file to input for sift4g (a list of substitutions and a query fasta
 Output files are named gene_name.(fa/subst) based on the gene_name in the dm file, and will overwrite any existing files of that name.
 """
 import argparse
-import os
 import deep_mut_tools as dm
 
 def main(args):
     """Main script"""
+    out_dir = args.out.rstrip('/') if args.out else '/'.join(args.out.split('/')[0:-1])
     deep_data = dm.read_deep_mut(args.dm_file)
-    out_dir = args.out.rstrip('/')
 
     # Export fasta file if it does not already exist (assumes a correctly named .fa file is right)
     fasta_path = f"{out_dir}/{deep_data.meta_data['gene_name']}.fa"
@@ -30,7 +29,8 @@ def parse_args():
 
     parser.add_argument('dm_file', metavar='D', help="Input deep mutagenesis data (dm file)")
 
-    parser.add_argument('--out', '-o', default='.', help='Output directory (default current dir)')
+    parser.add_argument('--out', '-o', default='',
+                        help='Output directory (default to dir of dm file)')
 
     return parser.parse_args()
 
