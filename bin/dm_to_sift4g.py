@@ -4,21 +4,19 @@ Convert a dm file to input for sift4g (a list of substitutions and a query fasta
 Output files are named gene_name.(fa/subst) based on the gene_name in the dm file, and will overwrite any existing files of that name.
 """
 import argparse
+import os
 import deep_mut_tools as dm
-
-FA_LINE_LEN = 80
 
 def main(args):
     """Main script"""
     deep_data = dm.read_deep_mut(args.dm_file)
     out_dir = args.out.rstrip('/') + '/'
 
-    # Export fasta file
-    with open(f"{out_dir}{deep_data.meta_data['gene_name']}.fa", 'w') as fasta_file:
-        seq = deep_data.meta_data['ref_seq']
-        print(f">{deep_data.meta_data['gene_name']}", file=fasta_file)
-        for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
-            print(sub, file=fasta_file)
+    # Export fasta file if it does not already exist (assumes a correctly named .fa file is right)
+    fasta_path = f"{out_dir}{deep_data.meta_data['gene_name']}.fa"
+    if not os.path.isfile(fasta_path):
+        print('making new fasta')
+        deep_data.write_ref_fasta(path=fasta_path)
 
     # Export list of variants
     variants = deep_data.variant_data.variants.str.split(',').dropna()

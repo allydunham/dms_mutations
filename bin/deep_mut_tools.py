@@ -10,6 +10,7 @@ import pandas as pd
 RE_FILE_VERSION = re.compile(r'#deep_mut_file_version')
 RE_NUMERIC = re.compile(r'^-?[0-9]+(\.[0-9]+)?$')
 RE_INT = re.compile(r'^-?[0-9]+$')
+FA_LINE_LEN = 80
 
 class DeepMut:
     """
@@ -51,6 +52,17 @@ class DeepMut:
                 # Assume empty variants field means wt
                 geno.append('WT')
         return geno
+
+    def write_ref_fasta(self, path=""):
+        """Write gene reference sequence to a fasta file"""
+        if not path:
+            path = f"{self.meta_data['gene_name']}.fa"
+
+        with open(path, 'w') as fasta_file:
+            seq = self.meta_data['ref_seq']
+            print(f">{self.meta_data['gene_name']}", file=fasta_file)
+            for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
+                print(sub, file=fasta_file)
 
 
 
