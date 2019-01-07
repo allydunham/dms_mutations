@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Template Script
+Tool to run various tasks on individual .dm files.
+Currently implemented tasks:
+- ref_fasta: generate a fasta file witht he ref seq
+- variant_fasta: generate a fasta file with all variants
+- sift4g: prepare the files to run sift4g
+- evcouplings: prepare the files to run EVcouplings
 """
 import sys
 import os
@@ -65,10 +70,8 @@ class DMTaskSelecter:
         csv_path = f"{out_dir}/ev_variants.csv"
         config['mutate']['mutation_dataset_file'] = csv_path
 
-        # Add custom options
         if kwargs['ev_options']:
             overrides = ev.config.parse_config(kwargs['ev_options'])
-            print(overrides)
             config.update(overrides)
 
         ev.config.write_config_file(f"{out_dir}/ev_config.txt", config)
