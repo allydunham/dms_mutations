@@ -4,7 +4,7 @@ Functions and Classes for processing Deep Mutational Scanning data
 """
 import fileinput
 import re
-import os
+#import os
 #import numpy as np
 import pandas as pd
 
@@ -54,21 +54,35 @@ class DeepMut:
                 geno.append('WT')
         return geno
 
-    def write_ref_fasta(self, path="", overwrite=False):
+    def write_ref_fasta(self, fasta_file):
         """Write gene reference sequence to a fasta file"""
-        if not path:
-            path = f"{self.meta_data['gene_name']}.fa"
+        print(f">{self.meta_data['gene_name']}", file=fasta_file)
+        print(split_lines(self.meta_data['ref_seq']), file=fasta_file)
 
-        # Overwrite assumes the existing file will be correct
-        if not os.path.isfile(path) or overwrite:
-            with open(path, 'w') as fasta_file:
-                seq = self.meta_data['ref_seq']
-                print(f">{self.meta_data['gene_name']}", file=fasta_file)
-                for sub in [seq[i:i+FA_LINE_LEN] for i in range(0, len(seq), FA_LINE_LEN)]:
-                    print(sub, file=fasta_file)
+    def write_variant_fasta(self, fasta_file):
+        """Write a fasta file with all variant sequences"""
+        gene = self.meta_data["gene_name"]
+        uniprot_id = self.meta_data["uniprot_id"]
 
+        for i in self.genotypes():
+            if i == 'WT':
+                print(f'>{gene}|{uniprot_id}|', file=fasta_file)
+                print(split_lines(self.meta_data['ref_seq']), file=fasta_file)
 
+            else:
+                # Print header
+                muts = ','.join([''.join([str(y) for y in x]) for x in i])
+                print(f'>{gene}|{uniprot_id}|{muts}', file=fasta_file)
 
+                # Print seq
+                seq = list(self.meta_data['ref_seq'])
+                for var in i:
+                    seq[var[1] - 1] = var[2]
+                print(split_lines(''.join(seq)), file=fasta_file)
+
+def split_lines(seq, line_len=FA_LINE_LEN):
+    """Split a string into lines of length line_len, inserting line breaks"""
+    return '\n'.join([seq[i:i+line_len] for i in range(0, len(seq), line_len)])
 
 def read_deep_mut(path):
     """Import deep mutational scanning data from '.dm' file and return a DeepMut object"""
