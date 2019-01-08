@@ -76,10 +76,11 @@ class DeepMut:
 
             else:
                 seq = list(self.meta_data['ref_seq'])
-                for var in i:
+                for var in muts:
                     seq[int(var[1:-1]) - 1] = var[-1]
 
-                print(f'>{gene}|{uniprot_id}|{','.join(muts)}', file=fasta_file)
+                mut_str = ','.join(muts)
+                print(f">{gene}|{uniprot_id}|{mut_str}", file=fasta_file)
                 print(split_lines(''.join(seq)), file=fasta_file, end='\n\n')
 
 def split_lines(seq, line_len=FA_LINE_LEN):
@@ -93,6 +94,11 @@ def read_deep_mut(path):
     variant_data.columns = [x.strip('?') for x in variant_data.columns]
 
     # Import meta data
+    meta = read_deep_mut_header(path)
+    return DeepMut(variant_data, **meta)
+
+def read_deep_mut_header(path):
+    """Import header of a .dm file as a dictionary"""
     meta = {}
     with fileinput.input(path) as file_obj:
         for line in file_obj:
@@ -122,9 +128,7 @@ def read_deep_mut(path):
             else:
                 raise ValueError('Reached the end of metadata lines (marked by #) before '
                                  'encountering the variant data table header (marked ?)')
-
-    return DeepMut(variant_data, **meta)
-
+    return meta
 
 if __name__ == "__main__":
     TEST = read_deep_mut('data/standardised/araya_2012_hYAP65/variants.dm')
