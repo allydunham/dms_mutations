@@ -47,9 +47,7 @@ class DMTaskSelecter:
         self.ref_fasta(path=f"{out_dir}/{gene_name}.fa", overwrite=False)
 
         # Export sorted list of variants
-        variants = self.deep_data.variant_data.variants.str.split(',').dropna()
-        variants = list(set([i.strip('p.') for x in variants for i in x]))
-        variants.sort(key=lambda x: int(x[1:-1]))
+        variants = self.deep_data.unique_variants()
         with open(f"{out_dir}/{gene_name}.subst", mode='w') as subst_file:
             print(*variants, sep='\n', file=subst_file)
 
@@ -77,9 +75,8 @@ class DMTaskSelecter:
         ev.config.write_config_file(f"{out_dir}/ev_config.txt", config)
 
         # Generate csv with variants
-        variants = self.deep_data.variant_data
+        variants = self.deep_data.variant_data[['variants', 'score']]
         variants['variants'] = variants['variants'].str.replace('p.', '')
-        variants = variants[['variants', 'score']]
         variants.rename(index=str, columns={'variants':'mutants', 'score':'exp_score'})
         variants.to_csv(csv_path, sep=';', index=False)
 

@@ -43,16 +43,21 @@ class DeepMut:
         print(self.variant_data.head(num))
 
     def genotypes(self, inc_wt=True):
-        """Generate a list of genotypes for the data"""
-        geno = []
-        for i in self.variant_data.variants:
-            if not pd.isna(i):
-                i = [x.strip('p.') for x in i.split(',')]
-                geno.append([(x[0], int(x[1:-1]), x[-1]) for x in i])
-            elif inc_wt:
-                # Assume empty variants field means wt
-                geno.append('WT')
+        """Generate a pandas series containing genotypes (as a list [X1Y, A2B, ...]) for the data"""
+        geno = self.variant_data['variants'].str.replace('p.', '')
+        geno = geno.str.split(',')
+        if inc_wt:
+            geno[geno.isna()] = 'WT'
+        else:
+            geno = geno.dropna()
         return geno
+
+    def unique_variants(self):
+        """Generate a list of the different variants in the dataset"""
+        var = self.genotypes(inc_wt=False)
+        var = list(set([i for x in var for i in x]))
+        var.sort(key=lambda x: int(x[1:-1]))
+        return var
 
     def write_ref_fasta(self, fasta_file):
         """Write gene reference sequence to a fasta file"""
@@ -64,21 +69,18 @@ class DeepMut:
         gene = self.meta_data["gene_name"]
         uniprot_id = self.meta_data["uniprot_id"]
 
-        for i in self.genotypes():
-            if i == 'WT':
+        for muts in self.genotypes():
+            if muts == 'WT':
                 print(f'>{gene}|{uniprot_id}|', file=fasta_file)
-                print(split_lines(self.meta_data['ref_seq']), file=fasta_file)
+                print(split_lines(self.meta_data['ref_seq']), file=fasta_file, end='\n\n')
 
             else:
-                # Print header
-                muts = ','.join([''.join([str(y) for y in x]) for x in i])
-                print(f'>{gene}|{uniprot_id}|{muts}', file=fasta_file)
-
-                # Print seq
                 seq = list(self.meta_data['ref_seq'])
                 for var in i:
-                    seq[var[1] - 1] = var[2]
-                print(split_lines(''.join(seq)), file=fasta_file)
+                    seq[int(var[1:-1]) - 1] = var[-1]
+
+                print(f'>{gene}|{uniprot_id}|{','.join(muts)}', file=fasta_file)
+                print(split_lines(''.join(seq)), file=fasta_file, end='\n\n')
 
 def split_lines(seq, line_len=FA_LINE_LEN):
     """Split a string into lines of length line_len, inserting line breaks"""
