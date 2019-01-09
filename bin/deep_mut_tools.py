@@ -11,7 +11,6 @@ import re
 #import os
 #import numpy as np
 import pandas as pd
-from nested_dicts import nested_keys
 from smart_open import smart_open
 
 DM_FILE_VERSION = '1.2'
