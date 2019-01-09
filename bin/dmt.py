@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Tool to run various tasks on individual .dm files.
-Currently implemented tasks:
+Tool to run various tasks on individual .dm files:
 - ref_fasta: generate a fasta file witht he ref seq
 - variant_fasta: generate a fasta file with all variants
 - sift4g: prepare the files to run sift4g
 - evcouplings: prepare the files to run EVcouplings
+- polyphen2: prepare variants file for polyphen2 analysis
+- foldx: prepare files for FoldX analysis of dm variants [NOT YET IMPLEMENTED]
 """
 import os
 import argparse
@@ -66,8 +67,13 @@ class DMTaskSelecter:
             overrides = ev.config.parse_config(kwargs['ev_options'])
         else:
             overrides = {}
+`
+        # Can pass the loaded config directly as a dict when using the class in other scripts
+        try:`
+            config = ev.config.read_config_file(kwargs['ev_default'])
+        except TypeError:
+            config = kwargs['ev_default']
 
-        config = ev.config.read_config_file(kwargs['ev_default'])
         config = nested_merge(config,
                               {'global': {'prefix': f"{out_dir}/ev",
                                           'sequence_id': self.deep_data.meta_data['uniprot_id'],
@@ -114,8 +120,6 @@ class DMTaskSelecter:
 
 def main(args):
     """Main script"""
-    # Check if output file already exists and overwrite is not enabled
-    # If it is a directory this is raises an error when trying to open it
     deep_data = dm.read_deep_mut(args['dm_file'])
     selecter = DMTaskSelecter(deep_data)
     selecter.choose(args['task'])(**args)
