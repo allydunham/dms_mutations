@@ -23,7 +23,7 @@ gen_mut_id <- function(acc, ref, alt, pos){
 # year = paper year (minimal info to locate, best to include more (such as url) in misc)
 # transform = method used to transform score
 # misc = named list of other meta data to attach (e.g. other protein accessions, other study data.
-# Various special misc values are expected and are written in a logical positon - alt_name, doi, pubmed_id, url, title
+# Various special misc values are expected and are written in a logical positon - alt_name, doi, pmid, url, title
 # anything else with _id is treated as a gene id
 DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None',
                     uniprot_id=NA, authour=NA, year=NA, pdb_id=NA, misc=NULL){
@@ -85,13 +85,13 @@ write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   }
   
   ## Write meta data
-  write_lines(c('#deep_mut_file_version:1.1'), outfile)
+  write_lines(c('#deep_mut_file_version:1.2'), outfile)
   
   gene_keys <- c('gene_name', 'domain', 'species', 'alt_name')
-  acc_keys <- keys[grepl('_id', keys) & !keys == 'pubmed_id']
-  study_keys <- c('authour', 'year', 'title', 'pubmed_id', 'url', 'doi')
+  acc_keys <- keys[grepl('_id', keys)]
+  study_keys <- c('authour', 'year', 'title', 'pmid', 'url', 'doi')
   misc_keys <- keys[!keys %in% c('gene_name', 'domain', 'species', 'alt_name', 'authour', 'year', 'title',
-                                 'pubmed_id', 'url', 'doi', 'transform', 'ref_seq', 'variant_data') &
+                                 'pmid', 'url', 'doi', 'transform', 'ref_seq', 'variant_data') &
                       !grepl('_id', keys)]
   
   ordered_keys <- c(gene_keys, acc_keys, study_keys, 'transform', misc_keys)

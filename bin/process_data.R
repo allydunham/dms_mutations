@@ -43,7 +43,7 @@ formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'HSP90', speci
                                                   uniprot_id='P02829', authour='Hietpas et al.', year=2011,
                                                   transform = 'None', ref_seq = str_c(raw_seqs$s_cerevisiae_hsp82, collapse = ''),
                                                   misc=list(ensembl_gene_id='YPL240C', doi='10.1073/pnas.1016024108',
-                                                            url='http://www.pnas.org/content/108/19/7896', pubmed_id='21464309',
+                                                            url='http://www.pnas.org/content/108/19/7896', pmid='21464309',
                                                             title='Experimental illumination of a fitness landscape', alt_name = 'HSP82'))
 
 #### Araya 2012 hYAP65 ####
@@ -74,7 +74,7 @@ formatted_deep_data$araya_2012_hYAP65 <- DeepMut(variant_data = df, gene_name = 
                                                  authour = 'Araya at al.',year = 2012,
                                                  misc = list(alt_name = 'hYAP65', title='A fundamental protein property, thermodynamic stability, revealed solely from large-scale measurements of protein function',
                                                              url='http://www.pnas.org/content/109/42/16858', doi='10.1073/pnas.1209751109',
-                                                             pubmed_id='23035249',
+                                                             pmid='23035249',
                                                              note='Authours WW domain differs slightly from uniprot, 170-203 vs 171-204'))
 
 #### Starita 2013 Ube4b ####
@@ -98,7 +98,7 @@ formatted_deep_data$starita_2013_ube4b <- DeepMut(variant_data = df, gene_name =
                                                   authour = 'Starita et al.', year = 2013,
                                                   misc = list(title='Activity-enhancing mutations in an E3 ubiquitin ligaseidentified by high-throughput mutagenesis',
                                                               url='http://www.pnas.org/content/110/14/E1263.long',
-                                                              doi='10.1073/pnas.1303309110', pubmed_id='23509263'))
+                                                              doi='10.1073/pnas.1303309110', pmid='23509263'))
 
 #### Roscoe 2013 Ubiquitin ####
 deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_fitness.xlsx', skip = 4) %>%
@@ -124,7 +124,7 @@ df <- deep_mut_data$roscoe_2013_ubi %>%
 
 formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae, uniprot_id = 'P0CH08',
                                                ref_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), authour = 'Roscoe et al.', year = 2013,
-                                               misc = list(alt_name = 'Ubiquitin', pubmed_id = '23376099',
+                                               misc = list(alt_name = 'Ubiquitin', pmid = '23376099',
                                                            title = 'Analyses of the effects of all ubiquitin point mutants on yeast growth rate',
                                                            url='https://www.sciencedirect.com/science/article/pii/S0022283613000636',
                                                            doi='10.1016/j.jmb.2013.01.032'))
@@ -150,7 +150,7 @@ formatted_deep_data$jiang_2013_hsp90 <- DeepMut(variant_data = df, gene_name = '
                                                 species = species_options$cerevisiae, transform = 'log2', uniprot_id = 'P02829',
                                                 ref_seq = str_c(raw_seqs$s_cerevisiae_hsp82, collapse = ''), authour = 'Jiang et al.', year = 2013,
                                                 misc = list(alt_name='HSP82', url='https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1003600',
-                                                            doi='10.1371/journal.pgen.1003600', pubmed_id='23825969',
+                                                            doi='10.1371/journal.pgen.1003600', pmid='23825969',
                                                             title='Latent Effects of Hsp90 Mutants Revealed at Reduced Expression Levels'))
 
 #### Forsyth 2013 igg ####
@@ -179,7 +179,7 @@ formatted_deep_data$melamed_2013_pab1 <- DeepMut(variant_data = df, gene_name = 
                                                  ref_seq = str_c(raw_seqs$s_cerevisiae_pab1, collapse = ''), uniprot_id = 'P04147', authour = 'Melamed et al.',
                                                  year = 2013, misc = list(title='Deep mutational scanning of an RRM domain of the Saccharomyces cerevisiae poly(A)-binding protein',
                                                                           url='https://rnajournal.cshlp.org/content/19/11/1537',
-                                                                          doi='10.1261/rna.040709.113', pubmed_id='24064791'))
+                                                                          doi='10.1261/rna.040709.113', pmid='24064791'))
 
 #### Wagenaar 2014 braf ####
 ## Only includes position/aa combos deemed significant
@@ -220,7 +220,7 @@ formatted_deep_data$wagenaar_2014_braf <- DeepMut(variant_data = df, gene_name =
                                                   authour = 'Wagenaar et al.', year = 2014,
                                                   misc = list(notes='Only retained variants they deemed significantly different from wt',
                                                               title='Resistance to vemurafenib resulting from a novel mutation in the BRAFV600E kinase domain',
-                                                              pubmed_id='24112705', doi='10.1111/pcmr.12171', url='https://onlinelibrary.wiley.com/doi/full/10.1111/pcmr.12171'))
+                                                              pmid='24112705', doi='10.1111/pcmr.12171', url='https://onlinelibrary.wiley.com/doi/full/10.1111/pcmr.12171'))
 
 #### Firnberg 2014 tem1 ####
 deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_tem1.xlsx') %>%
@@ -258,7 +258,7 @@ formatted_deep_data$firnberg_2014_tem1 <- DeepMut(variant_data = df, gene_name =
                                                   ref_seq = str_c(raw_seqs$e_coli_tem1, collapse = ''), transform = 'log2', uniprot_id = 'Q6SJ61',
                                                   authour = 'Firnberg et al.', year = 2014,
                                                   misc = list(title='A Comprehensive, High-Resolution Map of a Gene’s Fitness Landscape',
-                                                              doi='10.1093/molbev/msu081', pubmed_id='24567513',
+                                                              doi='10.1093/molbev/msu081', pmid='24567513',
                                                               url='https://academic.oup.com/mbe/article/31/6/1581/2925654'))
 
 #### Roscoe 2014 Ubiquitin (E1 reactivity) ####
@@ -295,13 +295,13 @@ df2 <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
 formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
                                                                            ref_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), transform = 'None',
                                                                            uniprot_id = 'P0CH08', authour = 'Roscoe and Bolon', year = 2014,
-                                                                           misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                           misc = list(alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                                        url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                                        title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast')),
                                                        excess_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
                                                                          ref_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), transform = 'None',
                                                                          uniprot_id = 'P0CH08', authour = 'Roscoe and Bolon', year = 2014,
-                                                                         misc = list(alt_name='Ubiquitin', pubmed_id='24862281', doi='10.1016/j.jmb.2014.05.019',
+                                                                         misc = list(alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                                      url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                                      title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'))))
 
@@ -383,7 +383,7 @@ lst <- sapply(unique(df_mean$drug),
                                   transform = 'mean of different drug concs (raw is at 1:1 MIC)',
                                   uniprot_id = 'Q58HT3', authour = 'Melnikov et al.', year = 2014,
                                   misc = list(title='Comprehensive mutational scanning of a kinase in vivo reveals substrate-dependent fitness landscapes',
-                                              doi='10.1093/nar/gku511', pubmed_id='24914046',
+                                              doi='10.1093/nar/gku511', pmid='24914046',
                                               url='https://academic.oup.com/nar/article/42/14/e112/1266940',
                                               notes='concs are given relative to esstimated drug minimum inhibitory concentration (MIC)',
                                               drug=x))},
@@ -475,7 +475,7 @@ formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name
                                                     uniprot_id = 'P19909', authour = 'Olson et al.', year = 2014,
                                                     misc = list(notes='Uniprot ID is for the Protein G precurssor which has a slightly different sequence',
                                                                 doi='10.1016/j.cub.2014.09.072', url='https://www.sciencedirect.com/science/article/pii/S0960982214012688',
-                                                                pubmed_id='25455030', title='A Comprehensive Biophysical Description of Pairwise Epistasis throughout an Entire Protein Domain'))
+                                                                pmid='25455030', title='A Comprehensive Biophysical Description of Pairwise Epistasis throughout an Entire Protein Domain'))
 
 #### Starita 2015 Brca1 ####
 deep_mut_data$starita_2015_brca1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
@@ -502,14 +502,14 @@ formatted_deep_data$starita_2015_brca1 <- DeepMutSet(list(
                                misc = list(notes='Y2H experiment measured binding to BARD1 RING domain',
                                            title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
                                            url='http://www.genetics.org/content/200/2/413',
-                                           doi='10.1534/genetics.115.175802', pubmed_id='25823446')),
+                                           doi='10.1534/genetics.115.175802', pmid='25823446')),
   e3_activity = DeepMut(variant_data = df_e3, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
                                ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'log2(set < 0 to min > 0)',
                                uniprot_id = 'P38398', authour = 'Starita et al.', year = 2015,
                                misc = list(notes='Phage display assay measures E3 ubiquitin ligase activity',
                                            title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
                                            url='http://www.genetics.org/content/200/2/413',
-                                           doi='10.1534/genetics.115.175802', pubmed_id='25823446'))))
+                                           doi='10.1534/genetics.115.175802', pmid='25823446'))))
 
 #### Kitzman 2015 Gal4 ####
 kitzman_2015_path <- 'data/raw/processed/kitzman_2015_gal4_enrichment.xlsx'
@@ -537,7 +537,7 @@ formatted_deep_data$kitzman_2015_gal4 <- DeepMut(variant_data = select(deep_mut_
                                                  transform = 'Log2, Average of A,B,C at 40h', gene_name = 'GAL4', species = species_options$cerevisiae,
                                                  authour = 'Kitzman et al.', year = 2015, ref_seq = str_c(raw_seqs$s_cerevisiae_gal4, collapse = ''),
                                                  uniprot_id = 'P04386',
-                                                 misc = list(title='Massively parallel single amino-acid mutagenesis', pubmed_id='25559584',
+                                                 misc = list(title='Massively parallel single amino-acid mutagenesis', pmid='25559584',
                                                              doi='10.1038/nmeth.3223', url='https://www.nature.com/articles/nmeth.3223'))
 
 #### Mishra 2016 Hsp90 ####
@@ -607,7 +607,7 @@ formatted_deep_data$mishra_2016_hsp90 <- DeepMut(variant_data = df, gene_name = 
                                                   authour = 'Mishra et al.', year = 2016, ref_seq = str_c(raw_seqs$s_cerevisiae_hsp82, collapse = ''),
                                                   transform = 'None', uniprot_id = 'P02829',
                                                   misc = list(alt_name='HSP82', title='Systematic Mutant Analyses Elucidate General and Client-Specific Aspects of Hsp90 Function',
-                                                              doi='10.1016/j.celrep.2016.03.046', pubmed_id='27068472',
+                                                              doi='10.1016/j.celrep.2016.03.046', pmid='27068472',
                                                               url='https://www.sciencedirect.com/science/article/pii/S2211124716303175'))
 
 #### Sarkisyan 2016 GFP ####
@@ -628,7 +628,7 @@ df <- deep_mut_data$brenan_2016_erk2 %>%
 formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = 'None',
                                                 authour = 'Brenan et al. 2016', year = 2016, ref_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
                                                 uniprot_id = 'P28482',
-                                                misc = list(alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pubmed_id='27760319',
+                                                misc = list(alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pmid='27760319',
                                                             url='https://www.sciencedirect.com/science/article/pii/S2211124716313171',
                                                             notes='Also includes scores in two other drug conditions. Used A375 cells with BRAFV600E.',
                                                             title='Phenotypic Characterization of a Comprehensive Set of MAPK1/ERK2 Missense Mutants'))
@@ -646,7 +646,7 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
                                                  authour = 'Ashenberg et al.', year = 2016,
                                                  misc = list(substrain = 'Human adapted strain A/Aichi/2/1968, H3N2',
                                                              title='Deep mutational scanning identifies sites in influenza nucleoprotein that affect viral inhibition by MxA',
-                                                             doi='10.1371/journal.ppat.1006288', pubmed_id='28346537',
+                                                             doi='10.1371/journal.ppat.1006288', pmid='28346537',
                                                              url='https://journals.plos.org/plospathogens/article?id=10.1371/journal.ppat.1006288'))
 
 #### Weile 2017 ube2i ####
@@ -662,7 +662,7 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
 #                                                 ref_seq = str_c(raw_seqs$h_sapiens_ube2i), transform = 'log2(abs(x))', uniprot_id = 'P63279',
 #                                                 authour = 'Weile et al.', year = 2017,
 #                                                 misc = list(title='A framework for exhaustively mapping functional missense variants',
-#                                                             doi='10.15252/msb.20177908', pubmed_id='29269382',
+#                                                             doi='10.15252/msb.20177908', pmid='29269382',
 #                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 deep_mut_data$weile_2017_ube2i <- read_tsv('data/raw/processed/weile_2017_raw_counts_ube2i_tileseq.tsv') %>%
@@ -684,7 +684,7 @@ formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = '
                                                 ref_seq = str_c(raw_seqs$h_sapiens_ube2i, collapse = ''), transform = 'log2(abs(x))',
                                                 uniprot_id = 'P63279', authour = 'Weile et al.', year = 2017,
                                                 misc = list(title='A framework for exhaustively mapping functional missense variants',
-                                                            doi='10.15252/msb.20177908', pubmed_id='29269382',
+                                                            doi='10.15252/msb.20177908', pmid='29269382',
                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 #### Weile 2017 sumo1 ####
@@ -713,7 +713,7 @@ formatted_deep_data$weile_2017_sumo1 <- DeepMut(variant_data = df, gene_name = '
                                                 ref_seq = str_c(raw_seqs$h_sapiens_sumo1, collapse = ''), uniprot_id = 'P63165',
                                                 authour = 'Weile et al.', year = 2017,
                                                 misc = list(title='A framework for exhaustively mapping functional missense variants',
-                                                            doi='10.15252/msb.20177908', pubmed_id='29269382',
+                                                            doi='10.15252/msb.20177908', pmid='29269382',
                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 #### Weile 2017 tpk1 ####
@@ -743,7 +743,7 @@ formatted_deep_data$findlay_2018_brca1 <- DeepMut(variant_data = df, gene_name =
                                                   ref_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'None',
                                                   uniprot_id = 'P38398', authour = 'Findlay et al.', year = 2018,
                                                   misc = list(title='Accurate classification of BRCA1 variants with saturation genome editing',
-                                                              doi='10.1038/s41586-018-0461-z', pubmed_id='',
+                                                              doi='10.1038/s41586-018-0461-z', pmid='',
                                                               url='https://www.nature.com/articles/s41586-018-0461-z'))
 
 #### Lee 2018 Flu haemagglutinin ####
@@ -776,7 +776,7 @@ formatted_deep_data$lee_2018_flu_ha <- DeepMut(variant_data = df, gene_name = 'H
                                                ref_seq = str_c(raw_seqs$`H3N2_A-Perth-16-2009-Hemagglutinin`, collapse = ''), transform = 'log2(x*5)',
                                                authour = 'Lee et al.', year = 2018,
                                                misc = list(notes='Used a simple placeholder transformation to change AA preference (raw_score) into something resembling other studies',
-                                                           substrain='Human adapted A/Perth/16/2009, H3N2', pubmed_id='30104379', doi='10.1073/pnas.1806133115',
+                                                           substrain='Human adapted A/Perth/16/2009, H3N2', pmid='30104379', doi='10.1073/pnas.1806133115',
                                                            url='www.pnas.org/cgi/doi/10.1073/pnas.1806133115',
                                                            title='Deep mutational scanning of hemagglutinin helps predict evolutionary fates of human H3N2 influenza variants'))
 
@@ -810,7 +810,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                               uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
                               misc = list(notes='Score is in Z-score format, with wt p53 background and nutlin3 selecting for dominant negative variants (see paper)',
                                           title='Mutational processes shape the landscape of TP53 mutations in human cancer',
-                                          doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                          doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                           url='https://www.nature.com/articles/s41588-018-0204-y')),
        p53_null_nutlin3=DeepMut(variant_data = df2,
                                 gene_name = 'TP53', species = species_options$sapiens,
@@ -818,7 +818,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                                 uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
                                 misc = list(notes='Score is in Z-score format, with null p53 background and nutlin3 selecting for LOF variants (see paper)',
                                             title='Mutational processes shape the landscape of TP53 mutations in human cancer',
-                                            doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                            doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                             url='https://www.nature.com/articles/s41588-018-0204-y')),
        p53_null_etoposide=DeepMut(variant_data = df3,
                                   gene_name = 'TP53', species = species_options$sapiens,
@@ -826,7 +826,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                                   uniprot_id = 'P04637', ref_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
                                   misc = list(notes='Score is in Z-score format, with null p53 background and etoposide selecting for WT like (or better) variants (see paper)',
                                               title='Mutational processes shape the landscape of TP53 mutations in human cancer',
-                                              doi='10.1038/s41588-018-0204-y', pubmed_id='30224644',
+                                              doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                               url='https://www.nature.com/articles/s41588-018-0204-y'))
        ))
 
