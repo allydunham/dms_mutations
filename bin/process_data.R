@@ -834,11 +834,16 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
 saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
 saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
 
+# Files written in form /UniprotID_GeneName.set.dm
 for (i in names(formatted_deep_data)){
+  print(str_c('Writing DeepMut: ', i))
   if ('DeepMutSet' %in% class(formatted_deep_data[[i]])){
     write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i))
   } else if ('DeepMut' %in% class(formatted_deep_data[[i]])){
-    write_deep_mut(formatted_deep_data[[i]], str_c('data/standardised/', i, '/variants.dm'))
+    dm_path <- gsub(' ', '',
+                    str_c('data/standardised/', i, '/', str_replace_na(formatted_deep_data[[i]]$uniprot_id, replacement = ''), '_',
+                          str_replace_na(formatted_deep_data[[i]]$gene_name, replacement = ''), '.dm'))
+    write_deep_mut(formatted_deep_data[[i]], dm_path)
   } else {
     stop('Incorrect object added to formatted_deep_data, not of class DeepMut or DeepMutSet')
   }

@@ -137,7 +137,10 @@ write_deep_mut.DeepMutSet <- function(x, root_dir, create_dir=TRUE){
     }
   }
   for (set in names(x)){
-    write_deep_mut(x[[set]], str_c(root_dir, '/variants_', set, '.dm'))
+    dm_path <- gsub(' ', '',
+                    str_c(root_dir, '/', str_replace_na(x[[set]]$uniprot_id, replacement = ''), '_',
+                          str_replace_na(x[[set]]$gene_name, replacement = ''), '.', set, '.dm'))
+    write_deep_mut(x[[set]], dm_path)
   }
 }
 
