@@ -7,14 +7,13 @@ Currently implemented tasks:
 - sift4g: prepare the files to run sift4g
 - evcouplings: prepare the files to run EVcouplings
 """
-import sys
 import os
 import argparse
-from contextlib import contextmanager
 import pandas as pd
 import evcouplings.utils as ev
 import deep_mut_tools as dm
-from nested_merge import nested_merge
+from nested_dicts import nested_merge
+from smart_open import smart_open
 
 class DMTaskSelecter:
     """Case selecter for different possible tasks to apply to DeepMut data"""
@@ -30,13 +29,11 @@ class DMTaskSelecter:
 
     def ref_fasta(self, **kwargs):
         """Print reference sequence to out_file"""
-        with open_file(kwargs['path']) as out_file:
-            self.deep_data.write_ref_fasta(out_file)
+        self.deep_data.write_ref_fasta(kwargs['path'])
 
     def variant_fasta(self, **kwargs):
         """Print all variant seqs to a fasta file"""
-        with open_file(kwargs['path']) as out_file:
-            self.deep_data.write_variant_fasta(out_file)
+        self.deep_data.write_variant_fasta(kwargs['path'])
 
     def sift4g(self, **kwargs):
         """Prepare the required files to fun sift4g on the data"""
@@ -95,20 +92,25 @@ class DMTaskSelecter:
         env = pd.read_csv(kwargs['env'], comment='=').drop(columns='X1')
         env = env[env.Variant.isin(self.deep_data.unique_variants())]
 
-        with open_file(kwargs['path'], 'w') as out_file:
+        with smart_open(kwargs['path'], mode='w') as out_file:
             env.to_csv(out_file, index=False)
 
+    def foldx(self, **kwargs):
+        """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present"""
+        pass
 
-@contextmanager
-def open_file(path, mode='w'):
-    """Context manager managing a specified file or sys.stdout"""
-    if not path:
-        file_handle = sys.stdout
-    else:
-        file_handle = open(path, mode)
-    yield file_handle
-    if path:
-        file_handle.close()
+    def polyphen2(self, **kwargs):
+        """Generate protein variant file for Polyphen2 analysis"""
+        variants = pd.DataFrame({'# Protein ID': self.deep_data.meta_data['uniprot_id'],
+                                 'variant': self.deep_data.unique_variants()})
+
+        variants['Position'] = variants.variant.str.slice(start=1, stop=-1)
+        variants['AA1'] = variants.variant.str.slice(stop=1)
+        variants['AA2'] = variants.variant.str.slice(start=-1)
+
+        with smart_open(kwargs['path'], mode='w') as out_file:
+            variants.to_csv(out_file, index=False, sep='\t',
+                            columns=['# Protein ID', 'Position', 'AA1', 'AA2'])
 
 def main(args):
     """Main script"""
