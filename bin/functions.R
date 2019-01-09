@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript 
 # Script containing general functions for deep mutagenesis analysis
-library(tidyverse)
 
 #### Formatting and Storage ####
 # generate mut id for variants
@@ -27,7 +26,7 @@ gen_mut_id <- function(acc, ref, alt, pos){
 # Various special misc values are expected and are written in a logical positon - alt_name, doi, pubmed_id, url, title
 # anything else with _id is treated as a gene id
 DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None',
-                    uniprot_id=NA, authour=NA, year=NA, misc=NULL){
+                    uniprot_id=NA, authour=NA, year=NA, pdb_id=NA, misc=NULL){
   # (minimal) Error Checking
   if (!all(c('variants', 'score', 'raw_score') %in% colnames(variant_data))) {
     stop('variant_data does not contain the required columns (protein_variants, score, raw_score)')
@@ -42,6 +41,7 @@ DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=N
                    ref_seq=ref_seq,
                    authour=authour,
                    year=year,
+                   pdb_id=pdb_id,
                    transform=transform)
   
   if (!is_null(misc)){

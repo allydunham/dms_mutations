@@ -18,7 +18,8 @@ class DeepMut:
     Deep Mutational Scanning data with associated metadata
     """
     required_metadata = {'gene_name':None, 'domain':None, 'species':None, 'ref_seq':None,
-                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None}
+                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None,
+                         'pdb_id':None}
 
     def __init__(self, variant_data, **kwargs):
         # Simple tests for variant data format
