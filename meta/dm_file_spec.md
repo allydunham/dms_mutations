@@ -33,3 +33,7 @@ Initial version. Current rules:
 
 ### Version 1.1
 * ref\_seq meta line now must contain a value giving the number of sequence lines to follow (e.g. #ref\_seq:3)
+
+### Version 1.2
+* Added 'pdb\_id' as a required meta data entry (will be added as NA when the file is read if not present)
+* Changed 'pubmed\_id' meta entry to 'pmid' to allow all other IDs (uniprot, pdb, etc.) to be easily grouped as '\_id' fields while 'pmid' remains with the paper info.
