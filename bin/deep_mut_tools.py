@@ -13,8 +13,7 @@ import re
 import pandas as pd
 from smart_open import smart_open
 
-DM_FILE_VERSION = '1.2'
-RE_FILE_VERSION = re.compile(r'#deep_mut_file_version')
+DM_FILE_VERSION = '2.0.1'
 RE_NUMERIC = re.compile(r'^-?[0-9]+(\.[0-9]+)?$')
 RE_INT = re.compile(r'^-?[0-9]+$')
 FA_LINE_LEN = 80
@@ -23,9 +22,8 @@ class DeepMut:
     """
     Deep Mutational Scanning data with associated metadata
     """
-    required_metadata = {'gene_name':None, 'domain':None, 'species':None, 'ref_seq':None,
-                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None,
-                         'pdb_id':None}
+    required_metadata = {'gene_name':None, 'domain':None, 'species':None, 'aa_seq':None,
+                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None}
 
     # Used for grouping when writing files, to make them more readable
     key_groups = {'gene_keys': ['gene_name', 'domain', 'species', 'alt_name'],
@@ -70,11 +68,11 @@ class DeepMut:
         var.sort(key=lambda x: int(x[1:-1]))
         return var
 
-    def write_ref_fasta(self, path_or_file='', mode='w'):
+    def write_ref_fasta(self, path_or_file='', mode='w', seq='aa_seq'):
         """Write gene reference sequence to a fasta file"""
         with smart_open(path_or_file, mode=mode) as fasta_file:
             print(f">{self.meta_data['gene_name']}", file=fasta_file)
-            print(split_lines(self.meta_data['ref_seq']), file=fasta_file)
+            print(*split_lines(self.meta_data[seq]), sep='\n', file=fasta_file)
 
     def write_variant_fasta(self, path_or_file='', mode='w'):
         """Write a fasta file with all variant sequences"""
@@ -85,40 +83,52 @@ class DeepMut:
             for muts in self.genotypes():
                 if muts == 'WT':
                     print(f'>{gene}|{uniprot_id}|', file=fasta_file)
-                    print(split_lines(self.meta_data['ref_seq']), file=fasta_file, end='\n\n')
+                    print(*split_lines(self.meta_data['aa_seq']), sep='\n',
+                          file=fasta_file, end='\n\n')
 
                 else:
-                    seq = list(self.meta_data['ref_seq'])
+                    seq = list(self.meta_data['aa_seq'])
                     for var in muts:
                         seq[int(var[1:-1]) - 1] = var[-1]
 
                     mut_str = ','.join(muts)
                     print(f">{gene}|{uniprot_id}|{mut_str}", file=fasta_file)
-                    print(split_lines(''.join(seq)), file=fasta_file, end='\n\n')
+                    print(*split_lines(''.join(seq)), sep='\n', file=fasta_file, end='\n\n')
 
     def write_dm(self, path_or_file='', mode='w'):
         """Write data to dm file"""
         # Determine ordering of keys for writing meta data
         self.key_groups['accession_keys'] = [x for x in self.meta_data if '_id' in x]
+        self.key_groups['sequence_keys'] = [x for x in self.meta_data if '_seq' in x]
+
+        self.key_groups['misc_keys'] = [x for x in self.meta_data if x not in
+                                        [x for _, v in self.key_groups.items() for x in v] and
+                                        not x == 'deep_mut_file_version']
+
         ordered_keys = self.key_groups['gene_keys'] +\
                        self.key_groups['accession_keys'] +\
-                       self.key_groups['study_keys']
+                       self.key_groups['study_keys'] +\
+                       self.key_groups['misc_keys'] +\
+                        self.key_groups['sequence_keys']
 
-        # Add any additional keys
-        self.key_groups['misc_keys'] = [x for x in self.meta_data
-                                        if x not in ordered_keys and not x == 'ref_seq']
-        ordered_keys += self.key_groups['misc_keys']
+
 
         with smart_open(path_or_file, mode=mode) as dm_file:
             print(f'#deep_mut_file_version:{DM_FILE_VERSION}', file=dm_file)
 
             for key in ordered_keys:
-                print(f"#{key}:{self.meta_data[key] if key in self.meta_data else 'NA'}",
-                      file=dm_file)
-
-            seq = ['#+' + x for x in split_lines(self.meta_data['ref_seq']).split('\n')]
-            print(f"#ref_seq:{len(seq)}", file=dm_file)
-            print(*seq, sep='\n', file=dm_file)
+                if self.meta_data[key] is None or not key in self.meta_data:
+                    print(f"#{key}:NA",file=dm_file)
+                elif isinstance(self.meta_data[key], (list, tuple, set)):
+                    lines = ['#*' + x for x in self.meta_data[key]]
+                    print(f"#*{key}:{len(lines)}", file=dm_file)
+                    print(*lines, sep='\n', file=dm_file)
+                elif '_seq' in key:
+                    lines = ['#+' + x for x in split_lines(self.meta_data[key])]
+                    print(f"#+{key}:{len(lines)}", file=dm_file)
+                    print(*lines, sep='\n', file=dm_file)
+                else:
+                    print(f"#{key}:{self.meta_data[key]}", file=dm_file)
 
             print('?', '\t'.join(self.variant_data.columns.values), sep='', file=dm_file)
             self.variant_data.to_csv(dm_file, header=False, index=False, sep='\t')
@@ -126,7 +136,7 @@ class DeepMut:
 
 def split_lines(seq, line_len=FA_LINE_LEN):
     """Split a string into lines of length line_len, inserting line breaks"""
-    return '\n'.join([seq[i:i+line_len] for i in range(0, len(seq), line_len)])
+    return [seq[i:i+line_len] for i in range(0, len(seq), line_len)]
 
 def read_deep_mut(path):
     """Import deep mutational scanning data from '.dm' file and return a DeepMut object"""
@@ -143,25 +153,22 @@ def read_deep_mut_header(path):
     meta = {}
     with fileinput.input(path) as file_obj:
         for line in file_obj:
-            if RE_FILE_VERSION.match(line):
-                continue
-
-            if line[0] == '#' and not RE_FILE_VERSION.match(line):
-                key, value = line.strip('#\n\t ').split(':', 1)
-                if key == 'ref_seq':
-                    seq = []
+            if line[0] == '#':
+                key, value = line.strip('#*+\n\t ').split(':', 1)
+                if line[1] in ('*', '+'):
+                    # read lists and extended entries
+                    meta[key] = []
                     for _ in range(int(value)):
-                        seq.append(file_obj.readline().strip('#+\n\t '))
-                    meta['ref_seq'] = ''.join(seq)
+                        meta[key].append(file_obj.readline().strip('#+*\n\t '))
 
-                elif RE_INT.match(value):
-                    meta[key] = int(value)
-
-                elif RE_NUMERIC.match(value):
-                    meta[key] = float(value)
+                    if line[1] == '+':
+                        meta[key] = ''.join(meta[key])
 
                 else:
+                    # read normal entries
                     meta[key] = value
+
+                meta[key] = weak_numeric_conversion(meta[key])
 
             elif line[0] == '?':
                 break
@@ -171,6 +178,29 @@ def read_deep_mut_header(path):
                                  'encountering the variant data table header (marked ?)')
     return meta
 
+def weak_numeric_conversion(var):
+    """Convert x into ints or floats if appropriate or return x
+       If x is a list, tuple or set a list is returned
+       if a string an int or float
+       otherwise x is returned unchanged"""
+    if isinstance(var, (str, bytes)):
+        if RE_INT.match(var):
+            var = int(var)
+
+        elif RE_NUMERIC.match(var):
+            var = float(var)
+
+    elif isinstance(var, (list, tuple, set)):
+        if all(RE_INT.match(i) for i in var):
+            var = [int(i) for i in var]
+
+        elif all(RE_NUMERIC.match(i) for i in var):
+            var = [float(i) for i in var]
+
+    return var
+
+
+
 if __name__ == "__main__":
     TEST = read_deep_mut('/Users/ally/Projects/mutations/data/standardised/'
-                         'araya_2012_hYAP65/variants.dm')
+                         'araya_2012_hYAP65/P46937_YAP1.dm')

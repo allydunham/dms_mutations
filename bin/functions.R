@@ -75,13 +75,13 @@ write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   }
   
   ## Write meta data
-  write_lines(c('#deep_mut_file_version:2.0'), outfile)
+  write_lines(c('#deep_mut_file_version:2.0.1'), outfile)
   
   gene_keys <- c('gene_name', 'domain', 'species', 'alt_name')
   acc_keys <- keys[grepl('_id', keys)]
   study_keys <- c('authour', 'year', 'title', 'pmid', 'url', 'doi')
   seq_keys <- keys[grepl('_seq', keys)]
-  misc_keys <- keys[!keys %in% c(gene_keys, acc_keys, study_keys, seq_keys)]
+  misc_keys <- keys[!keys %in% c(gene_keys, acc_keys, study_keys, seq_keys, 'deep_mut_file_version')]
   
   ordered_keys <- c(gene_keys, acc_keys, study_keys, misc_keys, seq_keys)
   ordered_keys <- ordered_keys[ordered_keys %in% keys]
