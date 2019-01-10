@@ -25,29 +25,18 @@ gen_mut_id <- function(acc, ref, alt, pos){
 # misc = named list of other meta data to attach (e.g. other protein accessions, other study data.
 # Various special misc values are expected and are written in a logical positon - alt_name, doi, pmid, url, title
 # anything else with _id is treated as a gene id
-DeepMut <- function(variant_data, gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None',
-                    uniprot_id=NA, authour=NA, year=NA, pdb_id=NA, misc=NULL){
+DeepMut <- function(variant_data, ...){
   # (minimal) Error Checking
   if (!all(c('variants', 'score', 'raw_score') %in% colnames(variant_data))) {
     stop('variant_data does not contain the required columns (protein_variants, score, raw_score)')
   }
   
-  # Construct List of required fields
-  deep_mut <- list(variant_data=variant_data,
-                   gene_name=gene_name,
-                   domain=domain,
-                   species=species,
-                   uniprot_id=uniprot_id,
-                   ref_seq=ref_seq,
-                   authour=authour,
-                   year=year,
-                   pdb_id=pdb_id,
-                   transform=transform)
   
-  if (!is_null(misc)){
-    deep_mut <- c(deep_mut, misc)
-  }
-  
+  defaults <- list(gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None', uniprot_id=NA, authour=NA, year=NA)
+
+  deep_mut <- list(variant_data=variant_data, ...)
+  deep_mut <- c(deep_mut, defaults[!names(defaults) %in% names(deep_mut)])
+
   class(deep_mut) <- c('DeepMut', class(deep_mut))
   return(deep_mut)
 }
