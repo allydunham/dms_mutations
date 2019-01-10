@@ -18,7 +18,7 @@ gen_mut_id <- function(acc, ref, alt, pos){
 # accessions = named chr vector of accessions
 # study = named chr vector of paper metadata
 # species = species string
-# ref_seq = reference AA seq string
+# aa_seq = reference AA seq string
 # authour = paper authours
 # year = paper year (minimal info to locate, best to include more (such as url) in misc)
 # transform = method used to transform score
@@ -32,7 +32,7 @@ DeepMut <- function(variant_data, ...){
   }
   
   
-  defaults <- list(gene_name=NA, domain=NA, species=NA, ref_seq=NA, transform='None', uniprot_id=NA, authour=NA, year=NA)
+  defaults <- list(gene_name=NA, domain=NA, species=NA, aa_seq=NA, transform='None', uniprot_id=NA, authour=NA, year=NA)
 
   deep_mut <- list(variant_data=variant_data, ...)
   deep_mut <- c(deep_mut, defaults[!names(defaults) %in% names(deep_mut)])
@@ -61,6 +61,7 @@ write_deep_mut.default <- function(x){
 # write 'DeepMut' classed objects to a consistent file type (termed dm file for now)
 write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   keys <- names(x)
+  keys <- keys[!keys == 'variant_data']
   
   # Check if dir exists and create if necessary
   target_dir <- str_split(outfile, '/')[[1]]
@@ -74,39 +75,46 @@ write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   }
   
   ## Write meta data
-  write_lines(c('#deep_mut_file_version:1.2'), outfile)
+  write_lines(c('#deep_mut_file_version:2.0'), outfile)
   
   gene_keys <- c('gene_name', 'domain', 'species', 'alt_name')
   acc_keys <- keys[grepl('_id', keys)]
   study_keys <- c('authour', 'year', 'title', 'pmid', 'url', 'doi')
-  misc_keys <- keys[!keys %in% c('gene_name', 'domain', 'species', 'alt_name', 'authour', 'year', 'title',
-                                 'pmid', 'url', 'doi', 'transform', 'ref_seq', 'variant_data') &
-                      !grepl('_id', keys)]
+  seq_keys <- keys[grepl('_seq', keys)]
+  misc_keys <- keys[!keys %in% c(gene_keys, acc_keys, study_keys, seq_keys)]
   
-  ordered_keys <- c(gene_keys, acc_keys, study_keys, 'transform', misc_keys)
+  ordered_keys <- c(gene_keys, acc_keys, study_keys, misc_keys, seq_keys)
   ordered_keys <- ordered_keys[ordered_keys %in% keys]
   
+  # Write meta data
   for (k in ordered_keys){
-    write_lines(str_c('#', k, ':', ifelse(is.na(x[[k]]), 'NA', x[[k]])), outfile, append = TRUE)
-  }
-  
-  ## Write ref sequence
-  if (!(is.na(x$ref_seq) | is.null(x$ref_seq))){
-    seq <- str_split(x$ref_seq, '')[[1]]
-    l <- ceiling(length(seq)/80)
+    if (length(x[[k]]) > 1){
+      # Write list/vectors
+      write_lines(str_c('#*', k, ':', length(x[[k]])), outfile, append = TRUE)
+      write_lines(str_c('#*', as.character(x[[k]])), outfile, append = TRUE)
+      
+    } else if (grepl('_seq', k)){
+      # write long seq strings to multiple lines
+      if (!is.na(x[[k]])){
+        s <- str_split(x[[k]], '')[[1]]
+        l <- ceiling(length(s)/80)
+        
+        split_s <- sapply(1:l, function(i){
+          t <- s[((i - 1) * 80 + 1):(i*80)];
+          return(str_c(t[!is.na(t)], collapse = ''))
+        })
+        
+        # Header has number of lines to follow, all lines denoted '#+'
+        write_lines(str_c('#+', k, ':', length(split_s)), outfile, append = TRUE)
+        write_lines(str_c('#+', split_s), outfile, append = TRUE)
+      } else {
+        write_lines(str_c('#', k, ':NA', outfile, append = TRUE))
+      }
+    } else {
+      # Write generic (e.g. short string)
+      write_lines(str_c('#', k, ':', ifelse(is.na(x[[k]]), 'NA', x[[k]])), outfile, append = TRUE)
+    }
     
-    # Following sequence lines denoted as '#+'
-    split_seq <- sapply(1:l, function(i){
-      t <- seq[((i - 1) * 80 + 1):(i*80)];
-      return(str_c(t[!is.na(t)], collapse = ''))
-    })
-    
-    # Header with number of seq lines to follow
-    write_lines(str_c('#ref_seq:', length(split_seq)), outfile, append = TRUE)
-    # Seq lines, led by #+
-    write_lines(str_c('#+', split_seq), outfile, append = TRUE)
-  } else {
-    write_lines('#ref_seq:NA', outfile, append = TRUE)
   }
   
   ## Write variant table (header line (& final metadata line) denoted by '?')
@@ -139,8 +147,8 @@ read_deep_mut <- function(filepath){
   dm <- DeepMut(tbl)
   
   fi <- file(filepath, 'r')
-  ln <- readLines(fi, n = 1)
   while (TRUE){
+    ln <- readLines(fi, n = 1)
     # Check for end of file
     if (length(ln) == 0){
       close(fi)
@@ -151,39 +159,46 @@ read_deep_mut <- function(filepath){
     # Check line is a meta line
     if (first_char == '#'){
       ln <- str_sub(ln, 2)
+      second_char <- str_sub(ln, end=1)
       
-      # Check for seq line before leader
-      if (str_sub(ln, end=1) == '+'){
-        close(fi)
-        stop('Error: Reached sequence lines before finding a "#ref_seq" line')
-      }
-      
-      # process meta pair
       pair <- str_split(ln, ':')[[1]]
       if (length(pair) > 2){
         # Reform any values that contain ':' chars
         pair <- c(pair[1], str_c(pair[-1], collapse = ':'))
       }
       
-      if (pair[1] == 'ref_seq'){
-        # Read in seq lines
-        if (is.na(pair[2])){
-          dm$ref_seq <- NA
-        } else {
-          seq <- readLines(fi, n = as.numeric(pair[2]))
-          dm$ref_seq <- gsub('\\#\\+', '', str_c(seq, collapse = ''))
-        }
-      } else if (!pair[1] == 'deep_mut_file_version'){
-        # Read normal meta pairs (ignore file version)
+      if (second_char == '*'){
+        # Read lists
+        pair[1] <- str_sub(pair[1], 2)
         if (pair[2] == 'NA'){
           dm[[pair[1]]] <- NA
-        } else if (grepl('^\\-?[0-9]*(\\.[0-9]*)?$', pair[2])){
-          dm[[pair[1]]] <- as.numeric(pair[2])
+        } else {
+          s <- readLines(fi, n = as.numeric(pair[2]))
+          dm[[pair[1]]] <- gsub('\\#\\*', '', s)
+        }
+        
+      } else if (second_char == '+'){
+        # Read multiline strings
+        pair[1] <- str_sub(pair[1], 2)
+        if (pair[2] == 'NA'){
+          dm[[pair[1]]] <- NA
+        } else {
+          s <- readLines(fi, n = as.numeric(pair[2]))
+          dm[[pair[1]]] <- gsub('\\#\\+', '', str_c(s, collapse = ''))
+        }
+      } else {
+        # Read normal entries
+        if (pair[2] == 'NA'){
+          dm[[pair[1]]] <- NA
         } else {
           dm[[pair[1]]] <- pair[2]
         }
       }
-      ln <- readLines(fi, n = 1)
+      
+      # Convert numeric values
+      if (all(grepl('^\\-?[0-9]*(\\.[0-9]*)?$', dm[[pair[1]]]))){
+        dm[[pair[1]]] <- as.numeric(dm[[pair[1]]])
+      }
     } else if (first_char == '?'){
       # Detect header line and stop parsing
       close(fi)

@@ -37,3 +37,11 @@ Initial version. Current rules:
 ### Version 1.2
 * Added 'pdb\_id' as a required meta data entry (will be added as NA when the file is read if not present)
 * Changed 'pubmed\_id' meta entry to 'pmid' to allow all other IDs (uniprot, pdb, etc.) to be easily grouped as '\_id' fields while 'pmid' remains with the paper info.
+
+## Version 2.0
+* Renamed 'ref\_seq' to 'aa\_seq' to allow multiple sequence entries
+* Added generic meta data entries for split strings (e.g. seqs) and lists (e.g. list of pdb IDs)
+    * \#\+ indicates a split string entry, with the leading line giving the name and number of lines to read (name:N)
+        * This is currently applied to fields ending in '\_seq', which as most likely to be long
+    * \#\* indicates a list entry, with the leading line in the same format this is read into an array like structure rather than concatenated
+* pdb\_id is a list entry of pdb(:chain) for each related pdb entry
