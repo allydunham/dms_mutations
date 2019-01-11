@@ -118,7 +118,7 @@ class DeepMut:
 
             for key in ordered_keys:
                 if self.meta_data[key] is None or not key in self.meta_data:
-                    print(f"#{key}:NA",file=dm_file)
+                    print(f"#{key}:NA", file=dm_file)
                 elif isinstance(self.meta_data[key], (list, tuple, set)):
                     lines = ['#*' + x for x in self.meta_data[key]]
                     print(f"#*{key}:{len(lines)}", file=dm_file)
