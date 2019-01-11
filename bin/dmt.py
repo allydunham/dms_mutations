@@ -10,11 +10,16 @@ Tool to run various tasks on individual .dm files:
 """
 import os
 import argparse
+from ftplib import FTP
+import gzip
+import shutil
 import pandas as pd
 import evcouplings.utils as ev
 import deep_mut_tools as dm
 from nested_dicts import nested_merge
 from smart_open import smart_open
+
+ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
 
 class DMTaskSelecter:
     """Case selecter for different possible tasks to apply to DeepMut data"""
@@ -67,9 +72,9 @@ class DMTaskSelecter:
             overrides = ev.config.parse_config(kwargs['ev_options'])
         else:
             overrides = {}
-`
+
         # Can pass the loaded config directly as a dict when using the class in other scripts
-        try:`
+        try:
             config = ev.config.read_config_file(kwargs['ev_default'])
         except TypeError:
             config = kwargs['ev_default']
@@ -103,7 +108,39 @@ class DMTaskSelecter:
 
     def foldx(self, **kwargs):
         """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present"""
-        pass
+        path = kwargs['path']
+        out_dir = path.rstrip('/') if path else '/'.join(kwargs['dm_file'].split('/')[0:-1])
+        genotypes = self.deep_data.genotypes()
+
+        for pdb in self.deep_data.meta_data['pdb_id']:
+            # Download PDB if it doesn't exist
+            pdb = pdb.split(':')
+            pdb_id, pbd_chain = pdb[0], pdb[1]
+            pdb_dir = f'{out_dir}/{pdb_id}'
+            if not os.path.isdir(pdb_dir):
+                os.mkdir(pdb_dir)
+
+            with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
+                for geno in genotypes:
+                    print(*[f"{i[0]}{pbd_chain}{i[1:]}" for i in geno],
+                          sep=',', end=';\n', file=out_file)
+
+            pdb_path = f"{pdb_dir}/{pdb_id}.pdb"
+            pdb_gz_path = f"{pdb_path}.gz"
+            pdb_id_low = pdb_id.lower()
+            if not os.path.isfile(pdb_path):
+                with open(pdb_gz_path, 'wb') as pdb_file, FTP('ftp.ebi.ac.uk') as ftp:
+                    ftp.login('anonymous')
+                    ftp.cwd(f'/pub/databases/pdb/data/structures/divided/pdb/{pdb_id_low[1:3]}/')
+                    ftp.retrbinary(f'RETR pdb{pdb_id_low}.ent.gz', pdb_file.write)
+
+                with gzip.open(pdb_gz_path, 'rb') as gz_file, open(pdb_path, 'wb') as pdb_file:
+                    shutil.copyfileobj(gz_file, pdb_file)
+
+                os.remove(pdb_gz_path)
+
+            if not os.path.isfile(f'{pdb_dir}/rotabase.txt'):
+                shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
 
     def polyphen2(self, **kwargs):
         """Generate protein variant file for Polyphen2 analysis"""
@@ -141,6 +178,9 @@ def parse_args():
                         default='/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt')
     parser.add_argument('--ev_options', '-v', help='Additional EVCouplings config options')
     parser.add_argument('--env', '-n', help='Path to envision database file')
+
+    parser.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
+                        default=ROTABASE_PATH)
 
     return parser.parse_args()
 
