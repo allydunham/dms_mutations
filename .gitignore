@@ -5,3 +5,6 @@ figures/*
 
 # Project Files
 .Rproj.user
+
+# Misc Files
+rotabase.txt
