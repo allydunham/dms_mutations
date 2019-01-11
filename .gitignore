@@ -2,6 +2,7 @@
 data/*
 meta/*
 figures/*
+test/*
 
 # Project Files
 .Rproj.user
