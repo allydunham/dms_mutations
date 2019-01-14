@@ -3,7 +3,7 @@
 Prepare files and LSF jobs to analyse deep mutagenesis data using a variety
 of variant effect prediction tools.
 """
-import sys
+#import sys
 import os
 import logging
 from datetime import datetime
@@ -14,7 +14,12 @@ import dmt
 from nested_dicts import nested_merge
 from smart_open import smart_open
 
+
+LSF_GROUP = '/ally_dm_var_pred_pipe'
+
 ROOT_DIR = '/nfs/research1/beltrao/ally'
+LOG_ROOT = ROOT_DIR + '/logs'
+
 EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
 
 ENV_HUMAN_DB = ROOT_DIR + '/databases/envision/human_predicted_combined_20170925.csv'
@@ -24,8 +29,9 @@ ENV_YEAST_DB = ROOT_DIR + '/databases/envision/yeast_predicted_2017-03-12.csv'
 UNIREF100 = ROOT_DIR + '/databases/uniprot/uniref100/uniref100_2019_1.fasta'
 UNIREF90 = ROOT_DIR + '/databases/uniprot/uniref90/uniref90_2019_1.fasta'
 UNIPROT = ROOT_DIR + '/databases/uniprot/uniprot/uniprot_2019_1.fasta'
+
 ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
-LOG_ROOT = ROOT_DIR + '/logs'
+
 
 def main(args):
     """Main script"""
@@ -91,14 +97,15 @@ def main(args):
                     print('## SIFT4G', file=script_file)
                     tasker.sift4g(path=dm_dir, dm_file=dm_path, overwrite=False)
                     print(sift_job(deep_mut=deep, out_dir=dm_dir, log_dir=log_dir,
-                                   sift_db=args.sift_db, ram=args.sift_ram, dm_id=dm_id),
+                                   sift_db=args.sift_db, ram=args.sift_ram, dm_id=dm_id,
+                                   batch_id=batch_name),
                           file=script_file, end='\n\n')
 
                 if args.envision and deep.meta_data['species'] in env_dbs:
                     print('## Envision', file=script_file)
                     print(envision_job(deep_mut=deep, dm_path=dm_path, out_dir=dm_dir,
                                        env_dbs=env_dbs, log_dir=log_dir, ram=args.env_ram,
-                                       dm_id=dm_id),
+                                       dm_id=dm_id, batch_id=batch_name),
                           file=script_file, end='\n\n')
                 elif args.envision:
                     logging.warning('No envision database for %s', deep.meta_data['species'])
@@ -110,7 +117,8 @@ def main(args):
                         pdb = pdb.split(':')
                         print(f'# {pdb[0]}', file=script_file)
                         print(foldx_job(pdb_id=pdb[0], out_dir=dm_dir, log_dir=log_dir,
-                                        ram=args.foldx_ram, dm_id=dm_id),
+                                        ram=args.foldx_ram, dm_id=dm_id,
+                                        batch_id=batch_name),
                               file=script_file, end='\n\n')
                 elif args.foldx:
                     logging.warning('No PDB IDs in %s', dm_path)
@@ -120,20 +128,38 @@ def main(args):
                     tasker.evcouplings(path=dm_dir, overwrite=False, ev_default=ev_config,
                                        ev_options='')
                     print(evcouplings_job(config=f'{dm_dir}/ev_config.txt', log_dir=log_dir,
-                                          ram=args.ev_ram, dm_id=dm_id),
+                                          ram=args.ev_ram, dm_id=dm_id, batch_id=batch_name),
                           file=script_file, end='\n\n')
 
                 if args.polyphen2:
                     print('## Polyphen2', file=script_file)
                     tasker.polyphen2(path=f'{dm_dir}/polyphen2_variants.tsv')
-                    print(polyphen2_job(dm_dir=dm_dir, log_dir=log_dir, ram=args.pph_ram,
-                                        gene_name=deep.meta_data['gene_name'], dm_id=dm_id),
-                          file=script_file, end='\n\n')
+                    print(*polyphen2_job(dm_dir=dm_dir, log_dir=log_dir, ram=args.pph_ram,
+                                         gene_name=deep.meta_data['gene_name'], dm_id=dm_id,
+                                         batch_id=batch_name),
+                          file=script_file, sep='\n', end='\n\n')
 
             except Exception as err:
                 raise err
 
-def sift_job(deep_mut, out_dir, log_dir, sift_db, ram, dm_id):
+def bsub(command, log, ram=8000, group=LSF_GROUP, name='', dep=''):
+    """LSF submission command string"""
+    command = ['bsub',
+               f'-g {group}',
+               f'-M {ram} -R "rusage[mem={ram}]"',
+               f'-o {log}.%J',
+               f"-e {log}.%J.err",
+               f"'{command}'"]
+
+    if name:
+        command.insert(1, f'-J "{name}"')
+
+    if dep:
+        command.insert(3, f'-w "{dep}"')
+
+    return ' '.join(command)
+
+def sift_job(deep_mut, out_dir, log_dir, sift_db, ram, dm_id, batch_id):
     """Generate LSF job string for SIFT4G"""
     command = ' '.join(["sift4g",
                         f"-q {out_dir}/{deep_mut.meta_data['gene_name']}.fa",
@@ -141,12 +167,11 @@ def sift_job(deep_mut, out_dir, log_dir, sift_db, ram, dm_id):
                         f"--subst {out_dir}/{deep_mut.meta_data['gene_name']}.subst",
                         f"--out {out_dir}"])
 
-    return ' '.join([f"bsub -o {log_dir}/{dm_id}_sift4g.%J",
-                     f"-e {log_dir}/{dm_id}_sift4g.%J.err",
-                     f'-M {ram} -R "rusage[mem={ram}]"',
-                     f"'{command}'"])
+    job_name = f'{batch_id}_{dm_id}_sift'
 
-def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id):
+    return bsub(command, f'{log_dir}/{dm_id}_sift4g', ram=ram, name=job_name)
+
+def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for Envision"""
     uniprot_id = deep_mut.meta_data['uniprot_id']
     gene_name = deep_mut.meta_data['gene_name']
@@ -156,8 +181,6 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id):
         env_db = env_dbs[species]
     except KeyError:
         raise ValueError(f'No Envision Database for {species}')
-
-
 
     grep_command = ' '.join(['cat',
                              f'<(head -n 1 {env_db})',
@@ -171,12 +194,12 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id):
                            'envision',
                            dm_path])
 
-    return ' '.join([f"bsub -o {log_dir}/{dm_id}_envision.%J",
-                     f"-e {log_dir}/{dm_id}_envision.%J.err",
-                     f'-M {ram} -R "rusage[mem={ram}]"',
-                     f"'{grep_command};{py_command}'"])
+    job_name = f'{batch_id}_{dm_id}_envision'
 
-def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id):
+    return bsub(f'{grep_command};{py_command}', f'{log_dir}/{dm_id}_envision',
+                ram=ram, name=job_name)
+
+def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for FoldX"""
     pdb_dir = f'{out_dir}/{pdb_id}'
     repair = ' '.join(['foldx',
@@ -191,21 +214,16 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id):
                       '--numberOfRuns=3',
                       '--clean-mode=3'])
 
-    return ' '.join([f"bsub -o {log_dir}/{dm_id}_foldx.%J",
-                     f"-e {log_dir}/{dm_id}_foldx.%J.err",
-                     f'-M {ram} -R "rusage[mem={ram}]"',
-                     f"'{repair};{model}'"])
+    job_name = f'{batch_id}_{dm_id}_foldx'
 
-def evcouplings_job(config, log_dir, ram, dm_id):
+    return bsub(f'{repair};{model}', f'{log_dir}/{dm_id}_foldx', ram=ram, name=job_name)
+
+def evcouplings_job(config, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for EVCouplings"""
-    command = f'evcouplings_runcfg {config}'
+    return bsub(f'evcouplings_runcfg {config}', f'{log_dir}/{dm_id}_evcouplings',
+                ram=ram, name=f'{batch_id}_{dm_id}_evcouplings')
 
-    return' '.join([f"bsub -o {log_dir}/{dm_id}_evcouplings.%J",
-                    f"-e {log_dir}/{dm_id}_evcouplings.%J.err",
-                    f'-M {ram} -R "rusage[mem={ram}]"',
-                    f"'{command}'"])
-
-def polyphen2_job(dm_dir, gene_name, log_dir, ram, dm_id):
+def polyphen2_job(dm_dir, gene_name, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for Polyphen2"""
     run_pph = ' '.join(['run_pph.pl'
                         f'{dm_dir}/polyphen2_variants.tsv',
@@ -216,10 +234,18 @@ def polyphen2_job(dm_dir, gene_name, log_dir, ram, dm_id):
                          f'{dm_dir}/pph_{gene_name}.features',
                          f'1>{dm_dir}/pph_{gene_name}.predictions'])
 
-    return ' '.join([f"bsub -o {log_dir}/{dm_id}_polyphen2.%J",
-                     f"-e {log_dir}/{dm_id}_polyphen2.%J.err",
-                     f'-M {ram} -R "rusage[mem={ram}]"',
-                     f"'{run_pph};{run_weka}'"])
+    pph_name = f'{batch_id}_{dm_id}_polyphen2_pph'
+    weka_name = f'{batch_id}_{dm_id}_polyphen2_weka'
+
+    pph_job = bsub(run_pph, ram=ram,
+                   log=f'{log_dir}/{dm_id}_polyphen2_pph',
+                   name=pph_name)
+
+    weka_job = bsub(run_weka, ram=ram,
+                    log=f'{log_dir}/{dm_id}_polyphen2_weka',
+                    name=weka_name, dep=f'ended({pph_name})')
+
+    return [pph_job, weka_job]
 
 def parse_args():
     """Process input arguments"""
