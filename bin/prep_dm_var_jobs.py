@@ -199,7 +199,7 @@ def sift_job(deep_mut, out_dir, log_dir, sift_db, ram, dm_id, batch_id):
     command = ' '.join(["sift4g",
                         f"-q {out_dir}/{deep_mut.meta_data['gene_name']}.fa",
                         f"-d {sift_db}",
-                        f"--subst {out_dir}/{deep_mut.meta_data['gene_name']}.subst",
+                        f"--subst {out_dir}/",
                         f"--out {out_dir}"])
 
     job_name = f'{batch_id}_{dm_id}_sift'
@@ -260,7 +260,7 @@ def evcouplings_job(config, log_dir, ram, dm_id, batch_id):
 
 def polyphen2_job(dm_dir, gene_name, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for Polyphen2"""
-    run_pph = ' '.join(['run_pph.pl'
+    run_pph = ' '.join(['run_pph.pl',
                         f'{dm_dir}/polyphen2_variants.tsv',
                         f'1>{dm_dir}/pph_{gene_name}.features',
                         f'2>{dm_dir}/pph_{gene_name}.log'])
