@@ -20,7 +20,8 @@ LSF_GROUP = '/ally_dm_var_pred_pipe'
 ROOT_DIR = '/nfs/research1/beltrao/ally'
 LOG_ROOT = ROOT_DIR + '/logs'
 
-EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
+#EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
+EV_CONFIG_PATH = ROOT_DIR + '/mutations/meta/base_evcouplings_config.txt'
 
 ENV_HUMAN_DB = ROOT_DIR + '/databases/envision/human_predicted_combined_20170925.csv'
 ENV_MOUSE_DB = ROOT_DIR + '/databases/envision/mouse_predicted_combined_20171004.csv'
@@ -30,8 +31,8 @@ UNIREF100 = ROOT_DIR + '/databases/uniprot/uniref100/uniref100_2019_1.fasta'
 UNIREF90 = ROOT_DIR + '/databases/uniprot/uniref90/uniref90_2019_1.fasta'
 UNIPROT = ROOT_DIR + '/databases/uniprot/uniprot/uniprot_2019_1.fasta'
 
-ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
-
+#ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
+ROTABASE_PATH = ROOT_DIR + '/software/packages/foldx4/rotabase.txt'
 
 def main(args):
     """Main script"""
@@ -40,7 +41,7 @@ def main(args):
                   f"dm_var_pred_{datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')}")
 
     log_dir = f"{args.log.rstrip('/')}/{batch_name}"
-    #os.makedirs(log_dir)
+    os.makedirs(log_dir)
 
     # Initiate Log
     log_file = args.log_file or f'{log_dir}/log.txt'
