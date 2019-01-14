@@ -30,10 +30,8 @@ LOG_ROOT = ROOT_DIR + '/logs'
 def main(args):
     """Main script"""
     # Prepare dirs and output file
-    if args.name and args.name not in os.listdir(args.log):
-        batch_name = args.name
-    else:
-        batch_name = f"dm_var_pred_{datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')}"
+    batch_name = (args.name if args.name and args.name not in os.listdir(args.log) else
+                  f"dm_var_pred_{datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')}")
 
     log_dir = f"{args.log.rstrip('/')}/{batch_name}"
     #os.makedirs(log_dir)
@@ -86,28 +84,37 @@ def main(args):
                 tasker = dmt.DMTaskSelecter(deep)
 
                 if args.sift4g:
-                    print('# SIFT4G', file=script_file)
+                    print('## SIFT4G', file=script_file)
                     tasker.sift4g(path=dm_dir, dm_file=dm_path, overwrite=False)
                     print(sift_job(deep_mut=deep, out_dir=dm_dir, log_dir=log_dir,
                                    sift_db=args.sift_db, ram=args.sift_ram),
                           file=script_file, end='\n\n')
 
                 if args.envision and deep.meta_data['species'] in env_dbs:
-                    print('# Envision', file=script_file)
+                    print('## Envision', file=script_file)
                     print(envision_job(deep_mut=deep, dm_path=dm_path, out_dir=dm_dir,
                                        env_dbs=env_dbs, log_dir=log_dir, ram=args.env_ram),
                           file=script_file, end='\n\n')
                 elif args.envision:
                     logging.warning('No envision database for %s', deep.meta_data['species'])
 
-                if args.foldx:
-                    print('# FoldX', file=script_file)
+                if args.foldx and deep.meta_data['pdb_id']:
+                    print('## FoldX', file=script_file)
+                    tasker.foldx(path=dm_dir, dm_file=dm_path, rotabase=args.rotabase)
+                    for pdb in deep.meta_data['pdb_id']:
+                        pdb = pdb.split(':')
+                        print(f'# {pdb[0]}', file=script_file)
+                        print(foldx_job(pdb_id=pdb[0], out_dir=dm_dir, log_dir=log_dir,
+                                        ram=args.foldx_ram),
+                              file=script_file, end='\n\n')
+                elif args.foldx:
+                    logging.warning('No PDB IDs in %s', dm_path)
 
                 if args.evcouplings:
-                    print('# EVCouplings', file=script_file)
+                    print('## EVCouplings', file=script_file)
 
                 if args.polyphen2:
-                    print('# Polyphen2', file=script_file)
+                    print('## Polyphen2', file=script_file)
 
             except Exception as err:
                 raise err
@@ -155,9 +162,25 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram):
                      f'-M {ram} -R "rusage[mem={ram}]]"',
                      f"'{grep_command};{py_command}'"])
 
-def foldx_job():
+def foldx_job(pdb_id, out_dir, log_dir, ram):
     """Generate LSF job string for FoldX"""
+    pdb_dir = f'{out_dir}/{pdb_id}'
+    repair = ' '.join(['foldx',
+                       '--command=RepairPDB',
+                       f'--pdb={pdb_dir}/{pdb_id}.pdb',
+                       '--clean-mode=3'])
 
+    model = ' '.join(['foldx',
+                       '--command=BuildModel',
+                       f'--pdb={pdb_dir}/{pdb_id}_Repair.pdb',
+                       f'--mutant-file=individual_list_{pdb_id}.txt',
+                       '--numberOfRuns=3',
+                       '--clean-mode=3'])
+
+    return ' '.join([f"bsub -o {log_dir}/envision.%J",
+                     f"-e {log_dir}/envision.%J.err",
+                     f'-M {ram} -R "rusage[mem={ram}]]"',
+                     f"'{repair};{model}'"])
 
 def evcouplings_job():
     """Generate LSF job string for EVCouplings"""
@@ -202,6 +225,7 @@ def parse_args():
     foldx = parser.add_argument_group('FoldX Options')
     foldx.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
                        default=ROTABASE_PATH)
+    foldx.add_argument('--foldx_ram', default=8000, type=int, help='FoldX job RAM')
 
     lsf = parser.add_argument_group('Technical LSF Options')
     lsf.add_argument('--log', '-l', help='Path to root logging directory', default=LOG_ROOT)
