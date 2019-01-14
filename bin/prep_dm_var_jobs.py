@@ -17,7 +17,6 @@ from smart_open import smart_open
 ROOT_DIR = '/nfs/research1/beltrao/ally'
 EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
 
-ENV_SPECIES = ('Homo sapiens', 'Saccharomyces cerevisiae', 'Mus musculus')
 ENV_HUMAN_DB = ROOT_DIR + '/databases/envision/human_predicted_combined_20170925.csv'
 ENV_MOUSE_DB = ROOT_DIR + '/databases/envision/mouse_predicted_combined_20171004.csv'
 ENV_YEAST_DB = ROOT_DIR + '/databases/envision/yeast_predicted_2017-03-12.csv'
@@ -46,17 +45,16 @@ def main(args):
     logging.info('Writing job logs to %s', log_dir)
 
     out_path = f'{batch_name}.sh' if args.out == '-' else args.out
-    if args.out:
-        logging.info('Writing job script to %s', out_path)
-    else:
-        logging.info('Writing job script to STDOUT')
+    logging.info('Writing job script to %s', out_path if args.out else 'STDOUT')
 
-    # # Prepare for selected actions
+    # Prepare for selected actions
     # if args.sift4g:
     #     pass
 
-    # if args.envision:
-    #     pass
+    if args.envision:
+        env_dbs = {'Homo sapiens': args.env_human,
+                   'Saccharomyces cerevisiae': args.env_yeast,
+                   'Mus musculus': args.env_mouse}
 
     # if args.foldx:
     #     pass
@@ -86,53 +84,19 @@ def main(args):
                 dm_dir = '/'.join(dm_path.split('/')[:-1])
                 deep = dm.read_deep_mut(dm_path)
                 tasker = dmt.DMTaskSelecter(deep)
-                gene_name = deep.meta_data['gene_name']
-                uniprot_id = deep.meta_data['uniprot_id']
 
                 if args.sift4g:
                     print('# SIFT4G', file=script_file)
                     tasker.sift4g(path=dm_dir, dm_file=dm_path, overwrite=False)
+                    print(sift_job(deep_mut=deep, out_dir=dm_dir, log_dir=log_dir,
+                                   sift_db=args.sift_db, ram=args.sift_ram),
+                          file=script_file, end='\n\n')
 
-                    command = ' '.join(["sift4g",
-                                        f"-q {dm_dir}/{gene_name}.fa",
-                                        f"-d {args.sift_db}",
-                                        f"--subst {dm_dir}/{gene_name}.subst",
-                                        f"--out {dm_dir}"])
-
-                    job = ' '.join([f"bsub -o {log_dir}/sift4g.%J",
-                                    f"-e {log_dir}/sift4g.%J.err",
-                                    f'-M {args.sift_ram} -R "rusage[mem={args.sift_ram}]]"',
-                                    f"'{command}'"])
-                    print(job, file=script_file, end='\n\n')
-
-                if args.envision and deep.meta_data['species'] in ENV_SPECIES:
+                if args.envision and deep.meta_data['species'] in env_dbs:
                     print('# Envision', file=script_file)
-
-                    if deep.meta_data['species'] == 'Homo sapiens':
-                        env_db = args.env_human
-                    elif deep.meta_data['species'] == 'Mus musculus':
-                        env_db = args.env_mouse
-                    elif deep.meta_data['species'] == 'Saccharomyces cerevisiae':
-                        env_db = args.env_yeast
-
-                    grep_command = ' '.join(['cat',
-                                             f'<(head -n 1 {env_db})',
-                                             f'<(grep {uniprot_id} {env_db})',
-                                             f'> {dm_dir}/{uniprot_id}_envision_db.csv'])
-
-                    py_command = ' '.join(['python',
-                                           f'{ROOT_DIR}/mutations/bin/dmt.py',
-                                           f'--env {dm_dir}/{uniprot_id}_envision_db.csv',
-                                           f'--path {dm_dir}/{gene_name}_envision_vars.csv',
-                                           'envision',
-                                           dm_path])
-
-                    job = ' '.join([f"bsub -o {log_dir}/envision.%J",
-                                    f"-e {log_dir}/envision.%J.err",
-                                    f'-M {args.env_ram} -R "rusage[mem={args.env_ram}]]"',
-                                    f"'{grep_command};{py_command}'"])
-                    print(job, file=script_file, end='\n\n')
-
+                    print(envision_job(deep_mut=deep, dm_path=dm_path, out_dir=dm_dir,
+                                       env_dbs=env_dbs, log_dir=log_dir, ram=args.env_ram),
+                          file=script_file, end='\n\n')
                 elif args.envision:
                     logging.warning('No envision database for %s', deep.meta_data['species'])
 
@@ -148,6 +112,59 @@ def main(args):
             except Exception as err:
                 raise err
 
+def sift_job(deep_mut, out_dir, log_dir, sift_db, ram):
+    """Generate LSF job string for SIFT4G"""
+    command = ' '.join(["sift4g",
+                        f"-q {out_dir}/{deep_mut.meta_data['gene_name']}.fa",
+                        f"-d {sift_db}",
+                        f"--subst {out_dir}/{deep_mut.meta_data['gene_name']}.subst",
+                        f"--out {out_dir}"])
+
+    return' '.join([f"bsub -o {log_dir}/sift4g.%J",
+                    f"-e {log_dir}/sift4g.%J.err",
+                    f'-M {ram} -R "rusage[mem={ram}]]"',
+                    f"'{command}'"])
+
+def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram):
+    """Generate LSF job string for Envision"""
+    uniprot_id = deep_mut.meta_data['uniprot_id']
+    gene_name = deep_mut.meta_data['gene_name']
+    species = deep_mut.meta_data['species']
+
+    try:
+        env_db = env_dbs[species]
+    except KeyError:
+        raise ValueError(f'No Envision Database for {species}')
+
+
+
+    grep_command = ' '.join(['cat',
+                             f'<(head -n 1 {env_db})',
+                             f'<(grep {uniprot_id} {env_db})',
+                             f'> {out_dir}/{uniprot_id}_envision_db.csv'])
+
+    py_command = ' '.join(['python',
+                           f'{ROOT_DIR}/mutations/bin/dmt.py',
+                           f'--env {out_dir}/{uniprot_id}_envision_db.csv',
+                           f'--path {out_dir}/{gene_name}_envision_vars.csv',
+                           'envision',
+                           dm_path])
+
+    return ' '.join([f"bsub -o {log_dir}/envision.%J",
+                     f"-e {log_dir}/envision.%J.err",
+                     f'-M {ram} -R "rusage[mem={ram}]]"',
+                     f"'{grep_command};{py_command}'"])
+
+def foldx_job():
+    """Generate LSF job string for FoldX"""
+
+
+def evcouplings_job():
+    """Generate LSF job string for EVCouplings"""
+
+
+def polyphen2_job():
+    """Generate LSF job string for Polyphen2"""
 
 
 def parse_args():
