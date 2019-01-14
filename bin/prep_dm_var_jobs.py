@@ -57,9 +57,9 @@ def main(args):
     # if args.foldx:
     #     pass
 
-    # if args.evcouplings:
-    #     ev_config = nested_merge(ev.config.parse_config(args.ev_options),
-    #                              ev.config.read_config_file(args.ev_default))
+    if args.evcouplings:
+        ev_config = nested_merge(ev.config.read_config_file(args.ev_config),
+                                 ev.config.parse_config(args.ev_options))
 
     # if args.polyphen2:
     #     pass
@@ -82,6 +82,7 @@ def main(args):
                 dm_dir = '/'.join(dm_path.split('/')[:-1])
                 deep = dm.read_deep_mut(dm_path)
                 tasker = dmt.DMTaskSelecter(deep)
+                tasker.ref_fasta(path=f"{dm_dir}/{deep.meta_data['gene_name']}.fa")
 
                 if args.sift4g:
                     print('## SIFT4G', file=script_file)
@@ -112,6 +113,11 @@ def main(args):
 
                 if args.evcouplings:
                     print('## EVCouplings', file=script_file)
+                    tasker.evcouplings(path=dm_dir, overwrite=False, ev_default=ev_config,
+                                       ev_options='')
+                    print(evcouplings_job(config=f'{dm_dir}/ev_config.txt', log_dir=log_dir,
+                                          ram=args.ev_ram),
+                          file=script_file, end='\n\n')
 
                 if args.polyphen2:
                     print('## Polyphen2', file=script_file)
@@ -171,20 +177,25 @@ def foldx_job(pdb_id, out_dir, log_dir, ram):
                        '--clean-mode=3'])
 
     model = ' '.join(['foldx',
-                       '--command=BuildModel',
-                       f'--pdb={pdb_dir}/{pdb_id}_Repair.pdb',
-                       f'--mutant-file=individual_list_{pdb_id}.txt',
-                       '--numberOfRuns=3',
-                       '--clean-mode=3'])
+                      '--command=BuildModel',
+                      f'--pdb={pdb_dir}/{pdb_id}_Repair.pdb',
+                      f'--mutant-file=individual_list_{pdb_id}.txt',
+                      '--numberOfRuns=3',
+                      '--clean-mode=3'])
 
     return ' '.join([f"bsub -o {log_dir}/envision.%J",
                      f"-e {log_dir}/envision.%J.err",
                      f'-M {ram} -R "rusage[mem={ram}]]"',
                      f"'{repair};{model}'"])
 
-def evcouplings_job():
+def evcouplings_job(config, log_dir, ram):
     """Generate LSF job string for EVCouplings"""
+    command = f'evcouplings_runcfg {config}'
 
+    return' '.join([f"bsub -o {log_dir}/sift4g.%J",
+                    f"-e {log_dir}/sift4g.%J.err",
+                    f'-M {ram} -R "rusage[mem={ram}]]"',
+                    f"'{command}'"])
 
 def polyphen2_job():
     """Generate LSF job string for Polyphen2"""
@@ -213,8 +224,11 @@ def parse_args():
     sift.add_argument('--sift_ram', default=4000, type=int, help='SIFT4G job RAM')
 
     evcoup = parser.add_argument_group('EVCouplings Options')
-    evcoup.add_argument('--ev_config', default=EV_CONFIG_PATH, help='Base EVCouplings config file')
-    evcoup.add_argument('--ev_options', help='Additional EVCouplings config options')
+    evcoup.add_argument('--ev_config', default=EV_CONFIG_PATH,
+                        help='Base EVCouplings config file')
+    evcoup.add_argument('--ev_options', default='{}',
+                        help='Extra EVCouplings options (overwrites ev_config parameters)')
+    evcoup.add_argument('--ev_ram', default=8000, type=int, help='EVCouplings Job RAM')
 
     envision = parser.add_argument_group('Envision Options')
     envision.add_argument('--env_human', default=ENV_HUMAN_DB, help='Envision human database path')
