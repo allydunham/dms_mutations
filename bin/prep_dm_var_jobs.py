@@ -43,8 +43,15 @@ def main(args):
     #os.makedirs(log_dir)
 
     # Initiate Log
-    log_file = args.log_file if args.log_file else f'{log_dir}/log.txt'
-    logging.basicConfig(filename=log_file, level=logging.INFO)
+    log_file = args.log_file or f'{log_dir}/log.txt'
+
+    numeric_log_level = getattr(logging, args.log_level.upper(), None)
+    if not isinstance(numeric_log_level, int):
+        raise ValueError(f'Invalid log level: {args.log_level}')
+
+    logging.basicConfig(filename=log_file, level=numeric_log_level,
+                        format='%(asctime)s %(levelname)s: %(message)s')
+
     logging.info('Batch name %s', batch_name)
     logging.info('Writing job logs to %s', log_dir)
 
@@ -59,6 +66,7 @@ def main(args):
         env_dbs = {'Homo sapiens': args.env_human,
                    'Saccharomyces cerevisiae': args.env_yeast,
                    'Mus musculus': args.env_mouse}
+        logging.debug('Envision databases available: %s', env_dbs)
 
     # if args.foldx:
     #     pass
@@ -66,6 +74,7 @@ def main(args):
     if args.evcouplings:
         ev_config = nested_merge(ev.config.read_config_file(args.ev_config),
                                  ev.config.parse_config(args.ev_options))
+        logging.info('EVCouplings config file loaded')
 
     # if args.polyphen2:
     #     pass
@@ -87,15 +96,25 @@ def main(args):
             try:
                 dm_dir = '/'.join(dm_path.split('/')[:-1])
                 dm_id = dm_dir.split('/')[-1]
+
+                logging.info('Loading DeepMut file: %s', dm_path)
                 deep = dm.read_deep_mut(dm_path)
+
+                logging.info('Initialising DMTaskSelecter for %s', dm_id)
                 tasker = dmt.DMTaskSelecter(deep)
+
+                logging.info('Writing Reference Fasta')
                 tasker.ref_fasta(path=f"{dm_dir}/{deep.meta_data['gene_name']}.fa")
 
 
 
                 if args.sift4g:
                     print('## SIFT4G', file=script_file)
+
+                    logging.info('Preparing SIFT4G Files')
                     tasker.sift4g(path=dm_dir, dm_file=dm_path, overwrite=False)
+
+                    logging.info('Writing SIFT4G Job')
                     print(sift_job(deep_mut=deep, out_dir=dm_dir, log_dir=log_dir,
                                    sift_db=args.sift_db, ram=args.sift_ram, dm_id=dm_id,
                                    batch_id=batch_name),
@@ -103,6 +122,8 @@ def main(args):
 
                 if args.envision and deep.meta_data['species'] in env_dbs:
                     print('## Envision', file=script_file)
+
+                    logging.info('Writing Envision Job')
                     print(envision_job(deep_mut=deep, dm_path=dm_path, out_dir=dm_dir,
                                        env_dbs=env_dbs, log_dir=log_dir, ram=args.env_ram,
                                        dm_id=dm_id, batch_id=batch_name),
@@ -112,9 +133,13 @@ def main(args):
 
                 if args.foldx and deep.meta_data['pdb_id']:
                     print('## FoldX', file=script_file)
+
+                    logging.info('Preparing files for FoldX')
                     tasker.foldx(path=dm_dir, dm_file=dm_path, rotabase=args.rotabase)
+
                     for pdb in deep.meta_data['pdb_id']:
                         pdb = pdb.split(':')
+                        logging.info('Writing FoldX jobs for %s', pdb[0])
                         print(f'# {pdb[0]}', file=script_file)
                         print(foldx_job(pdb_id=pdb[0], out_dir=dm_dir, log_dir=log_dir,
                                         ram=args.foldx_ram, dm_id=dm_id,
@@ -125,21 +150,30 @@ def main(args):
 
                 if args.evcouplings:
                     print('## EVCouplings', file=script_file)
+
+                    logging.info('Preparing files for EVCouplings')
                     tasker.evcouplings(path=dm_dir, overwrite=False, ev_default=ev_config,
                                        ev_options='')
+
+                    logging.info('Writing EVCouplings Job')
                     print(evcouplings_job(config=f'{dm_dir}/ev_config.txt', log_dir=log_dir,
                                           ram=args.ev_ram, dm_id=dm_id, batch_id=batch_name),
                           file=script_file, end='\n\n')
 
                 if args.polyphen2:
                     print('## Polyphen2', file=script_file)
+
+                    logging.info('Preparing files for Polyphen2')
                     tasker.polyphen2(path=f'{dm_dir}/polyphen2_variants.tsv')
+
+                    logging.info('Writing jobs for Polyphen2')
                     print(*polyphen2_job(dm_dir=dm_dir, log_dir=log_dir, ram=args.pph_ram,
                                          gene_name=deep.meta_data['gene_name'], dm_id=dm_id,
                                          batch_id=batch_name),
                           file=script_file, sep='\n', end='\n\n')
 
             except Exception as err:
+                logging.exception('Raised an exception while processing %s', dm_path)
                 raise err
 
 def bsub(command, log, ram=8000, group=LSF_GROUP, name='', dep=''):
@@ -256,6 +290,7 @@ def parse_args():
     parser.add_argument('--out', '-o',
                         help='Output path ("-" to autogenerate or stdout by default)')
     parser.add_argument('--log_file', help='Path to log file')
+    parser.add_argument('--log_level', default='INFO', help='Path to log file')
 
     jobs = parser.add_argument_group('Mutational effect jobs to Prepare')
 
