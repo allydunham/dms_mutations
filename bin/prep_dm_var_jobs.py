@@ -14,16 +14,19 @@ import dmt
 from nested_dicts import nested_merge
 from smart_open import smart_open
 
-ROOT_DIR = '/nfs/research1/beltrao/ally/'
+ROOT_DIR = '/nfs/research1/beltrao/ally'
 EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
-ENV_HUMAN_DB = ROOT_DIR + 'databases/envision/human_predicted_combined_20170925.csv'
-ENV_MOUSE_DB = ROOT_DIR + 'databases/envision/mouse_predicted_combined_20171004.csv'
-ENV_YEAST_DB = ROOT_DIR + 'databases/envision/yeast_predicted_2017-03-12.csv'
-UNIREF100 = ROOT_DIR + 'databases/uniprot/uniref100/uniref100_2019_1.fasta'
-UNIREF90 = ROOT_DIR + 'databases/uniprot/uniref90/uniref90_2019_1.fasta'
-UNIPROT = ROOT_DIR + 'databases/uniprot/uniprot/uniprot_2019_1.fasta'
+
+ENV_SPECIES = ('Homo sapiens', 'Saccharomyces cerevisiae', 'Mus musculus')
+ENV_HUMAN_DB = ROOT_DIR + '/databases/envision/human_predicted_combined_20170925.csv'
+ENV_MOUSE_DB = ROOT_DIR + '/databases/envision/mouse_predicted_combined_20171004.csv'
+ENV_YEAST_DB = ROOT_DIR + '/databases/envision/yeast_predicted_2017-03-12.csv'
+
+UNIREF100 = ROOT_DIR + '/databases/uniprot/uniref100/uniref100_2019_1.fasta'
+UNIREF90 = ROOT_DIR + '/databases/uniprot/uniref90/uniref90_2019_1.fasta'
+UNIPROT = ROOT_DIR + '/databases/uniprot/uniprot/uniprot_2019_1.fasta'
 ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
-LOG_ROOT = ROOT_DIR + 'logs/'
+LOG_ROOT = ROOT_DIR + '/logs'
 
 def main(args):
     """Main script"""
@@ -36,10 +39,17 @@ def main(args):
     log_dir = f"{args.log.rstrip('/')}/{batch_name}"
     #os.makedirs(log_dir)
 
-    if args.out == '-':
-        out_path = f'{batch_name}.sh'
+    # Initiate Log
+    log_file = args.log_file if args.log_file else f'{log_dir}/log.txt'
+    logging.basicConfig(filename=log_file, level=logging.INFO)
+    logging.info('Batch name %s', batch_name)
+    logging.info('Writing job logs to %s', log_dir)
+
+    out_path = f'{batch_name}.sh' if args.out == '-' else args.out
+    if args.out:
+        logging.info('Writing job script to %s', out_path)
     else:
-        out_path = args.out
+        logging.info('Writing job script to STDOUT')
 
     # # Prepare for selected actions
     # if args.sift4g:
@@ -77,6 +87,7 @@ def main(args):
                 deep = dm.read_deep_mut(dm_path)
                 tasker = dmt.DMTaskSelecter(deep)
                 gene_name = deep.meta_data['gene_name']
+                uniprot_id = deep.meta_data['uniprot_id']
 
                 if args.sift4g:
                     print('# SIFT4G', file=script_file)
@@ -94,8 +105,36 @@ def main(args):
                                     f"'{command}'"])
                     print(job, file=script_file, end='\n\n')
 
-                if args.envision:
+                if args.envision and deep.meta_data['species'] in ENV_SPECIES:
                     print('# Envision', file=script_file)
+
+                    if deep.meta_data['species'] == 'Homo sapiens':
+                        env_db = args.env_human
+                    elif deep.meta_data['species'] == 'Mus musculus':
+                        env_db = args.env_mouse
+                    elif deep.meta_data['species'] == 'Saccharomyces cerevisiae':
+                        env_db = args.env_yeast
+
+                    grep_command = ' '.join(['cat',
+                                             f'<(head -n 1 {env_db})',
+                                             f'<(grep {uniprot_id} {env_db})',
+                                             f'> {dm_dir}/{uniprot_id}_envision_db.csv'])
+
+                    py_command = ' '.join(['python',
+                                           f'{ROOT_DIR}/mutations/bin/dmt.py',
+                                           f'--env {dm_dir}/{uniprot_id}_envision_db.csv',
+                                           f'--path {dm_dir}/{gene_name}_envision_vars.csv',
+                                           'envision',
+                                           dm_path])
+
+                    job = ' '.join([f"bsub -o {log_dir}/envision.%J",
+                                    f"-e {log_dir}/envision.%J.err",
+                                    f'-M {args.env_ram} -R "rusage[mem={args.env_ram}]]"',
+                                    f"'{grep_command};{py_command}'"])
+                    print(job, file=script_file, end='\n\n')
+
+                elif args.envision:
+                    logging.warning('No envision database for %s', deep.meta_data['species'])
 
                 if args.foldx:
                     print('# FoldX', file=script_file)
@@ -119,6 +158,7 @@ def parse_args():
     parser.add_argument('dm', metavar='D', nargs='+', help="Input dm files")
     parser.add_argument('--out', '-o',
                         help='Output path ("-" to autogenerate or stdout by default)')
+    parser.add_argument('--log_file', help='Path to log file')
 
     jobs = parser.add_argument_group('Mutational effect jobs to Prepare')
 
@@ -129,8 +169,8 @@ def parse_args():
     jobs.add_argument('--polyphen2', '-p', action='store_true', help='Prepare Polyphen2 jobs')
 
     sift = parser.add_argument_group('SIFT4G Options')
-    sift.add_argument('--sift_db', default=UNIREF90, help='Base EVCouplings config file')
-    sift.add_argument('--sift_ram', default=4000, type=int, help='RAM to allocate to sift4g')
+    sift.add_argument('--sift_db', default=UNIREF90, help='SIFT4G reference database')
+    sift.add_argument('--sift_ram', default=4000, type=int, help='SIFT4G job RAM')
 
     evcoup = parser.add_argument_group('EVCouplings Options')
     evcoup.add_argument('--ev_config', default=EV_CONFIG_PATH, help='Base EVCouplings config file')
@@ -140,6 +180,7 @@ def parse_args():
     envision.add_argument('--env_human', default=ENV_HUMAN_DB, help='Envision human database path')
     envision.add_argument('--env_mouse', default=ENV_MOUSE_DB, help='Envision mouse database path')
     envision.add_argument('--env_yeast', default=ENV_YEAST_DB, help='Envision yeast database path')
+    envision.add_argument('--env_ram', default=1000, type=int, help='Envision job RAM')
 
     foldx = parser.add_argument_group('FoldX Options')
     foldx.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
