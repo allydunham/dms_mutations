@@ -51,10 +51,10 @@ class DeepMut:
 
         print(self.variant_data.head(num))
 
-    def genotypes(self, wt=True, nonsense=True):
+    def genotypes(self, wildtype=True, nonsense=True):
         """Generate a pandas series containing genotypes (as a list [X1Y, A2B, ...]) for the data"""
         geno = self.variant_data['variants'].str.replace('p.', '')
-        if wt:
+        if wildtype:
             geno[geno.isna()] = 'WT'
         else:
             geno = geno.dropna()
@@ -66,9 +66,9 @@ class DeepMut:
         geno = geno.str.split(',')
         return geno
 
-    def unique_variants(self):
+    def unique_variants(self, nonsense=True):
         """Generate a list of the different variants in the dataset"""
-        var = self.genotypes(inc_wt=False)
+        var = self.genotypes(wildtype=False, nonsense=nonsense)
         var = list(set([i for x in var for i in x]))
         var.sort(key=lambda x: int(x[1:-1]))
         return var

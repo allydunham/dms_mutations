@@ -110,7 +110,7 @@ class DMTaskSelecter:
         """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present"""
         path = kwargs['path']
         out_dir = path.rstrip('/') if path else '/'.join(kwargs['dm_file'].split('/')[0:-1])
-        genotypes = self.deep_data.genotypes(wt=False, nonsense=False)
+        genotypes = self.deep_data.genotypes(wildtype=False, nonsense=False)
 
         for pdb in self.deep_data.meta_data['pdb_id']:
             # Download PDB if it doesn't exist
