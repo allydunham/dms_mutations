@@ -322,7 +322,7 @@ def parse_args():
     foldx.add_argument('--foldx_ram', default=8000, type=int, help='FoldX job RAM')
 
     pph = parser.add_argument_group('Polyphen2 Options')
-    pph.add_argument('--pph_ram', default=8000, type=int, help='Polyphen2 job RAM')
+    pph.add_argument('--pph_ram', default=1000, type=int, help='Polyphen2 job RAM')
 
     lsf = parser.add_argument_group('Technical LSF Options')
     lsf.add_argument('--log', '-l', help='Path to root logging directory',
