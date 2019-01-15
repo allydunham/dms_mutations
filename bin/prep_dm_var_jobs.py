@@ -6,33 +6,19 @@ of variant effect prediction tools.
 #import sys
 import os
 import logging
-from datetime import datetime
 import argparse
+import configparser
+from datetime import datetime
+
 import evcouplings.utils as ev
+
 import deep_mut_tools as dm
 import dmt
 from nested_dicts import nested_merge
 from smart_open import smart_open
 
-
-LSF_GROUP = '/ally_dm_var_pred_pipe'
-
-ROOT_DIR = '/nfs/research1/beltrao/ally'
-LOG_ROOT = ROOT_DIR + '/logs'
-
-#EV_CONFIG_PATH = '/Users/ally/Projects/mutations/meta/base_evcouplings_config.txt'
-EV_CONFIG_PATH = ROOT_DIR + '/mutations/meta/base_evcouplings_config.txt'
-
-ENV_HUMAN_DB = ROOT_DIR + '/databases/envision/human_predicted_combined_20170925.csv'
-ENV_MOUSE_DB = ROOT_DIR + '/databases/envision/mouse_predicted_combined_20171004.csv'
-ENV_YEAST_DB = ROOT_DIR + '/databases/envision/yeast_predicted_2017-03-12.csv'
-
-UNIREF100 = ROOT_DIR + '/databases/uniprot/uniref100/uniref100_2019_1.fasta'
-UNIREF90 = ROOT_DIR + '/databases/uniprot/uniref90/uniref90_2019_1.fasta'
-UNIPROT = ROOT_DIR + '/databases/uniprot/uniprot/uniprot_2019_1.fasta'
-
-#ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
-ROTABASE_PATH = ROOT_DIR + '/software/packages/foldx4/rotabase.txt'
+CONFIG = configparser.ConfigParser()
+CONFIG.read('prep_dm_jobs_config.ini')
 
 def main(args):
     """Main script"""
@@ -177,7 +163,7 @@ def main(args):
                 logging.exception('Raised an exception while processing %s', dm_path)
                 raise err
 
-def bsub(command, log, ram=8000, group=LSF_GROUP, name='', dep=''):
+def bsub(command, log, ram=8000, group=CONFIG['LSF']['LSF_GROUP'], name='', dep=''):
     """LSF submission command string"""
     command = ['bsub',
                f'-g {group}',
@@ -223,7 +209,7 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch
                              f'> {out_dir}/{uniprot_id}_envision_db.csv'])
 
     py_command = ' '.join(['python',
-                           f'{ROOT_DIR}/mutations/bin/dmt.py',
+                           CONFIG['misc']['dmt_path'],
                            f'--env {out_dir}/{uniprot_id}_envision_db.csv',
                            f'--path {out_dir}/{gene_name}_envision_vars.csv',
                            'envision',
@@ -302,32 +288,39 @@ def parse_args():
     jobs.add_argument('--polyphen2', '-p', action='store_true', help='Prepare Polyphen2 jobs')
 
     sift = parser.add_argument_group('SIFT4G Options')
-    sift.add_argument('--sift_db', default=UNIREF90, help='SIFT4G reference database')
+    sift.add_argument('--sift_db', default=CONFIG['db']['uniref90'],
+                      help='SIFT4G reference database')
     sift.add_argument('--sift_ram', default=4000, type=int, help='SIFT4G job RAM')
 
     evcoup = parser.add_argument_group('EVCouplings Options')
-    evcoup.add_argument('--ev_config', default=EV_CONFIG_PATH,
+    evcoup.add_argument('--ev_config', default=CONFIG['evcouplings']['ev_config_path'],
                         help='Base EVCouplings config file')
     evcoup.add_argument('--ev_options', default='{}',
                         help='Extra EVCouplings options (overwrites ev_config parameters)')
     evcoup.add_argument('--ev_ram', default=8000, type=int, help='EVCouplings Job RAM')
 
     envision = parser.add_argument_group('Envision Options')
-    envision.add_argument('--env_human', default=ENV_HUMAN_DB, help='Envision human database path')
-    envision.add_argument('--env_mouse', default=ENV_MOUSE_DB, help='Envision mouse database path')
-    envision.add_argument('--env_yeast', default=ENV_YEAST_DB, help='Envision yeast database path')
+    envision.add_argument('--env_human', default=CONFIG['envision']['env_human_db'],
+                          help='Envision human database path')
+    envision.add_argument('--env_mouse', default=CONFIG['envision']['env_mouse_db'],
+                          help='Envision mouse database path')
+    envision.add_argument('--env_yeast', default=CONFIG['envision']['env_yeast_db'],
+                          help='Envision yeast database path')
     envision.add_argument('--env_ram', default=1000, type=int, help='Envision job RAM')
 
     foldx = parser.add_argument_group('FoldX Options')
     foldx.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
-                       default=ROTABASE_PATH)
+                       default=CONFIG['foldx']['rotabase_path'])
     foldx.add_argument('--foldx_ram', default=8000, type=int, help='FoldX job RAM')
 
     pph = parser.add_argument_group('Polyphen2 Options')
     pph.add_argument('--pph_ram', default=8000, type=int, help='Polyphen2 job RAM')
 
     lsf = parser.add_argument_group('Technical LSF Options')
-    lsf.add_argument('--log', '-l', help='Path to root logging directory', default=LOG_ROOT)
+    lsf.add_argument('--log', '-l', help='Path to root logging directory',
+                     default=CONFIG['lsf']['log_root'])
+    lsf.add_argument('--group', help='LSF Group',
+                     default=CONFIG['lsf']['lsf_group'])
     lsf.add_argument('--name', '-n', help='Batch name')
 
     return parser.parse_args()
