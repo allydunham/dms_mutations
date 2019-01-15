@@ -10,6 +10,7 @@ import sys
 import logging
 import argparse
 import configparser
+from ftplib import FTP
 from datetime import datetime
 
 import evcouplings.utils as ev
@@ -59,8 +60,9 @@ def main(args):
                    'Mus musculus': args.env_mouse}
         logging.debug('Envision databases available: %s', env_dbs)
 
-    # if args.foldx:
-    #     pass
+    if args.foldx:
+        ftp = FTP('ftp.ebi.ac.uk')
+        ftp.login('anonymous')
 
     if args.evcouplings:
         ev_config = nested_merge(ev.config.read_config_file(args.ev_config),
@@ -126,7 +128,7 @@ def main(args):
                     print('## FoldX', file=script_file)
 
                     logging.info('Preparing files for FoldX')
-                    tasker.foldx(path=dm_dir, dm_file=dm_path, rotabase=args.rotabase)
+                    tasker.foldx(path=dm_dir, dm_file=dm_path, rotabase=args.rotabase, ftp=ftp)
 
                     for pdb in deep.meta_data['pdb_id']:
                         pdb = pdb.split(':')
@@ -165,7 +167,12 @@ def main(args):
 
             except Exception as err:
                 logging.exception('Raised an exception while processing %s', dm_path)
+                if args.foldx:
+                    ftp.quit()
                 raise err
+
+    if args.foldx:
+        ftp.quit()
 
 def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep='', cwd=''):
     """LSF submission command string"""

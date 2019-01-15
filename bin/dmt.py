@@ -106,52 +106,63 @@ class DMTaskSelecter:
         with smart_open(kwargs['path'], mode='w') as out_file:
             env.to_csv(out_file, index=False)
 
-    def foldx(self, **kwargs):
+    def foldx(self, ftp=None, ftp_pdb_root='/pub/databases/pdb/data/structures/divided/pdb',
+              **kwargs):
         """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present"""
         path = kwargs['path']
         out_dir = path.rstrip('/') if path else '/'.join(kwargs['dm_file'].split('/')[0:-1])
         genotypes = self.deep_data.genotypes(wildtype=False, nonsense=False)
 
-        with FTP('ftp.ebi.ac.uk') as ftp:
+        # Manage opening FTP connection, only if an opened FTP object has not been supplied
+        # If a non EBI FTP connection is supplied it is expected the pdb_root
+        # folder has the same format
+        ftp_close = False
+        ftp_pdb_root = '/pub/databases/pdb/data/structures/divided/pdb'
+        if not isinstance(ftp, FTP):
+            ftp = FTP('ftp.ebi.ac.uk')
             ftp.login('anonymous')
-            ftp_pdb_root = '/pub/databases/pdb/data/structures/divided/pdb'
-            for pdb in self.deep_data.meta_data['pdb_id']:
-                # Download PDB if it doesn't exist
-                pdb = pdb.split(':')
-                pdb_id, pbd_chain = pdb[0], pdb[1]
+            ftp_close = True
 
-                try:
-                    pdb_offset = int(pdb[2])
-                except IndexError:
-                    pdb_offset = 0
-                except ValueError as err:
-                    # If the given value is not a valid int
-                    raise err
+        for pdb in self.deep_data.meta_data['pdb_id']:
+            # Download PDB if it doesn't exist
+            pdb = pdb.split(':')
+            pdb_id, pbd_chain = pdb[0], pdb[1]
 
-                pdb_dir = f'{out_dir}/{pdb_id}'
-                if not os.path.isdir(pdb_dir):
-                    os.mkdir(pdb_dir)
+            try:
+                pdb_offset = int(pdb[2])
+            except IndexError:
+                pdb_offset = 0
+            except ValueError as err:
+                # If the given value is not a valid int
+                raise err
 
-                with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
-                    for geno in genotypes:
-                        print(*[f"{i[0]}{pbd_chain}{int(i[1:-1])-pdb_offset}{i[-1]}" for i in geno],
-                              sep=',', end=';\n', file=out_file)
+            pdb_dir = f'{out_dir}/{pdb_id}'
+            if not os.path.isdir(pdb_dir):
+                os.mkdir(pdb_dir)
 
-                pdb_path = f"{pdb_dir}/{pdb_id}.pdb"
-                pdb_gz_path = f"{pdb_path}.gz"
-                pdb_id_low = pdb_id.lower()
-                if not os.path.isfile(pdb_path):
-                    with open(pdb_gz_path, 'wb') as pdb_file:
-                        ftp.cwd(f'{ftp_pdb_root}/{pdb_id_low[1:3]}/')
-                        ftp.retrbinary(f'RETR pdb{pdb_id_low}.ent.gz', pdb_file.write)
+            with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
+                for geno in genotypes:
+                    print(*[f"{i[0]}{pbd_chain}{int(i[1:-1])-pdb_offset}{i[-1]}" for i in geno],
+                          sep=',', end=';\n', file=out_file)
 
-                    with gzip.open(pdb_gz_path, 'rb') as gz_file, open(pdb_path, 'wb') as pdb_file:
-                        shutil.copyfileobj(gz_file, pdb_file)
+            pdb_path = f"{pdb_dir}/{pdb_id}.pdb"
+            pdb_gz_path = f"{pdb_path}.gz"
+            pdb_id_low = pdb_id.lower()
+            if not os.path.isfile(pdb_path):
+                with open(pdb_gz_path, 'wb') as pdb_file:
+                    ftp.cwd(f'{ftp_pdb_root}/{pdb_id_low[1:3]}/')
+                    ftp.retrbinary(f'RETR pdb{pdb_id_low}.ent.gz', pdb_file.write)
 
-                    os.remove(pdb_gz_path)
+                with gzip.open(pdb_gz_path, 'rb') as gz_file, open(pdb_path, 'wb') as pdb_file:
+                    shutil.copyfileobj(gz_file, pdb_file)
 
-                if not os.path.isfile(f'{pdb_dir}/rotabase.txt'):
-                    shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
+                os.remove(pdb_gz_path)
+
+            if not os.path.isfile(f'{pdb_dir}/rotabase.txt'):
+                shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
+
+        if ftp_close:
+            ftp.quit()
 
     def polyphen2(self, **kwargs):
         """Generate protein variant file for Polyphen2 analysis"""
