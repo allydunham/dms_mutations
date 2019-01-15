@@ -240,7 +240,8 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id):
                       f'--pdb={pdb_id}_Repair.pdb',
                       f'--mutant-file=individual_list_{pdb_id}.txt',
                       '--numberOfRuns=3',
-                      '--clean-mode=3'])
+                      '--clean-mode=3',
+                      '--out-pdb=false'])
 
     job_name = f'{batch_id}_{dm_id}_foldx'
 

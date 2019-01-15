@@ -61,7 +61,7 @@ class DeepMut:
 
         if not nonsense:
             geno = geno.dropna()
-            geno = geno[~geno.str.contains('\*')]
+            geno = geno[~geno.str.contains(r'\*')]
 
         geno = geno.str.split(',')
         return geno
