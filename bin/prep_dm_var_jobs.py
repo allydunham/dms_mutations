@@ -210,9 +210,9 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch
     except KeyError:
         raise ValueError(f'No Envision Database for {species}')
 
-    grep_command = ' '.join(['cat',
-                             f'<(head -n 1 {env_db})',
-                             f'<(grep {uniprot_id} {env_db})',
+    grep_command = ' '.join([CONFIG['misc']['table_grep'],
+                             uniprot_id,
+                             env_db,
                              f'> {out_dir}/{uniprot_id}_envision_db.csv'])
 
     py_command = ' '.join(['python',
