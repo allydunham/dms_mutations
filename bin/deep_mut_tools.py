@@ -59,7 +59,7 @@ class DeepMut:
         else:
             geno = geno.dropna()
 
-        if nonsense:
+        if not nonsense:
             geno = geno.dropna()
             geno = geno[~geno.str.contains('\*')]
 
