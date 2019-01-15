@@ -2,6 +2,7 @@
 """
 Prepare files and LSF jobs to analyse deep mutagenesis data using a variety
 of variant effect prediction tools.
+Generated script includes relative paths, so must be run from its directory
 """
 #import sys
 import os
@@ -166,7 +167,7 @@ def main(args):
                 logging.exception('Raised an exception while processing %s', dm_path)
                 raise err
 
-def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep=''):
+def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep='', cwd=''):
     """LSF submission command string"""
     command = ['bsub',
                f'-g {group}',
@@ -180,6 +181,9 @@ def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep=
 
     if dep:
         command.insert(3, f'-w "{dep}"')
+
+    if cwd:
+        command.insert(4, f'--cwd "{cwd}"')
 
     return ' '.join(command)
 
@@ -228,19 +232,20 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id):
     pdb_dir = f'{out_dir}/{pdb_id}'
     repair = ' '.join(['foldx',
                        '--command=RepairPDB',
-                       f'--pdb={pdb_dir}/{pdb_id}.pdb',
+                       f'--pdb={pdb_id}.pdb',
                        '--clean-mode=3'])
 
     model = ' '.join(['foldx',
                       '--command=BuildModel',
-                      f'--pdb={pdb_dir}/{pdb_id}_Repair.pdb',
+                      f'--pdb={pdb_id}_Repair.pdb',
                       f'--mutant-file=individual_list_{pdb_id}.txt',
                       '--numberOfRuns=3',
                       '--clean-mode=3'])
 
     job_name = f'{batch_id}_{dm_id}_foldx'
 
-    return bsub(f'{repair};{model}', f'{log_dir}/{dm_id}_foldx', ram=ram, name=job_name)
+    return bsub(f'{repair};{model}', f'{log_dir}/{dm_id}_foldx', ram=ram,
+                name=job_name, cwd=pdb_dir)
 
 def evcouplings_job(config, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for EVCouplings"""
