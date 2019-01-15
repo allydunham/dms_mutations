@@ -5,6 +5,7 @@ of variant effect prediction tools.
 """
 #import sys
 import os
+import sys
 import logging
 import argparse
 import configparser
@@ -18,7 +19,7 @@ from nested_dicts import nested_merge
 from smart_open import smart_open
 
 CONFIG = configparser.ConfigParser()
-CONFIG.read('prep_dm_jobs_config.ini')
+CONFIG.read(sys.path[0] + '/prep_dm_jobs_config.ini')
 
 def main(args):
     """Main script"""
@@ -27,7 +28,9 @@ def main(args):
                   f"dm_var_pred_{datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')}")
 
     log_dir = f"{args.log.rstrip('/')}/{batch_name}"
-    os.makedirs(log_dir)
+
+    if not CONFIG['misc'].getboolean('dummy_run'):
+        os.makedirs(log_dir)
 
     # Initiate Log
     log_file = args.log_file or f'{log_dir}/log.txt'
@@ -163,7 +166,7 @@ def main(args):
                 logging.exception('Raised an exception while processing %s', dm_path)
                 raise err
 
-def bsub(command, log, ram=8000, group=CONFIG['LSF']['LSF_GROUP'], name='', dep=''):
+def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep=''):
     """LSF submission command string"""
     command = ['bsub',
                f'-g {group}',
