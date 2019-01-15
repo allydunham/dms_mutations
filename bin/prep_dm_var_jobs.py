@@ -183,7 +183,7 @@ def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep=
         command.insert(3, f'-w "{dep}"')
 
     if cwd:
-        command.insert(4, f'--cwd "{cwd}"')
+        command.insert(4, f'-cwd "{cwd}"')
 
     return ' '.join(command)
 
