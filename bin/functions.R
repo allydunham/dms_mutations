@@ -75,7 +75,7 @@ write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   }
   
   ## Write meta data
-  write_lines(c('#deep_mut_file_version:2.0.1'), outfile)
+  write_lines(c('#deep_mut_file_version:2.1.0'), outfile)
   
   gene_keys <- c('gene_name', 'domain', 'species', 'alt_name')
   acc_keys <- keys[grepl('_id', keys)]

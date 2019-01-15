@@ -13,7 +13,7 @@ import re
 import pandas as pd
 from smart_open import smart_open
 
-DM_FILE_VERSION = '2.0.1'
+DM_FILE_VERSION = '2.1.0'
 RE_NUMERIC = re.compile(r'^-?[0-9]+(\.[0-9]+)?$')
 RE_INT = re.compile(r'^-?[0-9]+$')
 FA_LINE_LEN = 80

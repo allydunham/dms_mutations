@@ -46,7 +46,11 @@ Initial version. Current rules:
     * \#\* indicates a list entry, with the leading line in the same format this is read into an array like structure rather than concatenated
 * pdb\_id is a list entry of pdb(:chain) for each related pdb entry
 
-## Version 2.0.1
+#### Version 2.0.1
 * Changed version number scheme so as not to be confused for a number
 * corresponds to major.minor.clarification type changes
 * Major changes are breaking
+
+### Version 2.1
+* Added optional third field to pdb\_id entries, giving the offset relative to the uniprot sequence, to allow better conversion
+* New field looks like ID:Chain(:Offset)
