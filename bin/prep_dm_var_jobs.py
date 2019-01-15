@@ -173,7 +173,7 @@ def bsub(command, log, ram=8000, group=CONFIG['lsf']['lsf_group'], name='', dep=
                f'-M {ram} -R "rusage[mem={ram}]"',
                f'-o {log}.%J',
                f"-e {log}.%J.err",
-               f"'{command}'"]
+               f'"{command}"']
 
     if name:
         command.insert(1, f'-J "{name}"')
