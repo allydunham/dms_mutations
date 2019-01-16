@@ -95,8 +95,8 @@ class DMTaskSelecter:
         # Generate csv with variants
         variants = self.deep_data.variant_data[['variants', 'score']].copy()
         variants['variants'] = variants['variants'].str.replace('p.', '')
-        variants.rename(index=str, columns={'variants':'mutants', 'score':'exp_score'})
-        variants.to_csv(csv_path, sep=';', index=False)
+        variants = variants.rename({'variants':'mutants', 'score':'exp_score'}, axis='columns')
+        variants.to_csv(csv_path, index=False)
 
     def envision(self, **kwargs):
         """Filter an envision database (arg env) to only include the desired variants"""
