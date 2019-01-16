@@ -10,11 +10,15 @@ Tool to run various tasks on individual .dm files:
 """
 import os
 import argparse
-from ftplib import FTP
 import gzip
 import shutil
+import collections
+from ftplib import FTP
+
 import pandas as pd
 import evcouplings.utils as ev
+from Bio.SeqUtils import seq1
+
 import deep_mut_tools as dm
 from nested_dicts import nested_merge
 from smart_open import smart_open
@@ -126,12 +130,12 @@ class DMTaskSelecter:
         for pdb in self.deep_data.meta_data['pdb_id']:
             # Download PDB if it doesn't exist
             pdb = pdb.split(':')
-            pdb_id, pbd_chain = pdb[0], pdb[1]
+            pdb_id, chain = pdb[0], pdb[1]
 
             try:
-                pdb_offset = int(pdb[2])
+                offset = int(pdb[2])
             except IndexError:
-                pdb_offset = 0
+                offset = 0
             except ValueError as err:
                 # If the given value is not a valid int
                 raise err
@@ -139,11 +143,6 @@ class DMTaskSelecter:
             pdb_dir = f'{out_dir}/{pdb_id}'
             if not os.path.isdir(pdb_dir):
                 os.mkdir(pdb_dir)
-
-            with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
-                for geno in genotypes:
-                    print(*[f"{i[0]}{pbd_chain}{int(i[1:-1])-pdb_offset}{i[-1]}" for i in geno],
-                          sep=',', end=';\n', file=out_file)
 
             pdb_path = f"{pdb_dir}/{pdb_id}.pdb"
             pdb_gz_path = f"{pdb_path}.gz"
@@ -161,6 +160,11 @@ class DMTaskSelecter:
             if not os.path.isfile(f'{pdb_dir}/rotabase.txt'):
                 shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
 
+            subs = get_pdb_muts(pdb_path, single_letter=True)[chain]
+            with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
+                print(*[','.join(foldx_variants(g, subs, chain, offset)) for g in genotypes],
+                      sep=';\n', file=out_file)
+
         if ftp_close:
             ftp.quit()
 
@@ -176,6 +180,38 @@ class DMTaskSelecter:
         with smart_open(kwargs['path'], mode='w') as out_file:
             variants.to_csv(out_file, index=False, sep='\t',
                             columns=['# Protein ID', 'Position', 'AA1', 'AA2'])
+
+def get_pdb_muts(path_or_file, single_letter=False):
+    """Return a nested dictionary structure of sequence variants in a pdb file
+       in the format x[chain][pdb residue num] = (ref, alt)"""
+    with smart_open(path_or_file, 'r') as pdb_file:
+        func = seq1 if single_letter else lambda x: x
+        muts = collections.defaultdict(dict)
+        for line in pdb_file:
+            # Currently only deals with these conflict types
+            # but can be extended to others if needed
+            if line[:6] == 'SEQADV' and line[49:].lower().strip() in ('engineered',
+                                                                      'variant',
+                                                                      'microheterogeneity'):
+                val = {'pdb_name': line[12:15].strip(),
+                       'pdb_pos': int(line[18:22].strip()),
+                       'chain': line[16:17].strip(),
+                       'db_name': line[39:42].strip(),
+                       'db_pos': int(line[43:48].strip()),
+                       'conflict': line[49:].lower().strip()}
+
+                muts[val['chain']][val['pdb_pos']] = (func(val['db_name']), func(val['pdb_name']))
+
+    return muts
+
+def foldx_variants(genotypes, sub, chain='A', offset=0):
+    """Convert a list of genotypes into a list of FoldX individual_variants.txt entries"""
+    foldx_strs = []
+    for geno in genotypes:
+        ref, pos, mut = geno[0], int(geno[1:-1])-offset, geno[-1]
+        foldx_strs.append(f'{sub[pos][1] if pos in sub else ref}{chain}{pos}{mut}')
+
+    return foldx_strs
 
 def main(args):
     """Main script"""
