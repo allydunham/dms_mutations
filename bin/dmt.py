@@ -94,8 +94,9 @@ class DMTaskSelecter:
 
         # Generate csv with variants
         variants = self.deep_data.variant_data[['variants', 'score']].copy()
+        variants.dropna(inplace=True)
         variants['variants'] = variants['variants'].str.replace('p.', '')
-        variants = variants.rename({'variants':'mutants', 'score':'exp_score'}, axis='columns')
+        variants = variants.rename({'variants':'mutant', 'score':'exp_score'}, axis='columns')
         variants.to_csv(csv_path, index=False)
 
     def envision(self, **kwargs):
