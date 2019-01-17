@@ -251,14 +251,14 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id, files):
     model = ' '.join(['foldx',
                       '--command=BuildModel',
                       f'--pdb={pdb_id}_Repair.pdb',
-                      f'--mutant-file=individual_list_{pdb_id}_%i.txt',
+                      f'--mutant-file=individual_list_{pdb_id}_%I.txt',
                       '--numberOfRuns=3',
                       '--clean-mode=3',
                       '--out-pdb=false',
-                      '--output-file=%i'])
+                      '--output-file=%I'])
 
     model_name = f'{batch_id}_{dm_id}_foldx_model_{pdb_id}[0-{files-1}]'
-    model_job = bsub(model, f'{log_dir}/{dm_id}_foldx_model_{pdb_id}_%i', ram=ram,
+    model_job = bsub(model, f'{log_dir}/{dm_id}_foldx_model_{pdb_id}_%I', ram=ram,
                      name=model_name,
                      cwd=pdb_dir, dep=f'ended({repair_name})')
 
