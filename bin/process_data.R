@@ -120,9 +120,9 @@ df <- deep_mut_data$roscoe_2013_ubi %>%
          score_chr = selection_chr) %>%
   select(variants, score, raw_score, sd_num, score_chr, sd_chr)
 
-formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae, uniprot_id = 'P0CH08',
-                                               aa_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), authour = 'Roscoe et al.', year = 2013,
-                                               alt_name = 'Ubiquitin', pmid = '23376099', pdb_id=c('1UBQ:A', '3ONS:A'),
+formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae, uniprot_id = 'P0CG63',
+                                               aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), authour = 'Roscoe et al.', year = 2013,
+                                               alt_name = 'Ubiquitin', pmid = '23376099', pdb_id=c('3CMM:B', '3OLM:D'),
                                                title = 'Analyses of the effects of all ubiquitin point mutants on yeast growth rate',
                                                url='https://www.sciencedirect.com/science/article/pii/S0022283613000636',
                                                doi='10.1016/j.jmb.2013.01.032')
@@ -290,17 +290,17 @@ df2 <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
   select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons)
 
 
-formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
-                                                                           aa_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), transform = 'None',
-                                                                           uniprot_id = 'P0CH08', authour = 'Roscoe and Bolon', year = 2014,
-                                                                           pdb_id=c('1UBQ:A', '3ONS:A'),
+formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae,
+                                                                           aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), transform = 'None',
+                                                                           uniprot_id = 'P0CG63', authour = 'Roscoe and Bolon', year = 2014,
+                                                                           pdb_id=c('3CMM:B', '3OLM:D'),
                                                                            alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                            url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                            title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'),
-                                                       excess_e1=DeepMut(variant_data = df, gene_name = 'UBC', species = species_options$cerevisiae,
-                                                                         aa_seq = str_c(raw_seqs$s_cerevisiae_ubi1, collapse = ''), transform = 'None',
-                                                                         uniprot_id = 'P0CH08', authour = 'Roscoe and Bolon', year = 2014,
-                                                                         pdb_id=c('1UBQ:A', '3ONS:A'),
+                                                       excess_e1=DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae,
+                                                                         aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), transform = 'None',
+                                                                         uniprot_id = 'P0CG63', authour = 'Roscoe and Bolon', year = 2014,
+                                                                         pdb_id=c('3CMM:B', '3OLM:D'),
                                                                          alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                          url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                          title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast')))

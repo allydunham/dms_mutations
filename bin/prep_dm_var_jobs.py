@@ -128,16 +128,18 @@ def main(args):
                     print('## FoldX', file=script_file)
 
                     logging.info('Preparing files for FoldX')
-                    tasker.foldx(path=dm_dir, dm_file=dm_path, rotabase=args.rotabase, ftp=ftp)
+                    num_foldx_files = tasker.foldx(path=dm_dir, dm_file=dm_path,
+                                                   rotabase=args.rotabase, ftp=ftp,
+                                                   foldx_size=args.foldx_size)
 
                     for pdb in deep.meta_data['pdb_id']:
                         pdb = pdb.split(':')
                         logging.info('Writing FoldX jobs for %s', pdb[0])
                         print(f'# {pdb[0]}', file=script_file)
-                        print(foldx_job(pdb_id=pdb[0], out_dir=dm_dir, log_dir=log_dir,
-                                        ram=args.foldx_ram, dm_id=dm_id,
-                                        batch_id=batch_name),
-                              file=script_file, end='\n\n')
+                        print(*foldx_job(pdb_id=pdb[0], out_dir=dm_dir, log_dir=log_dir,
+                                         ram=args.foldx_ram, dm_id=dm_id,
+                                         batch_id=batch_name, files=num_foldx_files[pdb[0]]),
+                              file=script_file, end='\n\n', sep='\n')
                 elif args.foldx:
                     logging.warning('No PDB IDs in %s', dm_path)
 
@@ -223,7 +225,7 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch
                              f'> {out_dir}/{uniprot_id}_envision_db.csv'])
 
     py_command = ' '.join(['python',
-                           CONFIG['misc']['dmt_path'],
+                           f"{CONFIG['misc']['bin_path']}/dmt.py",
                            f'--env {out_dir}/{uniprot_id}_envision_db.csv',
                            f'--path {out_dir}/{gene_name}_envision_vars.csv',
                            'envision',
@@ -234,7 +236,7 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch
     return bsub(f'{grep_command};{py_command}', f'{log_dir}/{dm_id}_envision',
                 ram=ram, name=job_name)
 
-def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id):
+def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id, files):
     """Generate LSF job string for FoldX"""
     pdb_dir = f'{out_dir}/{pdb_id}'
     repair = ' '.join(['foldx',
@@ -242,18 +244,30 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id):
                        f'--pdb={pdb_id}.pdb',
                        '--clean-mode=3'])
 
+    repair_name = f'{batch_id}_{dm_id}_foldx_repair_{pdb_id}'
+    repair_job = bsub(repair, f'{log_dir}/{dm_id}_foldx_repair_{pdb_id}', ram=ram,
+                      name=repair_name, cwd=pdb_dir)
+
     model = ' '.join(['foldx',
                       '--command=BuildModel',
                       f'--pdb={pdb_id}_Repair.pdb',
-                      f'--mutant-file=individual_list_{pdb_id}.txt',
+                      f'--mutant-file=individual_list_{pdb_id}_%i.txt',
                       '--numberOfRuns=3',
                       '--clean-mode=3',
-                      '--out-pdb=false'])
+                      '--out-pdb=false',
+                      '--output-file=%i'])
 
-    job_name = f'{batch_id}_{dm_id}_foldx'
+    model_name = f'{batch_id}_{dm_id}_foldx_model_{pdb_id}[0-{files-1}]'
+    model_job = bsub(model, f'{log_dir}/{dm_id}_foldx_model_{pdb_id}_%i', ram=ram,
+                     name=model_name,
+                     cwd=pdb_dir, dep=f'ended({repair_name})')
 
-    return bsub(f'{repair};{model}', f'{log_dir}/{dm_id}_foldx', ram=ram,
-                name=job_name, cwd=pdb_dir)
+    cat_job = bsub(f"{CONFIG['misc']['bin_path']}/foldx_cat.sh",
+                   log=f'{log_dir}/{dm_id}_foldx_cat_{pdb_id}', ram=500,
+                   name=f'{batch_id}_{dm_id}_foldx_cat_{pdb_id}', cwd=pdb_dir,
+                   dep=f'ended({model_name})')
+
+    return [repair_job, model_job, cat_job]
 
 def evcouplings_job(config, log_dir, ram, dm_id, batch_id):
     """Generate LSF job string for EVCouplings"""
@@ -328,6 +342,8 @@ def parse_args():
     foldx.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
                        default=CONFIG['foldx']['rotabase_path'])
     foldx.add_argument('--foldx_ram', default=8000, type=int, help='FoldX job RAM')
+    foldx.add_argument('--foldx_size', default=5000, type=dmt.non_neg_int,
+                       help='Number of variants per FoldX job')
 
     pph = parser.add_argument_group('Polyphen2 Options')
     pph.add_argument('--pph_ram', default=1000, type=int, help='Polyphen2 job RAM')

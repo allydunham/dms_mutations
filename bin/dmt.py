@@ -24,6 +24,7 @@ from nested_dicts import nested_merge
 from smart_open import smart_open
 
 ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
+FOLDX_JOB_SIZE = 5000
 
 class DMTaskSelecter:
     """Case selecter for different possible tasks to apply to DeepMut data"""
@@ -113,11 +114,13 @@ class DMTaskSelecter:
 
     def foldx(self, ftp=None, ftp_pdb_root='/pub/databases/pdb/data/structures/divided/pdb',
               **kwargs):
-        """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present"""
+        """Prepare a mutation list for FoldX analysis and fetch PDB file if it is not present.
+           Returns a dict giving the number of mutation list files generated for each PDB id"""
         path = kwargs['path']
         out_dir = path.rstrip('/') if path else '/'.join(kwargs['dm_file'].split('/')[0:-1])
         genotypes = self.deep_data.genotypes(wildtype=False, nonsense=False)
 
+        generated_files = {}
         # Manage opening FTP connection, only if an opened FTP object has not been supplied
         # If a non EBI FTP connection is supplied it is expected the pdb_root
         # folder has the same format
@@ -162,12 +165,25 @@ class DMTaskSelecter:
                 shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
 
             subs = get_pdb_muts(pdb_path, single_letter=True)[chain]
-            with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
-                print(*[','.join(foldx_variants(g, subs, chain, offset)) for g in genotypes],
-                      sep=';\n', file=out_file)
+            foldx_strs = [','.join(foldx_variants(g, subs, chain, offset)) for g in genotypes]
+            if not kwargs['foldx_size']:
+                with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
+                    print(*foldx_strs, sep=';\n', file=out_file)
+                generated_files[pdb_id] = 1
+            else:
+                split_foldx_strs = [foldx_strs[i:i+kwargs['foldx_size']] for
+                                    i in range(0, len(foldx_strs), kwargs['foldx_size'])]
+                for i, var_set in enumerate(split_foldx_strs):
+                    with smart_open(f"{pdb_dir}/individual_list_{pdb_id}_{i}.txt",
+                                    mode='w') as out_file:
+                        print(*var_set, sep=';\n', file=out_file)
+
+                generated_files[pdb_id] = len(split_foldx_strs)
 
         if ftp_close:
             ftp.quit()
+
+        return generated_files
 
     def polyphen2(self, **kwargs):
         """Generate protein variant file for Polyphen2 analysis"""
@@ -218,7 +234,14 @@ def main(args):
     """Main script"""
     deep_data = dm.read_deep_mut(args['dm_file'])
     selecter = DMTaskSelecter(deep_data)
-    selecter.choose(args['task'])(**args)
+    _ = selecter.choose(args['task'])(**args)
+
+def non_neg_int(value):
+    """Convert to non-negative integer or raise an error"""
+    value = int(value)
+    if value < 0:
+        raise argparse.ArgumentTypeError(f'foldx_size ({value}) must be a non-negative integer')
+    return value
 
 def parse_args():
     """Process input arguments"""
@@ -238,6 +261,8 @@ def parse_args():
     parser.add_argument('--ev_options', '-v', help='Additional EVCouplings config options')
     parser.add_argument('--env', '-n', help='Path to envision database file')
 
+    parser.add_argument('--foldx_size', '-f', type=non_neg_int, default=FOLDX_JOB_SIZE,
+                        help='Number of variants to put in each FoldX Job (0 means all)')
     parser.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
                         default=ROTABASE_PATH)
 
