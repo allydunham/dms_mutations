@@ -168,7 +168,7 @@ class DMTaskSelecter:
             foldx_strs = [','.join(foldx_variants(g, subs, chain, offset)) for g in genotypes]
             if not kwargs['foldx_size']:
                 with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
-                    print(*foldx_strs, sep=';\n', file=out_file)
+                    print(*foldx_strs, sep=';\n', end=';', file=out_file)
                 generated_files[pdb_id] = 1
             else:
                 split_foldx_strs = [foldx_strs[i:i+kwargs['foldx_size']] for
@@ -176,7 +176,7 @@ class DMTaskSelecter:
                 for i, var_set in enumerate(split_foldx_strs):
                     with smart_open(f"{pdb_dir}/individual_list_{pdb_id}_{i+1}.txt",
                                     mode='w') as out_file:
-                        print(*var_set, sep=';\n', file=out_file)
+                        print(*var_set, sep=';\n', end=';', file=out_file)
 
                 generated_files[pdb_id] = len(split_foldx_strs)
 
