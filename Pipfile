@@ -8,6 +8,8 @@ pylint = "*"
 numpy = "*"
 pandas = "*"
 evcouplings = "*"
+pytest = "*"
+hypothesis = "*"
 
 [dev-packages]
 

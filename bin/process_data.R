@@ -530,7 +530,8 @@ deep_mut_data$kitzman_2015_gal4 <- lapply(excel_sheets(kitzman_2015_path),
   spread(key = 'label', value = 'log2_enrichment') %>%
   mutate(score = (SEL_A_40h + SEL_B_40h + SEL_C_40h)/3,
          raw_score=score,
-         variants = str_c('p.', ref_aa, position, alt_aa))
+         variants = str_c('p.', ref_aa, position, alt_aa)) %>%
+  filter(!alt_aa == 'delInFrame')
 
 formatted_deep_data$kitzman_2015_gal4 <- DeepMut(variant_data = select(deep_mut_data$kitzman_2015_gal4, variants, score, raw_score,
                                                                        NONSEL_24h, SEL_A_24h, SEL_A_40h, SEL_B_40h, SEL_C_40h, SEL_C_64h),
@@ -804,10 +805,12 @@ df3 <- deep_mut_data$giacomelli_2018_tp53 %>%
          variants = str_c('p.', allele)) %>%
   select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
 
+tp53_ref_seq <- deep_mut_data$giacomelli_2018_tp53 %>% group_by(position) %>% summarise(aa = first(ref_aa)) %>% pull(aa) %>% str_c(.,collapse = '')
+
 formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
   list(p53_wt_nutlin3=DeepMut(variant_data = df1, gene_name = 'TP53', species = species_options$sapiens,
                               authour = 'Giacomelli et al.', year = 2018, transform = 'None',
-                              uniprot_id = 'P04637', aa_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                              uniprot_id = 'P04637', aa_seq = tp53_ref_seq,
                               notes='Score is in Z-score format, with wt p53 background and nutlin3 selecting for dominant negative variants (see paper)',
                               title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                               doi='10.1038/s41588-018-0204-y', pmid='30224644',
@@ -815,7 +818,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
        p53_null_nutlin3=DeepMut(variant_data = df2,
                                 gene_name = 'TP53', species = species_options$sapiens,
                                 authour = 'Giacomelli et al.', year = 2018, transform = 'None',
-                                uniprot_id = 'P04637', aa_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                                uniprot_id = 'P04637', aa_seq = tp53_ref_seq,
                                 notes='Score is in Z-score format, with null p53 background and nutlin3 selecting for LOF variants (see paper)',
                                 title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                                 doi='10.1038/s41588-018-0204-y', pmid='30224644',
@@ -823,7 +826,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
        p53_null_etoposide=DeepMut(variant_data = df3,
                                   gene_name = 'TP53', species = species_options$sapiens,
                                   authour = 'Giacomelli et al.', year = 2018, transform = 'None',
-                                  uniprot_id = 'P04637', aa_seq = str_c(raw_seqs$h_sapiens_tp53, collapse = ''),
+                                  uniprot_id = 'P04637', aa_seq = tp53_ref_seq,
                                   notes='Score is in Z-score format, with null p53 background and etoposide selecting for WT like (or better) variants (see paper)',
                                   title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                                   doi='10.1038/s41588-018-0204-y', pmid='30224644',
