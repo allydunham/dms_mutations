@@ -174,7 +174,7 @@ class DMTaskSelecter:
                 split_foldx_strs = [foldx_strs[i:i+kwargs['foldx_size']] for
                                     i in range(0, len(foldx_strs), kwargs['foldx_size'])]
                 for i, var_set in enumerate(split_foldx_strs):
-                    with smart_open(f"{pdb_dir}/individual_list_{pdb_id}_{i}.txt",
+                    with smart_open(f"{pdb_dir}/individual_list_{pdb_id}_{i+1}.txt",
                                     mode='w') as out_file:
                         print(*var_set, sep=';\n', file=out_file)
 
