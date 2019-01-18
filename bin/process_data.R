@@ -246,7 +246,9 @@ deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_
          fitness_err = `Estimated error in fitness`)
 
 df <- deep_mut_data$firnberg_2014_tem1 %>%
-  mutate(variants = str_c('p.', ref_aa, position-2, alt_aa),
+  filter(!ref_aa == '*') %>%
+  mutate(position = rep(1:length(raw_seqs$e_coli_tem1), each=64), # Given pos are weirdly numbered, but match WT seq exactly with all codons (64) at each pos
+         variants = str_c('p.', ref_aa, position, alt_aa),
          score=log2(fitness),
          genomic_variants = str_c('c.', (position-3)*3 + 1, '_', (position-2)*3, 'del', ref_codon,  'ins', alt_codon)) %>%
   select(variants, score, raw_score=fitness, raw_score_err=fitness_err, genomic_variants, base_changes, total_seq_count) %>%
@@ -290,14 +292,14 @@ df2 <- deep_mut_data$roscoe_2014_ubi_excess_e1 %>%
   select(variants, score = log2_e1_react_vs_display, raw_score, rel_e1_reactivity, sd_in_symonoymous_codons)
 
 
-formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae,
+formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(variant_data = df1, gene_name = 'UBI4', species = species_options$cerevisiae,
                                                                            aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), transform = 'None',
                                                                            uniprot_id = 'P0CG63', authour = 'Roscoe and Bolon', year = 2014,
                                                                            pdb_id=c('3CMM:B', '3OLM:D'),
                                                                            alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                            url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                            title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast'),
-                                                       excess_e1=DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae,
+                                                       excess_e1=DeepMut(variant_data = df2, gene_name = 'UBI4', species = species_options$cerevisiae,
                                                                          aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), transform = 'None',
                                                                          uniprot_id = 'P0CG63', authour = 'Roscoe and Bolon', year = 2014,
                                                                          pdb_id=c('3CMM:B', '3OLM:D'),
@@ -378,14 +380,14 @@ df_mean <- group_by(df, variants, drug) %>%
 
 lst <- sapply(unique(df_mean$drug),
               function(x){DeepMut(variant_data = filter(df_mean, drug == x) %>% select(variants, score, raw_score, rel_conc_0.125, rel_conc_0.25, rel_conc_0.5, rel_conc_1),
-                                  gene_name = "APH(3')II", species = species_options$coli,
+                                  gene_name = "APH3-II", alt_name="APH(3')II", species = species_options$coli,
                                   aa_seq = str_c(raw_seqs$e_coli_aph_3prime_II, collapse = ''),
                                   transform = 'mean of different drug concs (raw is at 1:1 MIC)',
                                   uniprot_id = 'Q58HT3', authour = 'Melnikov et al.', year = 2014,
                                   title='Comprehensive mutational scanning of a kinase in vivo reveals substrate-dependent fitness landscapes',
                                   doi='10.1093/nar/gku511', pmid='24914046',
                                   url='https://academic.oup.com/nar/article/42/14/e112/1266940',
-                                  notes='concs are given relative to esstimated drug minimum inhibitory concentration (MIC)',
+                                  notes='gene_name is transformed to be computer readable, main name in alt_name field. Concs are given relative to esstimated drug minimum inhibitory concentration (MIC)',
                                   drug=x)},
               simplify = FALSE)
 
@@ -470,7 +472,7 @@ df <- deep_mut_data$olson_2014_protein_g %>%
   mutate(variants = ifelse(is.na(pos2), str_c('p.', ref_aa1, pos1, alt_aa1),str_c('p.', ref_aa1, pos1, alt_aa1,',p.', ref_aa2, pos2, alt_aa2))) %>%
   select(variants, score, raw_score=er)
   
-formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name = 'Protein G', species = species_options$strep,
+formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name = 'ProteinG', species = species_options$strep,
                                                     aa_seq = str_c(raw_seqs$strep_protein_g, collapse = ''), transform = 'log2',
                                                     uniprot_id = 'P19909', authour = 'Olson et al.', year = 2014,
                                                     notes='Uniprot ID is for the Protein G precurssor which has a slightly different sequence',
@@ -479,19 +481,19 @@ formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name
 
 #### Starita 2015 Brca1 ####
 deep_mut_data$starita_2015_brca1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
-  rename_all(tolower)
+  rename_all(tolower) %>%
+  mutate(ref = raw_seqs$h_sapiens_brca1[pos], # Ref seq given by study has a mysterious, undocumented R at pos 175 where normal refs have K, using K here since the change is not explained in the paper and appears erroneous
+         variants = str_c('p.',ref,pos,mut))
 
 # TODO Better ways of making scores initially non negative
 df_y2h <- deep_mut_data$starita_2015_brca1 %>%
   filter(!variant_id == 'NA-NA') %>%
-  mutate(variants = str_c('p.', variant_id),
-         score = log2((y2h_score + 1)/2)) %>%
+  mutate(score = log2((y2h_score + 1)/2)) %>%
   select(variants, score, raw_score = y2h_score)
 
 df_e3 <- deep_mut_data$starita_2015_brca1 %>%
   filter(!variant_id == 'NA-NA') %>%
-  mutate(variants = str_c('p.', variant_id),
-         tmp = if_else(e3_score > 0, e3_score, min(abs(e3_score), na.rm = TRUE)),
+  mutate(tmp = if_else(e3_score > 0, e3_score, min(abs(e3_score), na.rm = TRUE)),
          score = log2(tmp)) %>%
   select(variants, score, raw_score = e3_score)
 
