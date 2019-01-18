@@ -468,8 +468,8 @@ deep_mut_data$olson_2014_protein_g <- bind_rows(single_muts, double_muts) %>%
          f = er/E_wt,
          score = log2(f))
 
-df <- deep_mut_data$olson_2014_protein_g %>%
-  mutate(variants = ifelse(is.na(pos2), str_c('p.', ref_aa1, pos1, alt_aa1),str_c('p.', ref_aa1, pos1, alt_aa1,',p.', ref_aa2, pos2, alt_aa2))) %>%
+df <- deep_mut_data$olson_2014_protein_g %>% # Position is offset 1 from uniprot ref seq
+  mutate(variants = ifelse(is.na(pos2), str_c('p.', ref_aa1, pos1-1, alt_aa1),str_c('p.', ref_aa1, pos1-1, alt_aa1,',p.', ref_aa2, pos2-1, alt_aa2))) %>%
   select(variants, score, raw_score=er)
   
 formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name = 'ProteinG', species = species_options$strep,
