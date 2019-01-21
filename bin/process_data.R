@@ -8,7 +8,7 @@ library(tidyverse)
 library(magrittr)
 library(readxl)
 
-source('bin/functions.R')
+source('bin/dm_functions.R')
 
 deep_mut_data <- list()
 formatted_deep_data <- list()
