@@ -626,7 +626,8 @@ df <- deep_mut_data$brenan_2016_erk2 %>%
   mutate(variants = str_c('p.', erk2_mutant),
          score = `lfc_(etp_vs._dox)`) %>%
   select(variants, score, raw_score=`lfc_(etp_vs._dox)`, nuc_acid_changes, lfc_etp_vs_sch=`lfc_(etp_vs._sch)`, lfc_etp_vs_vrt=`lfc_(etp_vs._vrt)`,
-         dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele)
+         dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele) %>%
+  mutate_at(vars(nuc_acid_changes, dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele), as.integer)
 
 formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = 'None',
                                                 authour = 'Brenan et al. 2016', year = 2016, aa_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
@@ -862,8 +863,10 @@ get_meta <- function(x, var){
     return(x[[var]])
   }
 }
-meta <- data_frame(gene_name = sapply(formatted_deep_data, get_meta, var='gene_name'),
-                   uniprot_id = sapply(formatted_deep_data, get_meta, var='uniprot_id'))
+meta <- data_frame(authour = sapply(formatted_deep_data, get_meta, var='authour'),
+                   gene_name = sapply(formatted_deep_data, get_meta, var='gene_name'),
+                   uniprot_id = sapply(formatted_deep_data, get_meta, var='uniprot_id'),
+                   species = sapply(formatted_deep_data, get_meta, var='species'))
 write_tsv(meta, 'meta/gene_meta_data.tsv')
 
 dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()

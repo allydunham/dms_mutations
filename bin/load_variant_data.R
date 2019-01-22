@@ -3,3 +3,118 @@
 
 library(tidyverse)
 
+source('bin/dm_functions.R')
+source('bin/variant_functions.R')
+
+#### Load Data ####
+deep_variant_data <- list()
+
+deep_datasets <- dir('data/standardised')
+
+#TESTING
+deep_datasets <- deep_datasets[1]
+
+for (dataset in deep_datasets){
+  root <- str_c('data/standardised/', dataset)
+  dm_files <- grep('*.dm', dir(root), value = TRUE)
+  
+  for (dm_file in dm_files){
+    dataset_name <- str_c(c(str_split(dataset, '_', simplify = TRUE)[,c(1,2)], str_split(dm_file, '_', simplify = TRUE)[,2]), collapse='_') %>%
+      str_replace(., '\\.dm', '') %>% 
+      str_replace(., '\\.', '_')
+    
+    # Read DeepMut File
+    dm <- read_deep_mut(str_c(root, '/', dm_file[1]))
+    
+    # Read SIFT Scores
+    sift_file <- str_c(dm$gene_name, '.SIFTprediction')
+    if (sift_file %in% dir(root)){
+      sift <- read_tsv(str_c(root, '/', sift_file), col_names = c('variant', 'sift_prediction', 'sift_score', 'sift_median', 'num_seq', 'align_count'))
+    } else {
+      sift <- NA
+    }
+    
+    # Read FoldX Scores
+    foldx <- NA
+    
+    # Read Envision Scores
+    env_file <- str_c(dm$uniprot_id, '_envision_vars.csv')
+    if (env_file %in% dir(root)){
+      env <- read_csv(str_c(root, '/', env_file))
+    } else {
+      env <- NA
+    }
+  
+    # Read EVCouplings Scores
+    evcoup_path <- str_c(root, '/ev/mutate/ev_dataset_predicted.csv')
+    if ('ev' %in% dir(root)){
+      evcoup <- read_csv(evcoup_path)
+    } else {
+      evcoup <- NA
+    }
+    
+    # Read PolyPhen2 Scores
+    pph_file <- str_c('pph_', dm$gene_name,'.predictions')
+    if (pph_file %in% dir(root)){
+      pph <- read_tsv(str_c(root, '/', pph_file)) %>%
+        mutate(variant=str_c(aa1, pos, aa2))
+      names(pph) <- str_replace(names(pph), '#', '')
+    } else {
+      pph <- NA
+    }
+    
+    # Create Combined Score Table
+    if (any(grepl('\\,', dm$variant_data$variants))){
+      # Datasets with multiple mutations
+      multi <- TRUE
+      
+      multi_variants <- dm$variant_data %>%
+        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
+        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
+      # TODO add foldx to multi when example is here
+      
+      # Take average of effect for each single variant
+      max_vars <- dim(str_split(dm$variant_data$variants, ',', simplify = TRUE))[2]
+      single_variants <- dm$variant_data %>%
+        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
+        separate('variants', str_c('variant', 1:max_vars, sep='_'), sep=',', extra='drop', fill='right') %>%
+        gather(key = 'num', value = 'variant', contains('variant_')) %>%
+        select(-num) %>%
+        group_by(variant) %>%
+        summarise(sd=sd(score, na.rm = TRUE),
+                  score=mean(score, na.rm = TRUE),
+                  n=n()) %>% # currently just take mean, maybe use better metric?
+        left_join(., select(pph, variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variant') %>%
+        left_join(., select(env, variant=Variant, envision_prediction=Envision_predictions), by='variant') %>%
+        left_join(., select(sift, variant, sift_prediction, sift_score, sift_median), by='variant')
+        
+    } else {
+      # Datasets with single variants only
+      multi <- FALSE
+      multi_variants <- NA
+      
+      single_variants <- dm$variant_data %>%
+        mutate(variant=str_replace_all(variants, 'p\\.', '')) %>%
+        left_join(., select(pph, variant=variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variant') %>%
+        left_join(., select(env, variant=Variant, envision_prediction=Envision_predictions), by='variant') %>%
+        left_join(., select(sift, variant, sift_prediction, sift_score, sift_median), by='variant') %>%
+        left_join(., select(evcoup, variant=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variant')
+      # TODO Add FoldX here when ready
+    }
+    
+    # Generate Data Object
+    deep_variant_data[[dataset]] <- list(dm=dm,
+                                         sift=sift,
+                                         envision=env,
+                                         polyphen2=pph,
+                                         foldx=foldx,
+                                         evcouplings=evcoup,
+                                         single_variants=single_variants,
+                                         multi_variants=multi_variants,
+                                         multi=multi)
+  }
+}
+
+# Save generated dataset
+write_rds(deep_variant_data, 'data/variant_data.RDS')
+
