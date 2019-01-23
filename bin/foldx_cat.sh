@@ -21,3 +21,7 @@ rm Raw_*_${PDB_ID}_Repair.fxout
 # Process PdbList
 cat PdbList_*_${PDB_ID}_Repair.fxout >> PdbList_${PDB_ID}_Repair.fxout
 rm PdbList_*_${PDB_ID}_Repair.fxout
+
+# Process Individual Lists
+cat individual_list_${PDB_ID}_*.txt > individual_list_${PDB_ID}.txt
+rm individual_list_${PDB_ID}_*.txt

@@ -35,7 +35,14 @@ for (dataset in deep_datasets){
     }
     
     # Read FoldX Scores
-    foldx <- NA
+    pdb_ids <- dm$pdb_id
+    foldx <- list()
+    for (pdb in pdb_ids){
+      
+    }
+    if (length(foldx) == 0){
+      foldx <- NA
+    }
     
     # Read Envision Scores
     env_file <- str_c(dm$uniprot_id, '_envision_vars.csv')
