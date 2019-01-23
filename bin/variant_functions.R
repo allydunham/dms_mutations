@@ -14,12 +14,26 @@ plot_predictions <- function(x, ...){
 
 # Single Variants
 plot_predictions.single_variant <- function(x){
+  study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   
+  plots <- c(plot_sift(x$single_variants, study),
+             plot_foldx(x$single_variants, study),
+             plot_pph(x$single_variants, study),
+             plot_envision(x$single_variants, study),
+             plot_evcoup(x$single_variants, study))
+  return(plots)
 }
 
 # Multi Variants
 plot_predictions.multi_variant <- function(x){
+  study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   
+  plots <- c(plot_sift(x$single_variants, study),
+             plot_foldx(x$multi_variants, study),
+             plot_pph(x$single_variants, study),
+             plot_envision(x$single_variants, study),
+             plot_evcoup(x$multi_variants, study))
+  return(plots)
 }
 
 # Plot SIFT Scores
@@ -112,7 +126,24 @@ plot_foldx <- function(tbl, study=''){
 # Plot EVCouplings Scores
 # Expects a df with variant, score, raw_score, evcoup_epistatic, evcoup_independent
 plot_evcoup <- function(tbl, study=''){
+  p_epistatic <- ggplot(tbl, aes(x=score, y=evcoup_epistatic)) +
+    xlab(MUT_SCORE_NAME) +
+    ylab('EVCouplings Epistatic Score')
   
+  p_ind <- ggplot(tbl, aes(x=score, y=evcoup_independent)) +
+    xlab(MUT_SCORE_NAME) +
+    ylab('EVCouplings Independent Score')
+  
+  if (dim(tbl)[1] < 1000){
+    p_epistatic <- p_epistatic + geom_point()
+    p_ind <- p_ind + geom_point()
+  } else {
+    p_epistatic <- p_epistatic + geom_bin2d()
+    p_ind <- p_ind + geom_bin2d()
+  }
+  
+  p_raw_epistatic <- p_epistatic + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
+  p_raw_ind <- p_ind + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
 }
 
 # Plot misc statistics
