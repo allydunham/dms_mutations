@@ -66,11 +66,11 @@ for (dataset in deep_datasets){
     # Create Combined Score Table
     if (any(grepl('\\,', dm$variant_data$variants))){
       # Datasets with multiple mutations
-      multi <- TRUE
+      cls <- 'multi_varriant'
       
       multi_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
+        mutate(variant=str_replace_all(variants, 'p\\.', '')) %>%
+        left_join(., select(evcoup, variant=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variant')
       # TODO add foldx to multi when example is here
       
       # Take average of effect for each single variant
@@ -83,6 +83,7 @@ for (dataset in deep_datasets){
         group_by(variant) %>%
         summarise(sd=sd(score, na.rm = TRUE),
                   score=mean(score, na.rm = TRUE),
+                  raw_score=mean(raw_score, na.rm=TRUE),
                   n=n()) %>% # currently just take mean, maybe use better metric?
         left_join(., select(pph, variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variant') %>%
         left_join(., select(env, variant=Variant, envision_prediction=Envision_predictions), by='variant') %>%
@@ -90,8 +91,8 @@ for (dataset in deep_datasets){
         
     } else {
       # Datasets with single variants only
-      multi <- FALSE
-      multi_variants <- NA
+      cls <- 'single_varriant'
+      multi_variants <- NULL
       
       single_variants <- dm$variant_data %>%
         mutate(variant=str_replace_all(variants, 'p\\.', '')) %>%
@@ -110,8 +111,9 @@ for (dataset in deep_datasets){
                                          foldx=foldx,
                                          evcouplings=evcoup,
                                          single_variants=single_variants,
-                                         multi_variants=multi_variants,
-                                         multi=multi)
+                                         multi_variants=multi_variants)
+    
+    class(deep_variant_data[[dataset]]) <- c(cls, class(deep_variant_data[[dataset]]))
   }
 }
 
