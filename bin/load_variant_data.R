@@ -37,8 +37,18 @@ for (dataset in deep_datasets){
     # Read FoldX Scores
     pdb_ids <- dm$pdb_id
     foldx <- list()
-    for (pdb in pdb_ids){
+    for (pdb in str_split(pdb_ids, ':', simplify = TRUE)[,1]){
+      muts <- read_lines(str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')) %>%
+        str_replace(., ';', '') %>%
+        lapply(., remove_pdb_chains) %>%
+        unlist()
       
+      ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
+        rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
+        mutate(pdb=muts) %>%
+        rename(variants=pdb)
+      
+      foldx[[pdb]] <- ddg
     }
     if (length(foldx) == 0){
       foldx <- NA
@@ -64,7 +74,7 @@ for (dataset in deep_datasets){
     pph_file <- str_c('pph_', dm$gene_name,'.predictions')
     if (pph_file %in% dir(root)){
       pph <- read_tsv(str_c(root, '/', pph_file)) %>%
-        mutate(variant=str_c(aa1, pos, aa2))
+        mutate(variants=str_c(aa1, pos, aa2))
       names(pph) <- str_replace(names(pph), '#', '')
     } else {
       pph <- NA
@@ -76,8 +86,8 @@ for (dataset in deep_datasets){
       cls <- 'multi_varriant'
       
       multi_variants <- dm$variant_data %>%
-        mutate(variant=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(evcoup, variant=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variant')
+        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
+        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
       # TODO add foldx to multi when example is here
       
       # Take average of effect for each single variant
@@ -85,16 +95,16 @@ for (dataset in deep_datasets){
       single_variants <- dm$variant_data %>%
         mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
         separate('variants', str_c('variant', 1:max_vars, sep='_'), sep=',', extra='drop', fill='right') %>%
-        gather(key = 'num', value = 'variant', contains('variant_')) %>%
+        gather(key = 'num', value = 'variants', contains('variant_')) %>%
         select(-num) %>%
-        group_by(variant) %>%
+        group_by(variants) %>%
         summarise(sd=sd(score, na.rm = TRUE),
                   score=mean(score, na.rm = TRUE),
                   raw_score=mean(raw_score, na.rm=TRUE),
                   n=n()) %>% # currently just take mean, maybe use better metric?
-        left_join(., select(pph, variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variant') %>%
-        left_join(., select(env, variant=Variant, envision_prediction=Envision_predictions), by='variant') %>%
-        left_join(., select(sift, variant, sift_prediction, sift_score, sift_median), by='variant')
+        left_join(., select(pph, variants, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
+        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
+        left_join(., select(sift, variants, sift_prediction, sift_score, sift_median), by='variants')
         
     } else {
       # Datasets with single variants only
@@ -102,11 +112,11 @@ for (dataset in deep_datasets){
       multi_variants <- NULL
       
       single_variants <- dm$variant_data %>%
-        mutate(variant=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(pph, variant=variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variant') %>%
-        left_join(., select(env, variant=Variant, envision_prediction=Envision_predictions), by='variant') %>%
-        left_join(., select(sift, variant, sift_prediction, sift_score, sift_median), by='variant') %>%
-        left_join(., select(evcoup, variant=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variant')
+        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
+        left_join(., select(pph, variants=variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
+        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
+        left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants') %>%
+        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
       # TODO Add FoldX here when ready
     }
     

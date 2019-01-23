@@ -3,9 +3,11 @@
 library(tidyverse)
 library(ggpubr)
 
+# Constants
 MUT_SCORE_NAME <- 'Standardised Mutagenesis Score'
 RAW_MUT_SCORE_NAME <- 'Raw Mutagenesis Score'
 
+#### Plotting function ####
 ## Plot deep mutagenesis data and variant effect predictions
 # Generic
 plot_predictions <- function(x, ...){
@@ -149,13 +151,20 @@ plot_evcoup <- function(tbl, study=''){
 # Plot misc statistics
 plot_misc <- function(tbl, study=''){
   tbl <- tbl %>%
-    mutate(pos=as.integer(str_sub(variant, 2, -2)),
-           aa1 = str_sub(variant, 1, 1),
-           aa2= str_sub(variant, -1))
+    mutate(pos=as.integer(str_sub(variants, 2, -2)),
+           aa1 = str_sub(variants, 1, 1),
+           aa2= str_sub(variants, -1))
   
   p_position <- ggplot(t, aes(group=pos, x=pos, y=score)) +
     geom_boxplot() +
     xlab('AA Position') + 
     ylab(MUT_SCORE_NAME) +
     ggtitle(study)
+}
+
+#### Misc Functions ####
+remove_pdb_chains <- function(x){
+  x <- str_split(x, ',')[[1]]
+  str_sub(x, 2, 2) <- ''
+  return(str_c(x, collapse = ','))
 }
