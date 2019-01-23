@@ -5,7 +5,7 @@ PDB_ID=$1
 
 # Process Average
 head -n 9 Average_1_${PDB_ID}_Repair.fxout > Average_${PDB_ID}_Repair.fxout
-tail -n +10 -q Average_*_${PDB_ID}_Repair.fxout >> Average_$PDB_ID.fxout
+tail -n +10 -q Average_*_${PDB_ID}_Repair.fxout >> Average_${PDB_ID}_Repair.fxout
 #rm Average_*_${PDB_ID}_Repair.fxout
 
 # Process Dif
