@@ -18,7 +18,7 @@ then
    rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude $HOME/Projects/mutations/data/ ebi:/nfs/research1/beltrao/ally/mutations/data
 fi
 
-#Meta folder
+# Meta folder
 printf "\n%s\n" "${green}File List: Meta/${normal}"
 rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude=*.md --dry-run $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
 
@@ -28,6 +28,18 @@ if [[ $REPLY =~ ^[Yy]$ ]]
 then
    rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude=*.md $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
 fi
+
+# Figures folder
+printf "\n%s\n" "${green}File List: Figures/${normal}"
+rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude=*.md --dry-run $HOME/Projects/mutations/figures/ ebi:/nfs/research1/beltrao/ally/mutations/figures
+
+read -p "Transfer? " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude=*.md $HOME/Projects/mutations/figures/ ebi:/nfs/research1/beltrao/ally/mutations/figures
+fi
+
 
 ## Sync From Farm
 printf "\n%s\n" "${green}Farm -> Local${normal}"
@@ -53,3 +65,13 @@ then
    rsync -auh --info=progress2 --exclude=*.md --exclude-from $HOME/.rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
 fi
 
+# Figures Folder
+printf "\n\n%s\n" "${green}File List: Figures${normal}"
+rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude=*.md --dry-run ebi:/nfs/research1/beltrao/ally/mutations/figures/ $HOME/Projects/mutations/figures
+
+read -p "Transfer? " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+   rsync -auh --info=progress2 --exclude=*.md --exclude-from $HOME/.rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/figures/ $HOME/Projects/mutations/figures
+fi
