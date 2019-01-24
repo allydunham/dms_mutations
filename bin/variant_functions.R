@@ -19,7 +19,9 @@ plot_predictions.single_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   
   plots <- c(plot_sift(x$single_variants, study),
-             plot_foldx(x$single_variants, study),
+             sapply(names(x$foldx), function(id){plot_foldx(x$single_variants, id, study)}, simplify = FALSE) %>%
+               unname(.) %>%
+               unlist(., recursive = FALSE),
              plot_pph(x$single_variants, study),
              plot_envision(x$single_variants, study),
              plot_evcoup(x$single_variants, study))
@@ -29,9 +31,11 @@ plot_predictions.single_variant <- function(x){
 # Multi Variants
 plot_predictions.multi_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
-  
+
   plots <- c(plot_sift(x$single_variants, study),
-             plot_foldx(x$multi_variants, study),
+             sapply(names(x$foldx), function(id){plot_foldx(x$multi_variants, id, study)}, simplify = FALSE) %>%
+               unname(.) %>%
+               unlist(., recursive = FALSE),
              plot_pph(x$single_variants, study),
              plot_envision(x$single_variants, study),
              plot_evcoup(x$multi_variants, study))
@@ -71,7 +75,7 @@ plot_sift <- function(tbl, study=''){
 }
 
 # Plot Envision Scores
-# Expects df with columns variant, score, raw_score, 
+# Expects df with columns: score, raw_score, envision_prediction, 
 plot_envision <- function(tbl, study=''){
   p_score <- ggplot(tbl, aes(x=score, y=envision_prediction)) +
     xlab(MUT_SCORE_NAME) + 
@@ -81,7 +85,7 @@ plot_envision <- function(tbl, study=''){
   if (dim(tbl)[1] < 1000){
     p_score <- p_score + geom_point() 
   } else {
-    p_score <- p_score + geom_density2d()
+    p_score <- p_score + geom_bin2d()
   }
   
   p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
@@ -91,9 +95,9 @@ plot_envision <- function(tbl, study=''){
 }
 
 # Plot Polyphen2 Scores
-# Expects df with columns variant, score, raw_score, pph2_class, pph2_prob pph2_FPR pph2_TPR pph2_FDR
+# Expects df with columns score, raw_score, pph2_class, pph2_prob pph2_FPR pph2_TPR pph2_FDR
 plot_pph <- function(tbl, study=''){
-  p_score <- ggplot(tbl, aes(x=score, y=pph_prob)) +
+  p_score <- ggplot(tbl, aes(x=score, y=pph2_prob)) +
     xlab(MUT_SCORE_NAME) + 
     ylab('PolyPhen2 Probability') +
     ggtitle(study)
@@ -101,7 +105,7 @@ plot_pph <- function(tbl, study=''){
   if (dim(tbl)[1] < 1000){
     p_score <- p_score + geom_point() 
   } else {
-    p_score <- p_score + geom_density2d()
+    p_score <- p_score + geom_bin2d()
   }
   
   p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
@@ -121,12 +125,28 @@ plot_pph <- function(tbl, study=''){
 }
 
 # Plot FoldX Scores
-plot_foldx <- function(tbl, study=''){
+# Expects df with columns score, raw_score, foldx_PDB_ddG for PDB id
+plot_foldx <- function(tbl, pdb_id, study=''){
+  p_score <- ggplot(tbl, aes_string(x='score', y=str_c('foldx_', pdb_id, '_ddG'))) +
+    xlab(MUT_SCORE_NAME) + 
+    ylab('FoldX ddG') +
+    ggtitle(study)
   
+  if (dim(tbl)[1] < 1000){
+    p_score <- p_score + geom_point() 
+  } else {
+    p_score <- p_score + geom_bin2d()
+  }
+  
+  p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
+  
+  l <- list(p_score, p_raw_score)
+  names(l) <- c(str_c('foldx_', pdb_id, '_ddG_vs_score'), str_c('foldx_', pdb_id, '_ddG_vs_raw_score'))
+  return(l)
 }
 
 # Plot EVCouplings Scores
-# Expects a df with variant, score, raw_score, evcoup_epistatic, evcoup_independent
+# Expects a df with variants, score, raw_score, evcoup_epistatic, evcoup_independent
 plot_evcoup <- function(tbl, study=''){
   p_epistatic <- ggplot(tbl, aes(x=score, y=evcoup_epistatic)) +
     xlab(MUT_SCORE_NAME) +
@@ -146,6 +166,11 @@ plot_evcoup <- function(tbl, study=''){
   
   p_raw_epistatic <- p_epistatic + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
   p_raw_ind <- p_ind + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
+  
+  return(list(evcoup_independent_vs_score=p_ind,
+              evcoup_epistatic_vs_score=p_epistatic,
+              evcoup_independent_vs_raw_score=p_raw_ind,
+              evcoup_epistatic_vs_raw_score=p_raw_epistatic))
 }
 
 # Plot misc statistics

@@ -38,17 +38,20 @@ for (dataset in deep_datasets){
     pdb_ids <- dm$pdb_id
     foldx <- list()
     for (pdb in str_split(pdb_ids, ':', simplify = TRUE)[,1]){
-      muts <- read_lines(str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')) %>%
-        str_replace(., ';', '') %>%
-        lapply(., remove_pdb_chains) %>%
-        unlist()
-      
-      ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
-        rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
-        mutate(pdb=muts) %>%
-        rename(variants=pdb)
-      
-      foldx[[pdb]] <- ddg
+      fx_file <- str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')
+      if (file.exists(fx_file)){
+        muts <- read_lines(fx_file) %>%
+          str_replace(., ';', '') %>%
+          lapply(., remove_pdb_chains) %>%
+          unlist()
+        
+        ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
+          rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
+          mutate(pdb=muts) %>%
+          rename(variants=pdb)
+        
+        foldx[[pdb]] <- ddg        
+      }
     }
     if (length(foldx) == 0){
       foldx <- NA
@@ -83,12 +86,16 @@ for (dataset in deep_datasets){
     # Create Combined Score Table
     if (any(grepl('\\,', dm$variant_data$variants))){
       # Datasets with multiple mutations
-      cls <- 'multi_varriant'
+      cls <- 'multi_variant'
       
       multi_variants <- dm$variant_data %>%
         mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
         left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
-      # TODO add foldx to multi when example is here
+      
+      for (i in names(foldx)){
+        re <- structure(c('sd', 'total_energy'), names=c(str_c('foldx_', i, '_sd'), str_c('foldx_', i, '_ddG')))
+        multi_variants %<>% left_join(., select(foldx[[i]], variants, !!re), by='variants')
+      }
       
       # Take average of effect for each single variant
       max_vars <- dim(str_split(dm$variant_data$variants, ',', simplify = TRUE))[2]
@@ -104,7 +111,7 @@ for (dataset in deep_datasets){
                   n=n()) %>% # currently just take mean, maybe use better metric?
         left_join(., select(pph, variants, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
         left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
-        left_join(., select(sift, variants, sift_prediction, sift_score, sift_median), by='variants')
+        left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants')
         
     } else {
       # Datasets with single variants only
@@ -117,7 +124,11 @@ for (dataset in deep_datasets){
         left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
         left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants') %>%
         left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
-      # TODO Add FoldX here when ready
+      
+      for (i in names(foldx)){
+        re <- structure(c('sd', 'total_energy'), names=c(str_c('foldx_', i, '_sd'), str_c('foldx_', i, '_ddG')))
+        single_variants %<>% left_join(., select(foldx[[i]], variants, !!re), by='variants')
+      }
     }
     
     # Generate Data Object
