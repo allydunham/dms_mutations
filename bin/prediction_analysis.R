@@ -26,7 +26,7 @@ deep_variant_plots$araya_2012_hYAP65$foldx_4REX_ddG_vs_mut_count <- ggplot(df, a
   ggtitle('Araya et al. 2012: hYAP65 Variants')
 
 deep_variant_plots$araya_2012_hYAP65$foldx_4REX_ddG_vs_score_single_vars <- ggplot(filter(df, count==1),
-                                                                           aes(x=score, y=foldx_4REX_ddG)) +
+                                                                                   aes(x=score, y=foldx_4REX_ddG)) +
   geom_point() +
   xlab(MUT_SCORE_NAME) +
   ylab('ddG') +
