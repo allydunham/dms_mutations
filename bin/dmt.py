@@ -131,7 +131,8 @@ class DMTaskSelecter:
             ftp.login('anonymous')
             ftp_close = True
 
-        for pdb in self.deep_data.meta_data['pdb_id']:
+        pdb_ids = self.deep_data.meta_data['pdb_id']
+        for pdb in pdb_ids if isinstance(pdb_ids, list) else [pdb_ids]:
             # Download PDB if it doesn't exist
             pdb = pdb.split(':')
             pdb_id, chain = pdb[0], pdb[1]

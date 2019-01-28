@@ -132,7 +132,8 @@ def main(args):
                                                    rotabase=args.rotabase, ftp=ftp,
                                                    foldx_size=args.foldx_size)
 
-                    for pdb in deep.meta_data['pdb_id']:
+                    pdb_ids = deep.meta_data['pdb_id']
+                    for pdb in pdb_ids if isinstance(pdb_ids, list) else [pdb_ids]:
                         pdb = pdb.split(':')
                         logging.info('Writing FoldX jobs for %s', pdb[0])
                         print(f'# {pdb[0]}', file=script_file)
