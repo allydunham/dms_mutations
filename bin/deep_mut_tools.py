@@ -23,7 +23,8 @@ class DeepMut:
     Deep Mutational Scanning data with associated metadata
     """
     required_metadata = {'gene_name':None, 'domain':None, 'species':None, 'aa_seq':None,
-                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None}
+                         'transform':'None', 'uniprot_id':None, 'authour':None, 'year':None,
+                         'pdb_id':None}
 
     # Used for grouping when writing files, to make them more readable
     key_groups = {'gene_keys': ['gene_name', 'domain', 'species', 'alt_name'],
