@@ -3,11 +3,7 @@
 # Fields each dataset needs:
 ## accession, species, common name, gene name, domain name, mut_id, position(s), variant(s)
 
-library(Biostrings)
-library(tidyverse)
-library(magrittr)
-library(readxl)
-
+source('bin/libraries.R')
 source('bin/dm_functions.R')
 
 deep_mut_data <- list()
@@ -122,7 +118,7 @@ df <- deep_mut_data$roscoe_2013_ubi %>%
 
 formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'UBI4', species = species_options$cerevisiae, uniprot_id = 'P0CG63',
                                                aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), authour = 'Roscoe et al.', year = 2013,
-                                               alt_name = 'Ubiquitin', pmid = '23376099', pdb_id=c('3CMM:B', '3OLM:D'),
+                                               alt_name = 'Ubiquitin', pmid = '23376099', pdb_id=c('3CMM:B', '3OLM:D:0:-74'),
                                                title = 'Analyses of the effects of all ubiquitin point mutants on yeast growth rate',
                                                url='https://www.sciencedirect.com/science/article/pii/S0022283613000636',
                                                doi='10.1016/j.jmb.2013.01.032')
@@ -215,7 +211,7 @@ df <- deep_mut_data$wagenaar_2014_braf %>%
 
 formatted_deep_data$wagenaar_2014_braf <- DeepMut(variant_data = df, gene_name = 'BRAF', species = species_options$sapiens,
                                                   aa_seq = str_c(raw_seqs$h_sapiens_braf_v600e, collapse = ''), transform = 'log2', uniprot_id = 'P15056',
-                                                  authour = 'Wagenaar et al.', year = 2014, pdb_id=c('1UWH:A', '3C4C:A'),
+                                                  authour = 'Wagenaar et al.', year = 2014, pdb_id=c('1UWH:A:1', '3C4C:A'),
                                                   notes='Only retained variants they deemed significantly different from wt',
                                                   title='Resistance to vemurafenib resulting from a novel mutation in the BRAFV600E kinase domain',
                                                   pmid='24112705', doi='10.1111/pcmr.12171', url='https://onlinelibrary.wiley.com/doi/full/10.1111/pcmr.12171')
@@ -539,7 +535,7 @@ formatted_deep_data$kitzman_2015_gal4 <- DeepMut(variant_data = select(deep_mut_
                                                                        NONSEL_24h, SEL_A_24h, SEL_A_40h, SEL_B_40h, SEL_C_40h, SEL_C_64h),
                                                  transform = 'Log2, Average of A,B,C at 40h', gene_name = 'GAL4', species = species_options$cerevisiae,
                                                  authour = 'Kitzman et al.', year = 2015, aa_seq = str_c(raw_seqs$s_cerevisiae_gal4, collapse = ''),
-                                                 uniprot_id = 'P04386', pdb_id = c('1D66:A'),
+                                                 uniprot_id = 'P04386', pdb_id = c('1D66:A:0:8-64'),
                                                  title='Massively parallel single amino-acid mutagenesis', pmid='25559584',
                                                  doi='10.1038/nmeth.3223', url='https://www.nature.com/articles/nmeth.3223')
 
@@ -631,7 +627,7 @@ df <- deep_mut_data$brenan_2016_erk2 %>%
 
 formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = 'None',
                                                 authour = 'Brenan et al. 2016', year = 2016, aa_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
-                                                uniprot_id = 'P28482', pdb_id = c('1PME:A', '1TVO:A'),
+                                                uniprot_id = 'P28482', pdb_id = c('1TVO:A:0:8-357'),
                                                 alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pmid='27760319',
                                                 url='https://www.sciencedirect.com/science/article/pii/S2211124716313171',
                                                 notes='Also includes scores in two other drug conditions. Used A375 cells with BRAFV600E.',
@@ -715,7 +711,7 @@ df <- deep_mut_data$weile_2017_sumo1 %>%
 
 formatted_deep_data$weile_2017_sumo1 <- DeepMut(variant_data = df, gene_name = 'SUMO1', species = species_options$sapiens, transform = 'log2',
                                                 aa_seq = str_c(raw_seqs$h_sapiens_sumo1, collapse = ''), uniprot_id = 'P63165',
-                                                authour = 'Weile et al.', year = 2017, pdb_id = c('1WYW:B', '2PE6:B'),
+                                                authour = 'Weile et al.', year = 2017, pdb_id = c('1WYW:B:0:19-97', '2PE6:B:0:21-94'),
                                                 title='A framework for exhaustively mapping functional missense variants',
                                                 doi='10.15252/msb.20177908', pmid='29269382',
                                                 url='http://msb.embopress.org/content/13/12/957')
@@ -855,18 +851,9 @@ for (i in names(formatted_deep_data)){
   }
 }
 
-# Save meta data about proteins
-get_meta <- function(x, var){
-  if ('DeepMutSet' %in% class(x)){
-    return(unique(sapply(x, get_meta, var=var)))
-  } else if ('DeepMut' %in% class(x)){
-    return(x[[var]])
-  }
-}
-meta <- data_frame(authour = sapply(formatted_deep_data, get_meta, var='authour'),
-                   gene_name = sapply(formatted_deep_data, get_meta, var='gene_name'),
-                   uniprot_id = sapply(formatted_deep_data, get_meta, var='uniprot_id'),
-                   species = sapply(formatted_deep_data, get_meta, var='species'))
+meta <- data_frame(authour = unlist(sapply(formatted_deep_data, get_meta, var='authour')),
+                   gene_name = unlist(sapply(formatted_deep_data, get_meta, var='gene_name')),
+                   uniprot_id = unlist(sapply(formatted_deep_data, get_meta, var='uniprot_id')),
+                   species = unlist(sapply(formatted_deep_data, get_meta, var='species')),
+                   size = unlist(sapply(formatted_deep_data, get_size)))
 write_tsv(meta, 'meta/gene_meta_data.tsv')
-
-dataset_size <- sapply(deep_mut_data, function(x){dim(x)[1]}) %>% unlist()

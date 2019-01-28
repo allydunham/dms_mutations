@@ -1,7 +1,5 @@
 #!/usr/bin/env Rscript 
 # Script containing functions for loading and analysis of data from Envision, SIFT, FoldX, Polyphen2 & EVCouplings
-library(tidyverse)
-library(ggpubr)
 
 # Constants
 MUT_SCORE_NAME <- 'Standardised Mutagenesis Score'

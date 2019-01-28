@@ -212,6 +212,24 @@ read_deep_mut <- function(filepath){
   return(dm)
 }
 
+# Fetch meta data about deep mut data
+get_meta <- function(x, var){
+  if ('DeepMutSet' %in% class(x)){
+    return(sapply(x, get_meta, var=var))
+  } else if ('DeepMut' %in% class(x)){
+    return(x[[var]])
+  }
+}
+
+# Fetch deep mut dataset size
+get_size <- function(x){
+  if ('DeepMutSet' %in% class(x)){
+    return(sapply(x, get_size))
+  } else if ('DeepMut' %in% class(x)){
+    return(dim(x$variant_data)[1])
+  }
+}
+
 #### Analysis ####
 # Find the next empty row (All NA or bottom) in a tbl
 find_next_empty_row <- function(start_row, tbl){
