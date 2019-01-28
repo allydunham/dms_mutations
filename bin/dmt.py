@@ -24,7 +24,7 @@ from nested_dicts import nested_merge
 from smart_open import smart_open
 
 ROTABASE_PATH = '/Users/ally/Projects/mutations/rotabase.txt'
-FOLDX_JOB_SIZE = 5000
+FOLDX_JOB_SIZE = 1000
 
 class DMTaskSelecter:
     """Case selecter for different possible tasks to apply to DeepMut data"""
@@ -145,6 +145,14 @@ class DMTaskSelecter:
                 # If the given value is not a valid int
                 raise err
 
+            try:
+                region = get_region(pdb[3])
+            except IndexError:
+                region = [0, float('inf')]
+            except ValueError as err:
+                # If the given value is not a valid region
+                raise err
+
             pdb_dir = f'{out_dir}/{pdb_id}'
             if not os.path.isdir(pdb_dir):
                 os.mkdir(pdb_dir)
@@ -166,7 +174,10 @@ class DMTaskSelecter:
                 shutil.copy(kwargs['rotabase'], f'{pdb_dir}/rotabase.txt')
 
             subs = get_pdb_muts(pdb_path, single_letter=True)[chain]
-            foldx_strs = [','.join(foldx_variants(g, subs, chain, offset)) for g in genotypes]
+            foldx_strs = [','.join(foldx_variants(g, subs, chain, offset, region)) for
+                          g in genotypes]
+            foldx_strs = [x for x in foldx_strs if x]
+
             if not kwargs['foldx_size']:
                 with smart_open(f"{pdb_dir}/individual_list_{pdb_id}.txt", mode='w') as out_file:
                     print(*foldx_strs, sep=';\n', end=';\n', file=out_file)
@@ -222,14 +233,35 @@ def get_pdb_muts(path_or_file, single_letter=False):
 
     return muts
 
-def foldx_variants(genotypes, sub, chain='A', offset=0):
+def foldx_variants(genotypes, sub, chain='A', offset=0, region=None):
     """Convert a list of genotypes into a list of FoldX individual_variants.txt entries"""
+    if region is None:
+        region = [0, float('inf')]
+
     foldx_strs = []
     for geno in genotypes:
         ref, pos, mut = geno[0], int(geno[1:-1])-offset, geno[-1]
-        foldx_strs.append(f'{sub[pos][1] if pos in sub else ref}{chain}{pos}{mut}')
+        if region[0] <= pos <= region[1]:
+            foldx_strs.append(f'{sub[pos][1] if pos in sub else ref}{chain}{pos}{mut}')
 
     return foldx_strs
+
+def get_region(x):
+    """Transform a string of the form X-Y into a region"""
+    spl = x.split('-')
+    if spl[0] == '' and spl[1] == '':
+        # Fully open region
+        reg = [0, float('inf')]
+    elif spl[0] == '':
+        # Open beginning
+        reg = [0, int(spl[1])]
+    elif spl[1] == '':
+        # open end
+        reg = [int(spl[0]), float('inf')]
+    else:
+        reg = [int(spl[0]), int(spl[1])]
+
+    return reg
 
 def main(args):
     """Main script"""

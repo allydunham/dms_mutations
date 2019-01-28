@@ -54,3 +54,6 @@ Initial version. Current rules:
 ### Version 2.1
 * Added optional third field to pdb\_id entries, giving the offset relative to the uniprot sequence, to allow better conversion
 * New field looks like ID:Chain(:Offset)
+
+#### Version 2.1.1
+* Added subset field to PDB IDs, allowing sepcification of which section of the protein is mdoelled: pdb\_id:chain:offset:X-Y for region between residues numbered X and Y (inclusive)
