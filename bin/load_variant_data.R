@@ -59,7 +59,8 @@ for (dataset in deep_datasets){
     # Read Envision Scores
     env_file <- str_c(dm$uniprot_id, '_envision_vars.csv')
     if (env_file %in% dir(root)){
-      env <- read_csv(str_c(root, '/', env_file))
+      env <- read_csv(str_c(root, '/', env_file)) %>%
+        mutate(log2_envision_prediction = log2(Envision_predictions))
     } else {
       env <- NA
     }
@@ -108,8 +109,9 @@ for (dataset in deep_datasets){
                   score=mean(score, na.rm = TRUE),
                   raw_score=mean(raw_score, na.rm=TRUE),
                   n=n()) %>% # currently just take mean, maybe use better metric?
-        left_join(., select(pph, variants, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
-        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
+        left_join(., select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
+                            pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
+        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions, log2_envision_prediction), by='variants') %>%
         left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants')
         
     } else {
@@ -119,8 +121,9 @@ for (dataset in deep_datasets){
       
       single_variants <- dm$variant_data %>%
         mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(pph, variants=variant, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
-        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions), by='variants') %>%
+        left_join(., select(pph, variants=variant, pph2_prediction=prediction, pph2_class,
+                            pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
+        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions, log2_envision_prediction), by='variants') %>%
         left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants') %>%
         left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
       

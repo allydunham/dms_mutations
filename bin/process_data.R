@@ -600,11 +600,12 @@ df <- deep_mut_data$mishra_2016_hsp90 %>%
   mutate(ref_aa = raw_seqs$s_cerevisiae_hsp82[position],
          variants = str_c('p.', ref_aa, position, alt_aa),
          score = avg_norm_ratiochange,
-         raw_score = score)
+         raw_score = score) %>%
+  select(variants, score, raw_score)
 
 formatted_deep_data$mishra_2016_hsp90 <- DeepMut(variant_data = df, gene_name = 'HSP90', species = species_options$cerevisiae,
                                                   authour = 'Mishra et al.', year = 2016, aa_seq = str_c(raw_seqs$s_cerevisiae_hsp82, collapse = ''),
-                                                 transform = 'None', uniprot_id = 'P02829', pdb_id = c('2CG9:A', '2CGE:A'),
+                                                 transform = 'None', uniprot_id = 'P02829', pdb_id = c('2CG9:A'),
                                                  alt_name='HSP82', title='Systematic Mutant Analyses Elucidate General and Client-Specific Aspects of Hsp90 Function',
                                                  doi='10.1016/j.celrep.2016.03.046', pmid='27068472',
                                                  url='https://www.sciencedirect.com/science/article/pii/S2211124716303175')

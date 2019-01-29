@@ -73,7 +73,7 @@ plot_sift <- function(tbl, study=''){
 }
 
 # Plot Envision Scores
-# Expects df with columns: score, raw_score, envision_prediction, 
+# Expects df with columns: score, raw_score, envision_prediction, log2_envision_prediction 
 plot_envision <- function(tbl, study=''){
   p_score <- ggplot(tbl, aes(x=score, y=envision_prediction)) +
     xlab(MUT_SCORE_NAME) + 
@@ -88,12 +88,15 @@ plot_envision <- function(tbl, study=''){
   
   p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
   
+  p_log2 <- p_score + aes(y=log2_envision_prediction) + ylab('Log2 Envision Prediction')
+  
   return(list(score_vs_envision=p_score,
-              raw_score_vs_envision=p_raw_score))
+              raw_score_vs_envision=p_raw_score,
+              score_vs_log2_envision=p_log2))
 }
 
 # Plot Polyphen2 Scores
-# Expects df with columns score, raw_score, pph2_class, pph2_prob pph2_FPR pph2_TPR pph2_FDR
+# Expects df with columns score, raw_score, pph2_prediction, pph2_class, pph2_prob pph2_FPR pph2_TPR pph2_FDR
 plot_pph <- function(tbl, study=''){
   p_score <- ggplot(tbl, aes(x=score, y=pph2_prob)) +
     xlab(MUT_SCORE_NAME) + 
@@ -117,9 +120,24 @@ plot_pph <- function(tbl, study=''){
     xlab('PolyPhen2 Class') +
     ylab(MUT_SCORE_NAME)
   
+  p_prediction <- p_class +
+    aes(x=pph2_prediction)
+    stat_compare_means(comparisons = list(c("probably damaging", "possibly damaging", "benign"))) +
+    xlab('PolyPhen2 Prediction')
+  
+    
+  p_pph_vs_sift <- ggplot(drop_na(tbl, pph2_prediction, sift_prediction),
+                          aes(x=pph2_prediction, y=..count.., fill=sift_prediction)) +
+    geom_bar(position = 'dodge') +
+    xlab('Polyphen2 Prediction') + 
+    ylab('Count') +
+    guides(fill=guide_legend(title = 'SIFT Prediction'))
+  
   return(list(score_vs_pph=p_score,
               raw_score_vs_pph=p_raw_score,
-              pph_class_vs_score=p_class))
+              pph_class_vs_score=p_class,
+              pph_prediction_vs_score=p_prediction,
+              pph_vs_sift_class=p_pph_vs_sift))
 }
 
 # Plot FoldX Scores
