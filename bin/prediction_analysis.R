@@ -32,10 +32,10 @@ deep_variant_plots$araya_2012_hYAP65$foldx_4REX_ddG_vs_score_single_vars <- ggpl
   ggtitle('Araya et al. 2012: hYAP65')
 
 #### Save plots ####
-for (study_name in names(deep_variant_plots)){
-  fig_root <- str_c('figures/variant_analysis/', study_name)
-  dir.create(fig_root, showWarnings = FALSE, recursive = TRUE)
-  for (plot_name in names(deep_variant_plots[[study_name]])){
-    ggsave(str_c(fig_root, '/', plot_name, '.pdf'), deep_variant_plots[[study_name]][[plot_name]], width = 7, height = 5)
-  }
-}
+# for (study_name in names(deep_variant_plots)){
+#   fig_root <- str_c('figures/variant_analysis/', study_name)
+#   dir.create(fig_root, showWarnings = FALSE, recursive = TRUE)
+#   for (plot_name in names(deep_variant_plots[[study_name]])){
+#     ggsave(str_c(fig_root, '/', plot_name, '.pdf'), deep_variant_plots[[study_name]][[plot_name]], width = 7, height = 5)
+#   }
+# }

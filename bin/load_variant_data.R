@@ -57,7 +57,7 @@ for (dataset in deep_datasets){
     }
     
     # Read Envision Scores
-    env_file <- str_c(dm$uniprot_id, '_envision_vars.csv')
+    env_file <- str_c(dm$gene_name, '_envision_vars.csv')
     if (env_file %in% dir(root)){
       env <- read_csv(str_c(root, '/', env_file)) %>%
         mutate(log2_envision_prediction = log2(Envision_predictions))
@@ -91,7 +91,7 @@ for (dataset in deep_datasets){
       multi_variants <- dm$variant_data %>%
         mutate(variants=str_replace_all(variants, 'p\\.', ''))
       
-      if (all(!is.na(evcoup))){
+      if (!all(is.na(evcoup))){
         multi_variants <- left_join(multi_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
                                                            evcoup_independent=prediction_independent), by='variants')
       }
@@ -114,42 +114,42 @@ for (dataset in deep_datasets){
                   raw_score=mean(raw_score, na.rm=TRUE),
                   n=n())# currently just take mean, maybe use better metric?
       
-      if (all(!is.na(pph))){
+      if (!all(is.na(pph))){
         single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
                                                              pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
       }
       
-      if (all(!is.na(env))){
+      if (!all(is.na(env))){
         single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
                                                              log2_envision_prediction), by='variants')
       }
       
-      if (all(!is.na(sift))){
+      if (!all(is.na(sift))){
         single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
                                                              sift_score, sift_median), by='variants')
       }
         
     } else {
       # Datasets with single variants only
-      cls <- 'single_varriant'
+      cls <- 'single_variant'
       multi_variants <- NULL
       
       single_variants <- dm$variant_data %>%
         mutate(variants=str_replace_all(variants, 'p\\.', ''))
         
-      if (all(!is.na(pph))){
-        single_variants <- left_join(single_variants, select(pph, variants=variant, pph2_prediction=prediction, pph2_class,
+      if (!all(is.na(pph))){
+        single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class,
                                                              pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
       }
-      if (all(!is.na(env))){
+      if (!all(is.na(env))){
         single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
                                                              log2_envision_prediction), by='variants')
       }
-      if (all(!is.na(sift))){
+      if (!all(is.na(sift))){
         single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
                                                              sift_score, sift_median), by='variants')
       }
-      if (all(!is.na(evcoup))){
+      if (!all(is.na(evcoup))){
         single_variants <- left_join(single_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
                                                              evcoup_independent=prediction_independent), by='variants')
       }
