@@ -263,7 +263,7 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id, files):
                      name=model_name,
                      cwd=pdb_dir, dep=f'ended({repair_name})')
 
-    cat_job = bsub(f"{CONFIG['misc']['bin_path']}/foldx_cat.sh",
+    cat_job = bsub(f"{CONFIG['misc']['bin_path']}/foldx_cat.sh {pdb_id}",
                    log=f'{log_dir}/{dm_id}_foldx_cat_{pdb_id}', ram=500,
                    name=f'{batch_id}_{dm_id}_foldx_cat_{pdb_id}', cwd=pdb_dir,
                    dep=f'ended({model_name})')
