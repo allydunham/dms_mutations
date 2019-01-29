@@ -234,21 +234,22 @@ def get_pdb_muts(path_or_file, single_letter=False):
     return muts
 
 def foldx_variants(genotypes, sub, chain='A', offset=0, region=None):
-    """Convert a list of genotypes into a list of FoldX individual_variants.txt entries"""
+    """Convert a list of genotypes into a list of FoldX individual_variants.txt entries.
+       Returns an empty list if no variants are suitable (e.g. out of region or mutate to same)"""
     if region is None:
         region = [0, float('inf')]
 
     foldx_strs = []
     for geno in genotypes:
         ref, pos, mut = geno[0], int(geno[1:-1])-offset, geno[-1]
-        if region[0] <= pos <= region[1]:
+        if region[0] <= pos <= region[1] and not ref == mut:
             foldx_strs.append(f'{sub[pos][1] if pos in sub else ref}{chain}{pos}{mut}')
 
     return foldx_strs
 
-def get_region(x):
+def get_region(reg_str):
     """Transform a string of the form X-Y into a region"""
-    spl = x.split('-')
+    spl = reg_str.split('-')
     if spl[0] == '' and spl[1] == '':
         # Fully open region
         reg = [0, float('inf')]

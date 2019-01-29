@@ -342,8 +342,8 @@ def parse_args():
     foldx = parser.add_argument_group('FoldX Options')
     foldx.add_argument('--rotabase', '-r', help='Path to FoldX rotabase.txt file',
                        default=CONFIG['foldx']['rotabase_path'])
-    foldx.add_argument('--foldx_ram', default=8000, type=int, help='FoldX job RAM')
-    foldx.add_argument('--foldx_size', default=5000, type=dmt.non_neg_int,
+    foldx.add_argument('--foldx_ram', default=500, type=int, help='FoldX job RAM')
+    foldx.add_argument('--foldx_size', default=500, type=dmt.non_neg_int,
                        help='Number of variants per FoldX job')
 
     pph = parser.add_argument_group('Polyphen2 Options')
