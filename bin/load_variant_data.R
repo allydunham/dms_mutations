@@ -10,10 +10,8 @@ deep_variant_data <- list()
 
 deep_datasets <- dir('data/standardised')
 
-#TESTING
-deep_datasets <- deep_datasets[1]
-
 for (dataset in deep_datasets){
+  print(dataset)
   root <- str_c('data/standardised/', dataset)
   dm_files <- grep('*.dm', dir(root), value = TRUE)
   
@@ -34,22 +32,24 @@ for (dataset in deep_datasets){
     }
     
     # Read FoldX Scores
-    pdb_ids <- dm$pdb_id
     foldx <- list()
-    for (pdb in str_split(pdb_ids, ':', simplify = TRUE)[,1]){
-      fx_file <- str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')
-      if (file.exists(fx_file)){
-        muts <- read_lines(fx_file) %>%
-          str_replace(., ';', '') %>%
-          lapply(., remove_pdb_chains) %>%
-          unlist()
-        
-        ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
-          rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
-          mutate(pdb=muts) %>%
-          rename(variants=pdb)
-        
-        foldx[[pdb]] <- ddg        
+    if (length(dm$pdb_id) > 0){
+      pdb_ids <- dm$pdb_id
+      for (pdb in str_split(pdb_ids, ':', simplify = TRUE)[,1]){
+        fx_file <- str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')
+        if (file.exists(fx_file)){
+          muts <- read_lines(fx_file) %>%
+            str_replace(., ';', '') %>%
+            lapply(., remove_pdb_chains) %>%
+            unlist()
+          
+          ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
+            rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
+            mutate(pdb=muts) %>%
+            rename(variants=pdb)
+          
+          foldx[[pdb]] <- ddg        
+        }
       }
     }
     if (length(foldx) == 0){
@@ -76,7 +76,7 @@ for (dataset in deep_datasets){
     # Read PolyPhen2 Scores
     pph_file <- str_c('pph_', dm$gene_name,'.predictions')
     if (pph_file %in% dir(root)){
-      pph <- read_tsv(str_c(root, '/', pph_file)) %>%
+      pph <- read_tsv(str_c(root, '/', pph_file), col_types = cols(effect=col_character())) %>%
         mutate(variants=str_c(aa1, pos, aa2))
       names(pph) <- str_replace(names(pph), '#', '')
     } else {
@@ -89,8 +89,12 @@ for (dataset in deep_datasets){
       cls <- 'multi_variant'
       
       multi_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
+        mutate(variants=str_replace_all(variants, 'p\\.', ''))
+      
+      if (all(!is.na(evcoup))){
+        multi_variants <- left_join(multi_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
+                                                           evcoup_independent=prediction_independent), by='variants')
+      }
       
       for (i in names(foldx)){
         re <- structure(c('sd', 'total_energy'), names=c(str_c('foldx_', i, '_sd'), str_c('foldx_', i, '_ddG')))
@@ -108,11 +112,22 @@ for (dataset in deep_datasets){
         summarise(sd=sd(score, na.rm = TRUE),
                   score=mean(score, na.rm = TRUE),
                   raw_score=mean(raw_score, na.rm=TRUE),
-                  n=n()) %>% # currently just take mean, maybe use better metric?
-        left_join(., select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
-                            pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
-        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions, log2_envision_prediction), by='variants') %>%
-        left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants')
+                  n=n())# currently just take mean, maybe use better metric?
+      
+      if (all(!is.na(pph))){
+        single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
+                                                             pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
+      }
+      
+      if (all(!is.na(env))){
+        single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
+                                                             log2_envision_prediction), by='variants')
+      }
+      
+      if (all(!is.na(sift))){
+        single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
+                                                             sift_score, sift_median), by='variants')
+      }
         
     } else {
       # Datasets with single variants only
@@ -120,12 +135,24 @@ for (dataset in deep_datasets){
       multi_variants <- NULL
       
       single_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
-        left_join(., select(pph, variants=variant, pph2_prediction=prediction, pph2_class,
-                            pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants') %>%
-        left_join(., select(env, variants=Variant, envision_prediction=Envision_predictions, log2_envision_prediction), by='variants') %>%
-        left_join(., select(sift, variants=variant, sift_prediction, sift_score, sift_median), by='variants') %>%
-        left_join(., select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic, evcoup_independent=prediction_independent), by='variants')
+        mutate(variants=str_replace_all(variants, 'p\\.', ''))
+        
+      if (all(!is.na(pph))){
+        single_variants <- left_join(single_variants, select(pph, variants=variant, pph2_prediction=prediction, pph2_class,
+                                                             pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
+      }
+      if (all(!is.na(env))){
+        single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
+                                                             log2_envision_prediction), by='variants')
+      }
+      if (all(!is.na(sift))){
+        single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
+                                                             sift_score, sift_median), by='variants')
+      }
+      if (all(!is.na(evcoup))){
+        single_variants <- left_join(single_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
+                                                             evcoup_independent=prediction_independent), by='variants')
+      }
       
       for (i in names(foldx)){
         re <- structure(c('sd', 'total_energy'), names=c(str_c('foldx_', i, '_sd'), str_c('foldx_', i, '_ddG')))
