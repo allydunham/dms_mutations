@@ -69,11 +69,13 @@ plot_sift <- function(tbl, study=''){
   if (dim(tbl)[1] < 1000){
     p_score <- p_score + geom_point() 
   } else {
-    p_score <- p_score + geom_density2d()
+    p_score <- p_score + geom_bin2d()
   }
   
   p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
-    
+  
+  p_log_score <- p_score + scale_y_log10()
+  
   # Sift predictions vs score
   p_prediction <- ggplot(drop_na(tbl, sift_prediction), aes(x=sift_prediction, y=score)) +
     geom_boxplot() +
@@ -86,7 +88,8 @@ plot_sift <- function(tbl, study=''){
  
   return(list(score_vs_sift=p_score,
               raw_score_vs_sift=p_raw_score,
-              sift_prediction_vs_score=p_prediction))
+              sift_prediction_vs_score=p_prediction,
+              log2_sift_vs_score=p_log_score))
 }
 
 # Plot Envision Scores
@@ -148,7 +151,8 @@ plot_pph <- function(tbl, study=''){
     geom_bar(position = 'dodge') +
     xlab('Polyphen2 Prediction') + 
     ylab('Count') +
-    guides(fill=guide_legend(title = 'SIFT Prediction'))
+    guides(fill=guide_legend(title = 'SIFT Prediction')) +
+    ggtitle(study)
   
   return(list(score_vs_pph=p_score,
               raw_score_vs_pph=p_raw_score,
@@ -183,11 +187,13 @@ plot_foldx <- function(tbl, pdb_id, study=''){
 plot_evcoup <- function(tbl, study=''){
   p_epistatic <- ggplot(tbl, aes(x=score, y=evcoup_epistatic)) +
     xlab(MUT_SCORE_NAME) +
-    ylab('EVCouplings Epistatic Score')
+    ylab('EVCouplings Epistatic Score') +
+    ggtitle(study)
   
   p_ind <- ggplot(tbl, aes(x=score, y=evcoup_independent)) +
     xlab(MUT_SCORE_NAME) +
-    ylab('EVCouplings Independent Score')
+    ylab('EVCouplings Independent Score') +
+    ggtitle(study)
   
   if (dim(tbl)[1] < 1000){
     p_epistatic <- p_epistatic + geom_point()
