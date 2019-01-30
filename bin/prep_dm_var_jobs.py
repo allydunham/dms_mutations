@@ -328,7 +328,7 @@ def parse_args():
                         help='Base EVCouplings config file')
     evcoup.add_argument('--ev_options', default='{}',
                         help='Extra EVCouplings options (overwrites ev_config parameters)')
-    evcoup.add_argument('--ev_ram', default=8000, type=int, help='EVCouplings Job RAM')
+    evcoup.add_argument('--ev_ram', default=32000, type=int, help='EVCouplings Job RAM')
 
     envision = parser.add_argument_group('Envision Options')
     envision.add_argument('--env_human', default=CONFIG['envision']['env_human_db'],
