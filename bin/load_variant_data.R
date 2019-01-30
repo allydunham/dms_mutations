@@ -43,7 +43,8 @@ for (dataset in deep_datasets){
             lapply(., remove_pdb_chains) %>%
             unlist()
           
-          ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8) %>%
+          ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8,
+                          col_types = cols(.default=col_double(), Pdb=col_character())) %>%
             rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
             mutate(pdb=muts) %>%
             rename(variants=pdb)
