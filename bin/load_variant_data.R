@@ -35,21 +35,23 @@ for (dataset in deep_datasets){
     foldx <- list()
     if (length(dm$pdb_id) > 0){
       pdb_ids <- dm$pdb_id
-      for (pdb in str_split(pdb_ids, ':', simplify = TRUE)[,1]){
-        fx_file <- str_c(root, '/', pdb, '/individual_list_', pdb, '.txt')
+      for (pdb in str_split(pdb_ids, ':')){
+        pdb_id <- pdb[1]
+        pdb_offset <- ifelse(is.na(pdb[3]), 0, as.integer(pdb[3]))
+        fx_file <- str_c(root, '/', pdb_id, '/individual_list_', pdb_id, '.txt')
         if (file.exists(fx_file)){
           muts <- read_lines(fx_file) %>%
             str_replace(., ';', '') %>%
-            lapply(., remove_pdb_chains) %>%
+            lapply(., format_pdb_variants, pdb_offset=pdb_offset) %>%
             unlist()
           
-          ddg <- read_tsv(str_c(root, '/', pdb, '/Average_', pdb, '_Repair.fxout'), skip = 8,
+          ddg <- read_tsv(str_c(root, '/', pdb_id, '/Average_', pdb_id, '_Repair.fxout'), skip = 8,
                           col_types = cols(.default=col_double(), Pdb=col_character())) %>%
             rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
             mutate(pdb=muts) %>%
             rename(variants=pdb)
           
-          foldx[[pdb]] <- ddg        
+          foldx[[pdb_id]] <- ddg        
         }
       }
     }

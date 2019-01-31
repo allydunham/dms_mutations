@@ -227,8 +227,9 @@ plot_misc <- function(tbl, study=''){
 }
 
 #### Misc Functions ####
-remove_pdb_chains <- function(x){
+format_pdb_variants <- function(x, pdb_offset=0){
   x <- str_split(x, ',')[[1]]
   str_sub(x, 2, 2) <- ''
+  str_sub(x, 2, -2) <- as.character(as.integer(str_sub(x, 2, -2)) + pdb_offset)
   return(str_c(x, collapse = ','))
 }
