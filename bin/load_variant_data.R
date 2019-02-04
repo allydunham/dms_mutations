@@ -92,7 +92,9 @@ for (dataset in deep_datasets){
       cls <- 'multi_variant'
       
       multi_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', ''))
+        mutate(variants=str_replace_all(variants, 'p\\.', ''),
+               count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})))
+        
       
       if (!all(is.na(evcoup))){
         multi_variants <- left_join(multi_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
