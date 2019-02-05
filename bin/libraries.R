@@ -4,5 +4,6 @@
 library(Biostrings)
 library(tidyverse)
 library(magrittr)
+library(broom)
 library(readxl)
 library(ggpubr)

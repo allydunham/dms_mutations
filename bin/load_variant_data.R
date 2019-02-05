@@ -60,9 +60,22 @@ for (dataset in deep_datasets){
     }
     
     # Read Envision Scores
-    env_file <- str_c(dm$gene_name, '_envision_vars.csv')
-    if (env_file %in% dir(root)){
-      env <- read_csv(str_c(root, '/', env_file)) %>%
+    env_path_batch <- str_c('data/envision_data/', dm$uniprot_id, '_envisionData.csv')
+    env_path_specific <- str_c(root, '/', dm$gene_name, '_envision_vars.csv')
+    if (file.exists(env_path_batch)){
+      env <- read_csv(env_path_batch, col_types = cols(.default = col_double(), id2 = col_character(), AA1 = col_character(),
+                                                       AA2 = col_character(), position = col_integer(), Uniprot = col_character(),
+                                                       WT_Mut = col_character(), Variant = col_character(), AA1_polarity = col_character(),
+                                                       AA2_polarity = col_character(), SecondaryStructure=col_character(),
+                                                       phi_psi_angles=col_character())) %>%
+        filter(Variant %in% get_variants(dm)) %>%
+        mutate(log2_envision_prediction = log2(Envision_predictions))
+    } else if (file.exists(env_path_specific)){
+      env <- read_csv(env_path_specific, col_types = cols(.default = col_double(), id2 = col_character(), AA1 = col_character(),
+                                                          AA2 = col_character(), position = col_integer(), Uniprot = col_character(),
+                                                          WT_Mut = col_character(), Variant = col_character(), AA1_polarity = col_character(),
+                                                          AA2_polarity = col_character(), SecondaryStructure=col_character(),
+                                                          phi_psi_angles=col_character())) %>%
         mutate(log2_envision_prediction = log2(Envision_predictions))
     } else {
       env <- NA

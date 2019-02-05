@@ -212,6 +212,28 @@ read_deep_mut <- function(filepath){
   return(dm)
 }
 
+# Get set of unique variants from deep mut data
+get_variants <- function(x, ...){
+  UseMethod('get_variants', x)
+}
+
+get_variants.default <- function(x){
+  stop(str_c('Error: to fetch variants "x" must be of class "DeepMut" or "DeepMutSet" but class(x) = ', class(x)))
+}
+
+get_variants.DeepMut <- function(x){
+  muts <- str_replace_all(x$variant_data$variants, 'p.', '')
+  muts <- str_split(muts, ',')
+  muts <- unique(unlist(muts))
+  return(muts[!is.na(muts)])
+}
+
+get_variants.DeepMutSet <- function(x){
+  muts <- lapply(x, get_variants)
+  muts <- unique(unlist(muts))
+  return(muts)
+}
+
 # Fetch meta data about deep mut data
 get_meta <- function(x, var){
   if ('DeepMutSet' %in% class(x)){

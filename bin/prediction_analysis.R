@@ -9,12 +9,45 @@ source('bin/variant_functions.R')
 formatted_deep_data <-readRDS('data/formatted_deep_mut_data.RDS')
 deep_variant_data <- readRDS('data/variant_data.RDS')
 
-# Basic plots
+# Basic plots per study
 deep_variant_plots <- sapply(deep_variant_data, plot_predictions, simplify = FALSE)
 
-# General analysis
+### General plots across studies ###
+deep_variant_plots$combined_plots <- list()
 
-### Save plots ####
+#### Envision ####
+select_envision <- function(x){
+  if ('envision_prediction' %in% names(x$single_variants)){
+    return(select(x$single_variants, variants, score, envision_prediction, log2_envision_prediction))
+  } else {
+    return(NULL)
+  }
+}
+
+envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study')
+
+envision_cor_test <- group_by(envision, study) %>%
+  do(tidy(cor.test(.$score, .$log2_envision_prediction)))
+max_abs_t <- max(abs(envision_cor_test$statistic))
+  
+deep_variant_plots$combined_plots[['envision_correlation']] <- ggplot(envision_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+  geom_col() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
+  ggtitle('Correlation between log2(Envision predictions) and mutagenesis scores') +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_gradientn(colours = c('red', 'white', 'blue'), limits = c(-max_abs_t, max_abs_t)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+#### SIFT ####
+
+#### FoldX ####
+
+#### Polyphen2 ####
+
+#### EVCouplings ####
+
+#### Save plots #####
 for (study_name in names(deep_variant_plots)){
   print(str_c('Writing figures for ', study_name))
   fig_root <- str_c('figures/variant_analysis/', study_name)
