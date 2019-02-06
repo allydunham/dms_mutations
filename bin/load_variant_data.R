@@ -1,9 +1,7 @@
 #!/usr/bin/env Rscript 
 # Script to load processed deep mutagenesis data for analysis
 
-source('bin/libraries.R')
-source('bin/dm_functions.R')
-source('bin/variant_functions.R')
+source('bin/config.R')
 
 #### Load Data ####
 deep_variant_data <- list()

@@ -3,8 +3,7 @@
 # Fields each dataset needs:
 ## accession, species, common name, gene name, domain name, mut_id, position(s), variant(s)
 
-source('bin/libraries.R')
-source('bin/dm_functions.R')
+source('bin/config.R')
 
 deep_mut_data <- list()
 formatted_deep_data <- list()
