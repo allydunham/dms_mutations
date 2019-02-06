@@ -1,10 +1,6 @@
 #!/usr/bin/env Rscript 
 # Script containing functions for loading and analysis of data from Envision, SIFT, FoldX, Polyphen2 & EVCouplings
 
-# Constants
-MUT_SCORE_NAME <- 'Standardised Mutagenesis Score'
-RAW_MUT_SCORE_NAME <- 'Raw Mutagenesis Score'
-
 #### Plotting function ####
 ## Plot deep mutagenesis data and variant effect predictions
 # Generic
@@ -32,6 +28,9 @@ plot_predictions.single_variant <- function(x){
   if ('evcoup_epistatic' %in% names(x$single_variants)){
     plots <- c(plots, plot_evcoup(x$single_variants, study))
   }
+  
+  plots <- c(plots, plot_misc(x$single_variants, study))
+  
   return(plots)
 }
 
@@ -56,6 +55,9 @@ plot_predictions.multi_variant <- function(x){
   if ('evcoup_epistatic' %in% names(x$multi_variants)){
     plots <- c(plots, plot_evcoup(x$multi_variants, study))
   }
+  
+  plots <- c(plots, plot_misc(x$single_variants, study))
+  
   return(plots)
 }
 
@@ -241,15 +243,38 @@ plot_evcoup <- function(tbl, study=''){
 # Plot misc statistics
 plot_misc <- function(tbl, study=''){
   tbl <- tbl %>%
-    mutate(pos=as.integer(str_sub(variants, 2, -2)),
+    mutate(position=as.integer(str_sub(variants, 2, -2)),
            aa1 = str_sub(variants, 1, 1),
            aa2= str_sub(variants, -1))
   
-  p_position <- ggplot(t, aes(group=pos, x=pos, y=score)) +
+  p_position <- ggplot(tbl, aes(group=position, x=position, y=score)) +
     geom_boxplot() +
     xlab('AA Position') + 
     ylab(MUT_SCORE_NAME) +
     ggtitle(study)
+  
+  return(list(aa_position_vs_score = p_position))
+}
+
+# Plot contingency tables
+# Expects a tbl with two categorical cols and one score/proportion col + maybe a grouping col 
+plot_contingency_table <- function(tbl, cat1, cat2, var, group=NULL,
+                                   cat1_name=NULL, cat2_name=NULL, var_name=NULL){
+  tbl$rounded_var <- round(tbl[[var]], 2)
+  
+  p <-ggplot(tbl, aes_string(x=cat1, y=var, fill=cat2)) +
+    geom_col() + 
+    geom_text(aes(label = rounded_var), 
+              position = position_stack(vjust = 0.5)) + 
+    xlab(ifelse(is.null(cat1_name), cat1, cat1_name)) +
+    ylab(ifelse(is.null(var_name), var, var_name)) +
+    guides(fill = guide_legend(title = ifelse(is.null(cat2_name), cat2, cat2_name)))
+  
+  if (!is.null(group)){
+    p <- p + facet_wrap(as.formula(str_c('~', group)), scales = 'free')
+  }
+  
+  return(p)
 }
 
 #### Misc Functions ####
@@ -258,4 +283,17 @@ format_pdb_variants <- function(x, pdb_offset=0){
   str_sub(x, 2, 2) <- ''
   str_sub(x, 2, -2) <- as.character(as.integer(str_sub(x, 2, -2)) + pdb_offset)
   return(str_c(x, collapse = ','))
+}
+
+#### Convert experimental scores into predictions ####
+# Interface wrapper to exchange current version
+predict_exp_function <- function(x){
+  return(exp_deleterious(x))
+}
+
+# Assume any deviation from neutral is bad
+exp_deleterious <- function(x){
+  res <- rep(MUT_CATEGORIES$neutral, length(x))
+  res[abs(x) > 0.5] <- MUT_CATEGORIES$deleterious
+  return(res)
 }

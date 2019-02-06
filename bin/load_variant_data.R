@@ -82,7 +82,7 @@ for (dataset in deep_datasets){
     # Read EVCouplings Scores
     evcoup_path <- str_c(root, '/ev/mutate/ev_dataset_predicted.csv')
     if ('ev' %in% dir(root)){
-      evcoup <- read_csv(evcoup_path)
+      evcoup <- read_csv(evcoup_path, col_types = cols(mutant = col_character(), .default = col_double()))
     } else {
       evcoup <- NA
     }

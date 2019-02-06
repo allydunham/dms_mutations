@@ -19,5 +19,7 @@ source('bin/variant_functions.R')
 MUT_SCORE_NAME <- 'Standardised Mutagenesis Score'
 RAW_MUT_SCORE_NAME <- 'Raw Mutagenesis Score'
 
+MUT_CATEGORIES <- list(deleterious='deleterious', neutral='neutral', beneficial='beneficial')
+
 # ggplot theme (currently unset)
 theme_set(theme_gray()) 
