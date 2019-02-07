@@ -23,21 +23,22 @@ adjust_dm_file <- function(dm, path){
 # pdb is a vec of c(pdb_id, chain, (offset), (subset))
 adjust_foldx <- function(pdb, root){
   pdb_id <- pdb[1]
+  pdb_chain <- pdb[2]
   pdb_offset <- ifelse(is.na(pdb[3]), 0, as.integer(pdb[3]))
   
-  muts <- read_lines(str_c(root, '/per_codon_scores/', pdb_id, '/individual_list_', pdb_id, '.txt')) %>%
-    str_replace(., ';', '') %>%
-    lapply(., format_pdb_variants, pdb_offset=pdb_offset) %>%
-    unlist()
+  muts <- read_lines(str_c(root, '/per_codon_scores/', pdb_id, '/individual_list_', pdb_id, '.txt'))
   
   fx <- read_tsv(str_c(root, '/per_codon_scores/', pdb_id, '/Average_', pdb_id, '_Repair.fxout'), skip = 8,
                  col_types = cols(.default=col_double(), Pdb=col_character())) %>%
     mutate(Pdb=muts) %>%
     group_by(Pdb) %>%
-    summarise_all(.funs = mean)
+    summarise_all(.funs = mean) %>%
+    mutate(position = as.integer(str_sub(Pdb, start = 3, end = -3))) %>%
+    arrange(position) %>%
+    select(-position)
   
   # Write muts list
-  write(fx$Pdb, str_c(root, '/', pdb_id, '/individual_list_', pdb_id, '.txt'))
+  write_lines(fx$Pdb, str_c(root, '/', pdb_id, '/individual_list_', pdb_id, '.txt'))
   
   # Write averages table
   fx <- mutate(fx, Pdb=str_c(pdb_id, '_Repair_', 1:dim(fx)[1]))
