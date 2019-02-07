@@ -60,7 +60,7 @@ select_sift <- function(x){
 
 sift <- bind_rows(lapply(deep_variant_data, select_sift), .id='study') %>%
   mutate(exp_prediction = predict_exp_function(score),
-         sift_prediction = str_to_lower(gsub('TOLERATED', sift_prediction, MUT_CATEGORIES$neutral)))
+         sift_prediction = str_to_lower(gsub('TOLERATED', MUT_CATEGORIES$neutral, sift_prediction)))
 
 sift_summary <- group_by(sift, study, sift_prediction) %>%
   drop_na(sift_prediction, exp_prediction) %>%
