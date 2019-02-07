@@ -91,6 +91,72 @@ deep_variant_plots$all_studies$sift_prediction_accuracy <- labeled_ggplot(p = pl
                                                                           width = 12, height = 9)
 
 #### FoldX ####
+select_foldx <- function(x){
+  if (any(grepl('foldx_', names(x$multi_variants)))){
+    tbl <- x$multi_variants
+  } else if (any(grepl('foldx_', names(x$single_variants)))){
+    tbl <- x$single_variants
+  } else {
+    return(NULL)
+  }
+  tbl <- select(tbl, variants, score, starts_with('foldx_')) %>%
+    rename_at(vars(contains('foldx_')), .funs = funs(gsub('foldx_', '', .))) %>%
+    gather(key = 'k', value = 'v', -variants, -score) %>%
+    separate(k, into = c('pdb_id', 'k'), sep = '_') %>%
+    spread(key = k, value = v)
+  return(tbl)
+}
+
+foldx <- bind_rows(lapply(deep_variant_data, select_foldx), .id='study') %>%
+  mutate(count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})),
+         single = count == 1,
+         exp_prediction = predict_exp_function(score))
+
+# Correlations
+foldx_cor_test <- group_by(foldx, study, pdb_id, single) %>%
+  drop_na(ddG) %>%
+  do(tidy(cor.test(abs(.$score), .$ddG))) %>%
+  mutate(multi = ifelse(single, '', 'multi')) %>%
+  unite(name, study, pdb_id, multi)
+
+max_abs_t <- max(abs(foldx_cor_test$statistic))
+deep_variant_plots$all_studies$foldx_correlation <- ggplot(foldx_cor_test, aes(y=estimate, x=name, fill=statistic)) + 
+  geom_col() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
+  ggtitle('Correlation between FoldX ddG and abs(experimental scores)') +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+# Predictions
+foldx_summary <- mutate(foldx, foldx_prediction = ifelse(abs(ddG) > 2, MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral)) %>%
+  group_by(study, foldx_prediction)  %>%
+  summarise(num_vars = n(),
+            deleterious = sum(exp_prediction == MUT_CATEGORIES$deleterious),
+            neutral = sum(exp_prediction == MUT_CATEGORIES$neutral)) %>%
+  gather(key = 'exp_prediction', value = 'count', deleterious, neutral) %>%
+  group_by(study, foldx_prediction) %>%
+  mutate(prop = count/sum(count)) %>%
+  arrange(study, foldx_prediction)
+
+deep_variant_plots$all_studies$foldx_prediction_counts <- labeled_ggplot(p = plot_contingency_table(foldx_summary,
+                                                                                                    cat1 = 'foldx_prediction',
+                                                                                                    cat2 = 'exp_prediction',
+                                                                                                    var = 'count', group = 'study',
+                                                                                                    cat1_name = 'abs(ddG) > 2',
+                                                                                                    cat2_name = 'Exp. Prediction',
+                                                                                                    var_name = 'Count'),
+                                                                         width = 12, height = 9)
+
+deep_variant_plots$all_studies$foldx_prediction_accuracy <- labeled_ggplot(p = plot_contingency_table(foldx_summary,
+                                                                                                      cat1 = 'foldx_prediction',
+                                                                                                      cat2 = 'exp_prediction',
+                                                                                                      var = 'prop', group = 'study',
+                                                                                                      cat1_name = 'abs(ddG) > 2',
+                                                                                                      cat2_name = 'Exp. Prediction',
+                                                                                                      var_name = 'Proportion'),
+                                                                           width = 12, height = 9)
+
 
 #### Polyphen2 ####
 select_pph <- function(x){

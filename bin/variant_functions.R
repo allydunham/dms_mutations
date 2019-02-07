@@ -199,7 +199,7 @@ plot_foldx_multi <- function(tbl, pdb_id, study){
     ggtitle(study)
   
   p_singles <- ggplot(filter(tbl, count==1),
-                      aes(x=score, y=str_c('foldx_', pdb_id, '_ddG'))) +
+                      aes_string(x='score', y=str_c('foldx_', pdb_id, '_ddG'))) +
     geom_point() +
     xlab(MUT_SCORE_NAME) +
     ylab('ddG') +
