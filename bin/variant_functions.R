@@ -277,6 +277,36 @@ plot_contingency_table <- function(tbl, cat1, cat2, var, group=NULL,
   return(p)
 }
 
+# Boxplots of predicted score vs experimental classification
+plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name='Experimental Prediction',
+                                group='study', group_name = NULL){
+  r <- range(tbl[y], na.rm = TRUE)
+  y_n_lab <- min(tbl[y], na.rm = TRUE) - 0.1 * (r[2] - r[1])
+  ymin <- min(tbl[y], na.rm = TRUE) - 0.1 * (r[2] - r[1])
+  ymax <- max(tbl[y], na.rm = TRUE) + 0.2 * (r[2] - r[1])
+  
+  p_box_all <- ggplot(tbl, aes_string(x=x, y=y)) + 
+    geom_boxplot() +
+    xlab(x_name) +
+    ylab(ifelse(is.null(y_name), y, y_name)) +
+    stat_summary(geom = 'text', fun.data = function(x){return(c(y = y_n_lab,
+                                                                label = length(x)))}) +
+    stat_compare_means(comparisons = list(c(MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral))) +
+    stat_summary(geom = 'text', colour='red', fun.data = function(x){return(c(y = mean(x), label = signif(mean(x), 3)))}) +
+    ggtitle('Overall') +
+    ylim(ymin, ymax)
+  
+  if (is.null(group)){
+    return(p_box_all)
+  } else {
+    p_box_facet <- p_box_all + 
+      facet_wrap(as.formula(str_c('~', group))) +
+      ggtitle(str_c('Per ', ifelse(is.null(group_name), group, group_name)))
+    return(ggarrange(p_box_all, p_box_facet, ncol = 2, widths = c(1,2)))
+  }
+  
+}
+
 #### Misc Functions ####
 format_pdb_variants <- function(x, pdb_offset=0){
   x <- str_split(x, ',')[[1]]

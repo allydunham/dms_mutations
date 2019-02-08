@@ -34,7 +34,14 @@ select_envision <- function(x){
   }
 }
 
-envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study')
+envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study') %>%
+  mutate(exp_prediction = predict_exp_function(score))
+
+deep_variant_plots$all_studies$envision_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(envision,
+                                                                                                   y = 'envision_prediction',
+                                                                                                   y_name = 'Envision Prediction'),
+                                                                               width = 12,
+                                                                               height = 8)
 
 envision_cor_test <- group_by(envision, study) %>%
   do(tidy(cor.test(.$score, .$log2_envision_prediction)))
@@ -61,6 +68,12 @@ select_sift <- function(x){
 sift <- bind_rows(lapply(deep_variant_data, select_sift), .id='study') %>%
   mutate(exp_prediction = predict_exp_function(score),
          sift_prediction = str_to_lower(gsub('TOLERATED', MUT_CATEGORIES$neutral, sift_prediction)))
+
+deep_variant_plots$all_studies$sift_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(sift,
+                                                                                               y = 'sift_score',
+                                                                                               y_name = 'SIFT Score'),
+                                                                           width = 12,
+                                                                           height = 8)
 
 sift_summary <- group_by(sift, study, sift_prediction) %>%
   drop_na(sift_prediction, exp_prediction) %>%
@@ -111,6 +124,16 @@ foldx <- bind_rows(lapply(deep_variant_data, select_foldx), .id='study') %>%
   mutate(count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})),
          single = count == 1,
          exp_prediction = predict_exp_function(score))
+
+deep_variant_plots$all_studies$foldx_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(foldx,
+                                                                                                y = 'ddG'),
+                                                                            width = 12,
+                                                                            height = 8)
+
+deep_variant_plots$all_studies$foldx_experimental_boxplot_single <- labeled_ggplot(plot_exp_pred_boxes(filter(foldx, single),
+                                                                                                       y = 'ddG'),
+                                                                                   width = 12,
+                                                                                   height = 8)
 
 # Correlations
 foldx_cor_test <- group_by(foldx, study, pdb_id, single) %>%
@@ -170,6 +193,13 @@ select_pph <- function(x){
 pph <- bind_rows(lapply(deep_variant_data, select_pph), .id='study') %>%
   mutate(exp_prediction = predict_exp_function(score))
 
+deep_variant_plots$all_studies$pph_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(pph,
+                                                                                              y = 'pph2_prob',
+                                                                                              y_name = 'Polyphen2 Probability'),
+                                                                          width = 12,
+                                                                          height = 8)
+
+
 pph_summary <- group_by(pph, study, pph2_class) %>%
   drop_na(pph2_class, exp_prediction) %>%
   summarise(num_vars = n(),
@@ -212,6 +242,12 @@ select_evcoup <- function(x){
 evcoup <- bind_rows(lapply(deep_variant_data, select_evcoup), .id='study') %>%
   mutate(exp_prediction = predict_exp_function(score),
          evcoup_prediction = ifelse(evcoup_epistatic < -6, MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral))
+
+deep_variant_plots$all_studies$evcoup_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(evcoup,
+                                                                                                 y = 'evcoup_epistatic',
+                                                                                                 y_name = 'EVCouplings Epistatic Score'),
+                                                                          width = 12,
+                                                                          height = 8)
 
 # Correlation
 evcoup_cor_test <- group_by(evcoup, study) %>%
