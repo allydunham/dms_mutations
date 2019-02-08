@@ -75,6 +75,22 @@ deep_variant_plots$all_studies$sift_experimental_boxplot <- labeled_ggplot(plot_
                                                                            width = 12,
                                                                            height = 8)
 
+# Correlation
+sift_cor_test <- group_by(sift, study) %>%
+  drop_na(score, sift_score) %>%
+  do(tidy(cor.test(.$score, log10(.$sift_score + min(.$sift_score[.$sift_score > 0], na.rm = TRUE)))))
+max_abs_t <- max(abs(sift_cor_test$statistic), na.rm = TRUE)
+
+deep_variant_plots$all_studies$sift_correlation <- ggplot(sift_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+  geom_col() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
+  ggtitle('Correlation between log10(SIFT Score) and mutagenesis scores') +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_gradientn(colours = c('red', 'white', 'blue'), limits = c(-max_abs_t, max_abs_t)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+# Predictions
 sift_summary <- group_by(sift, study, sift_prediction) %>%
   drop_na(sift_prediction, exp_prediction) %>%
   summarise(num_vars = n(),
@@ -199,7 +215,22 @@ deep_variant_plots$all_studies$pph_experimental_boxplot <- labeled_ggplot(plot_e
                                                                           width = 12,
                                                                           height = 8)
 
+# Correlation
+pph_cor_test <- group_by(pph, study) %>%
+  drop_na(score, pph2_prob) %>%
+  do(tidy(cor.test(.$score, -log10(.$pph2_prob + min(.$pph2_prob[.$pph2_prob > 0], na.rm = TRUE)))))
+max_abs_t <- max(abs(pph_cor_test$statistic), na.rm = TRUE)
 
+deep_variant_plots$all_studies$pph_correlation <- ggplot(pph_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+  geom_col() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
+  ggtitle('Correlation between -log10(Polyphen2 Probability) and mutagenesis scores') +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_gradientn(colours = c('red', 'white', 'blue'), limits = c(-max_abs_t, max_abs_t)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+# Predictions
 pph_summary <- group_by(pph, study, pph2_class) %>%
   drop_na(pph2_class, exp_prediction) %>%
   summarise(num_vars = n(),
