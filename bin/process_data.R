@@ -620,17 +620,17 @@ deep_mut_data$brenan_2016_erk2 <- read_xlsx('data/raw/processed/brenan_2016_erk2
 
 df <- deep_mut_data$brenan_2016_erk2 %>%
   mutate(variants = str_c('p.', erk2_mutant),
-         score = `lfc_(etp_vs._dox)`) %>%
+         score = -1 * `lfc_(etp_vs._dox)`) %>% # The selection scheme they used favoured lof > wt > gof
   select(variants, score, raw_score=`lfc_(etp_vs._dox)`, nuc_acid_changes, lfc_etp_vs_sch=`lfc_(etp_vs._sch)`, lfc_etp_vs_vrt=`lfc_(etp_vs._vrt)`,
          dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele) %>%
   mutate_at(vars(nuc_acid_changes, dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele), as.integer)
 
-formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = 'None',
+formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = '-1 * raw_score',
                                                 authour = 'Brenan et al. 2016', year = 2016, aa_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
                                                 uniprot_id = 'P28482', pdb_id = c('1TVO:A:0:8-357'),
                                                 alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pmid='27760319',
                                                 url='https://www.sciencedirect.com/science/article/pii/S2211124716313171',
-                                                notes='Also includes scores in two other drug conditions. Used A375 cells with BRAFV600E.',
+                                                notes='Also includes scores in two other drug conditions. Used A375 cells with BRAFV600E. Transform by -1 because the selection scheme they used favoured lof > wt > gof.',
                                                 title='Phenotypic Characterization of a Comprehensive Set of MAPK1/ERK2 Missense Mutants')
 
 #### Ashenberg 2016 Flu Nucleoprotein ####
@@ -789,12 +789,14 @@ deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2
 df1 <- deep_mut_data$giacomelli_2018_tp53 %>%
   mutate(score = a549_p53wt_nutlin_3_z_score,
          raw_score = score,
+         score = -1 * score,
          variants = str_c('p.', allele)) %>%
   select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
 
 df2 <- deep_mut_data$giacomelli_2018_tp53 %>% 
   mutate(score = a549_p53null_nutlin_3_z_score,
          raw_score = score,
+         score = -1 * score,
          variants = str_c('p.', allele)) %>%
   select(variants, score, raw_score, a549_p53wt_nutlin_3_z_score, a549_p53null_nutlin_3_z_score, a549_p53null_etoposide_z_score)
 
@@ -808,17 +810,17 @@ tp53_ref_seq <- deep_mut_data$giacomelli_2018_tp53 %>% group_by(position) %>% su
 
 formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
   list(p53_wt_nutlin3=DeepMut(variant_data = df1, gene_name = 'TP53', species = species_options$sapiens,
-                              authour = 'Giacomelli et al.', year = 2018, transform = 'None',
+                              authour = 'Giacomelli et al.', year = 2018, transform = '-1 * raw_score',
                               uniprot_id = 'P04637', aa_seq = tp53_ref_seq,
-                              notes='Score is in Z-score format, with wt p53 background and nutlin3 selecting for dominant negative variants (see paper)',
+                              notes='Score is in Z-score format, with wt p53 background and nutlin3 selecting for dominant negative variants (see paper, hence -1*)',
                               title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                               doi='10.1038/s41588-018-0204-y', pmid='30224644',
                               url='https://www.nature.com/articles/s41588-018-0204-y'),
        p53_null_nutlin3=DeepMut(variant_data = df2,
                                 gene_name = 'TP53', species = species_options$sapiens,
-                                authour = 'Giacomelli et al.', year = 2018, transform = 'None',
+                                authour = 'Giacomelli et al.', year = 2018, transform = '-1 * raw_score',
                                 uniprot_id = 'P04637', aa_seq = tp53_ref_seq,
-                                notes='Score is in Z-score format, with null p53 background and nutlin3 selecting for LOF variants (see paper)',
+                                notes='Score is in Z-score format, with null p53 background and nutlin3 selecting for LOF variants (see paper, hence -1*)',
                                 title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                                 doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                 url='https://www.nature.com/articles/s41588-018-0204-y'),
@@ -850,6 +852,12 @@ for (i in names(formatted_deep_data)){
     stop('Incorrect object added to formatted_deep_data, not of class DeepMut or DeepMutSet')
   }
 }
+
+# Save Additional DM files in per codon folder
+write_deep_mut(formatted_deep_data$hietpas_2011_hsp90, 'data/standardised/hietpas_2011_hsp90/per_codon_scores/P02829_HSP90.dm')
+write_deep_mut(formatted_deep_data$weile_2017_ube2i, 'data/standardised/weile_2017_ube2i/per_codon_scores/P63279_UBE2I.dm')
+  write_deep_mut(formatted_deep_data$weile_2017_sumo1, 'data/standardised/weile_2017_sumo1/per_codon_scores/P63165_SUMO1.dm')
+
 
 meta <- data_frame(authour = unlist(sapply(formatted_deep_data, get_meta, var='authour')),
                    gene_name = unlist(sapply(formatted_deep_data, get_meta, var='gene_name')),

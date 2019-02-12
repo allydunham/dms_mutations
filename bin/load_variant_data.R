@@ -14,12 +14,19 @@ for (dataset in deep_datasets){
   dm_files <- grep('*.dm', dir(root), value = TRUE)
   
   for (dm_file in dm_files){
-    dataset_name <- str_c(c(str_split(dataset, '_', simplify = TRUE)[,c(1,2)], str_split(dm_file, '_', simplify = TRUE)[,2]), collapse='_') %>%
-      str_replace(., '\\.dm', '') %>% 
-      str_replace(., '\\.', '_')
-    
     # Read DeepMut File
-    dm <- read_deep_mut(str_c(root, '/', dm_file[1]))
+    dm <- read_deep_mut(str_c(root, '/', dm_file))
+    
+    #Generate dataset name
+    dm_batch <- tryCatch(str_split(str_remove(dm_file, '\\.dm'), '\\.', simplify = TRUE)[1,2],
+                                   error=function(cond){return(NULL)})
+    dataset_name <- str_c(str_split(dm$authour, ' ', simplify = TRUE)[1,1], '_',
+                          dm$year, '_',
+                          dm$gene_name, ifelse(is.null(dm_batch), '', '.'),
+                          dm_batch) %>%
+      str_to_lower()
+    
+    
     
     # Read SIFT Scores
     sift_file <- str_c(dm$gene_name, '.SIFTprediction')
@@ -177,7 +184,7 @@ for (dataset in deep_datasets){
     }
     
     # Generate Data Object
-    deep_variant_data[[dataset]] <- list(dm=dm,
+    deep_variant_data[[dataset_name]] <- list(dm=dm,
                                          sift=sift,
                                          envision=env,
                                          polyphen2=pph,
@@ -186,7 +193,7 @@ for (dataset in deep_datasets){
                                          single_variants=single_variants,
                                          multi_variants=multi_variants)
     
-    class(deep_variant_data[[dataset]]) <- c(cls, class(deep_variant_data[[dataset]]))
+    class(deep_variant_data[[dataset_name]]) <- c(cls, class(deep_variant_data[[dataset]]))
   }
 }
 

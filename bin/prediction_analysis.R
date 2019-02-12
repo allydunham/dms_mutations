@@ -23,7 +23,7 @@ deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = ggplot(all_dm, aes
                                                             facet_wrap(~study, scales = 'free') +
                                                             xlab(MUT_SCORE_NAME) +
                                                             ylab('Count'),
-                                                          width = 12, height = 9)
+                                                          width = 14, height = 9)
 
 #### Envision ####
 select_envision <- function(x){
