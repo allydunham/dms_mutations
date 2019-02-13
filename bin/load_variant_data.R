@@ -8,6 +8,8 @@ deep_variant_data <- list()
 
 deep_datasets <- dir('data/standardised')
 
+per_codon_datasets <- c('hietpas_2011_hsp90', 'weile_2017_sumo1', 'weile_2017_ube2i')
+
 for (dataset in deep_datasets){
   print(dataset)
   root <- str_c('data/standardised/', dataset)
@@ -102,6 +104,34 @@ for (dataset in deep_datasets){
       names(pph) <- str_replace(names(pph), '#', '')
     } else {
       pph <- NA
+    }
+    
+    # Adjust scores that are given per codon not per AA
+    if (dataset %in% per_codon_datasets){
+      dm$variant_data <- dm$variant_data %>%
+        group_by(variants) %>%
+        summarise(score = mean(score),
+                  raw_score = mean(raw_score)) %>%
+        mutate(position = as.integer(str_sub(variants, start = 4, end = -2))) %>%
+        arrange(position) %>%
+        select(-position)
+      
+      if (!identical(foldx, NA)){
+        foldx <- lapply(foldx, function(x){
+          group_by(x, variants) %>%
+            summarise_all(.funs = mean) %>%
+            mutate(position = as.integer(str_sub(variants, start = 2, end = -2))) %>%
+            arrange(position) %>%
+            select(-position)
+          })
+      }
+      if (!identical(evcoup, NA)){
+        evcoup <- group_by(evcoup, mutant) %>%
+          summarise_all(.funs = funs(mean)) %>%
+          mutate(position = as.integer(str_sub(mutant, start = 2, end = -2))) %>%
+          arrange(position) %>%
+          select(-position)
+      }
     }
     
     # Create Combined Score Table

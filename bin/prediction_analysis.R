@@ -4,7 +4,7 @@
 source('bin/config.R')
 
 # Import data
-formatted_deep_data <-readRDS('data/formatted_deep_mut_data.RDS')
+formatted_deep_data <- readRDS('data/formatted_deep_mut_data.RDS')
 deep_variant_data <- readRDS('data/variant_data.RDS')
 
 # Basic plots per study
