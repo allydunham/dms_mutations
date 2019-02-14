@@ -35,7 +35,7 @@ select_envision <- function(x){
 }
 
 envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study') %>%
-  mutate(exp_prediction = predict_exp_function(score))
+  mutate(exp_prediction = exp_mut_class(score, study))
 
 deep_variant_plots$all_studies$envision_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(envision,
                                                                                                    y = 'envision_prediction',
@@ -66,7 +66,7 @@ select_sift <- function(x){
 }
 
 sift <- bind_rows(lapply(deep_variant_data, select_sift), .id='study') %>%
-  mutate(exp_prediction = predict_exp_function(score),
+  mutate(exp_prediction = exp_mut_class(score, study),
          sift_prediction = str_to_lower(gsub('TOLERATED', MUT_CATEGORIES$neutral, sift_prediction)))
 
 deep_variant_plots$all_studies$sift_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(sift,
@@ -139,7 +139,7 @@ select_foldx <- function(x){
 foldx <- bind_rows(lapply(deep_variant_data, select_foldx), .id='study') %>%
   mutate(count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})),
          single = count == 1,
-         exp_prediction = predict_exp_function(score))
+         exp_prediction = exp_mut_class(score, study))
 
 deep_variant_plots$all_studies$foldx_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(foldx,
                                                                                                 y = 'ddG'),
@@ -207,7 +207,7 @@ select_pph <- function(x){
 }
 
 pph <- bind_rows(lapply(deep_variant_data, select_pph), .id='study') %>%
-  mutate(exp_prediction = predict_exp_function(score))
+  mutate(exp_prediction = exp_mut_class(score, study))
 
 deep_variant_plots$all_studies$pph_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(pph,
                                                                                               y = 'pph2_prob',
@@ -271,7 +271,7 @@ select_evcoup <- function(x){
 }
 
 evcoup <- bind_rows(lapply(deep_variant_data, select_evcoup), .id='study') %>%
-  mutate(exp_prediction = predict_exp_function(score),
+  mutate(exp_prediction = exp_mut_class(score, study),
          evcoup_prediction = ifelse(evcoup_epistatic < -6, MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral))
 
 deep_variant_plots$all_studies$evcoup_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(evcoup,

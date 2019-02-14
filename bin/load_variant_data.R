@@ -26,7 +26,8 @@ for (dataset in deep_datasets){
                           dm$year, '_',
                           dm$gene_name, ifelse(is.null(dm_batch), '', '.'),
                           dm_batch) %>%
-      str_to_lower()
+      str_to_lower() %>%
+      str_replace_all(., '-', '_')
     
     
     
