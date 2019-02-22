@@ -18,11 +18,14 @@ all_dm <- bind_rows(lapply(deep_variant_data, function(x){x$dm$variant_data}), .
   select(study, variants, score, raw_score) %>%
   mutate(variants = str_replace_all(variants, 'p.', ''))
 
+thresh_df <- data_frame(study=names(MANUAL_THRESHOLDS), thresh=MANUAL_THRESHOLDS)
+
 deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = ggplot(all_dm, aes(x=score)) + 
                                                             geom_histogram() +
                                                             facet_wrap(~study, scales = 'free') +
                                                             xlab(MUT_SCORE_NAME) +
-                                                            ylab('Count'),
+                                                            ylab('Count') +
+                                                            geom_vline(aes(xintercept=thresh), data = thresh_df, colour='red'),
                                                           width = 14, height = 9)
 
 #### Envision ####
