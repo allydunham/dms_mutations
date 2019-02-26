@@ -457,9 +457,9 @@ wt <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = "
 
 E_wt <- wt$selection_count/wt$input_count
 
-# Simplistic combining of data to get everying in, needs more complex processing
+# Combine all data, calc enrichment ratio score using pseudocount
 deep_mut_data$olson_2014_protein_g <- bind_rows(single_muts, double_muts) %>%
-  mutate(er = selection_count/input_count,
+  mutate(er = (selection_count + min(selection_count[selection_count > 0], na.rm = TRUE))/input_count,
          f = er/E_wt,
          score = log2(f))
 
