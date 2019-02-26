@@ -53,7 +53,7 @@ plot_predictions.multi_variant <- function(x){
     plots <- c(plots, plot_envision(x$single_variants, study))
   }
   if ('evcoup_epistatic' %in% names(x$multi_variants)){
-    plots <- c(plots, plot_evcoup(x$multi_variants, study))
+    plots <- c(plots, plot_evcoup_multi(x$multi_variants, study))
   }
   
   plots <- c(plots, plot_misc(x$single_variants, study))
@@ -238,6 +238,14 @@ plot_evcoup <- function(tbl, study=''){
               evcoup_epistatic_vs_score=p_epistatic,
               evcoup_independent_vs_raw_score=p_raw_ind,
               evcoup_epistatic_vs_raw_score=p_raw_epistatic))
+}
+
+# Add plots only looking at single variants for EVCoup multi variant data
+plot_evcoup_multi <- function(tbl, study){
+  l <- plot_evcoup(tbl, study)
+  l_sing <- plot_evcoup(filter(tbl, count == 1), study)
+  names(l_sing) <- str_c(names(l_sing), '_single_vars')
+  return(c(l_sing, l))
 }
 
 # Plot misc statistics
