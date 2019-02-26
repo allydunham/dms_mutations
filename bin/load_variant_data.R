@@ -18,6 +18,8 @@ for (dataset in deep_datasets){
   for (dm_file in dm_files){
     # Read DeepMut File
     dm <- read_deep_mut(str_c(root, '/', dm_file))
+    norm_factor <- max(abs(dm$variant_data$score), na.rm = TRUE)
+    dm$variant_data <- mutate(dm$variant_data, norm_score = score / norm_factor)
     
     #Generate dataset name
     dm_batch <- tryCatch(str_split(str_remove(dm_file, '\\.dm'), '\\.', simplify = TRUE)[1,2],
@@ -113,7 +115,8 @@ for (dataset in deep_datasets){
         group_by(variants) %>%
         summarise(score = mean(score),
                   raw_score = mean(raw_score)) %>%
-        mutate(position = as.integer(str_sub(variants, start = 4, end = -2))) %>%
+        mutate(norm_score = score / norm_factor,
+               position = as.integer(str_sub(variants, start = 4, end = -2))) %>%
         arrange(position) %>%
         select(-position)
       
@@ -141,11 +144,11 @@ for (dataset in deep_datasets){
       cls <- 'multi_variant'
       
       multi_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', ''),
+        mutate(variants = str_replace_all(variants, 'p\\.', ''),
                count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})))
         
       
-      if (!all(is.na(evcoup))){
+      if (!identical(evcoup, NA)){
         multi_variants <- left_join(multi_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
                                                            evcoup_independent=prediction_independent), by='variants')
       }
@@ -155,33 +158,27 @@ for (dataset in deep_datasets){
         multi_variants %<>% left_join(., select(foldx[[i]], variants, !!re), by='variants')
       }
       
-      # Take average of effect for each single variant
+      # Create single variants table
+      single_variants <- filter(multi_variants, count==1) %>%
+        select(-count)
+      
+      # Take average of effect for each single variant that hasn't been directly measured
       max_vars <- dim(str_split(dm$variant_data$variants, ',', simplify = TRUE))[2]
-      single_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', '')) %>%
+      mean_single_variants <- dm$variant_data %>%
+        mutate(variants = str_replace_all(variants, 'p\\.', '')) %>%
         separate('variants', str_c('variant', 1:max_vars, sep='_'), sep=',', extra='drop', fill='right') %>%
         gather(key = 'num', value = 'variants', contains('variant_')) %>%
         select(-num) %>%
+        drop_na(variants) %>%
         group_by(variants) %>%
         summarise(sd=sd(score, na.rm = TRUE),
-                  score=mean(score, na.rm = TRUE),
+                  score=mean(score, na.rm = TRUE), # currently just take mean, maybe use better metric?
                   raw_score=mean(raw_score, na.rm=TRUE),
-                  n=n())# currently just take mean, maybe use better metric?
+                  norm_score=mean(norm_score, na.rm=TRUE),
+                  n=n()) %>%
+        filter(!variants %in% single_variants$variants)
       
-      if (!all(is.na(pph))){
-        single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
-                                                             pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
-      }
-      
-      if (!all(is.na(env))){
-        single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
-                                                             log2_envision_prediction), by='variants')
-      }
-      
-      if (!all(is.na(sift))){
-        single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
-                                                             sift_score, sift_median), by='variants')
-      }
+      single_variants <- bind_rows(single_variants, mean_single_variants)
         
     } else {
       # Datasets with single variants only
@@ -189,21 +186,9 @@ for (dataset in deep_datasets){
       multi_variants <- NULL
       
       single_variants <- dm$variant_data %>%
-        mutate(variants=str_replace_all(variants, 'p\\.', ''))
+        mutate(variants = str_replace_all(variants, 'p\\.', ''))
         
-      if (!all(is.na(pph))){
-        single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class,
-                                                             pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
-      }
-      if (!all(is.na(env))){
-        single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
-                                                             log2_envision_prediction), by='variants')
-      }
-      if (!all(is.na(sift))){
-        single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
-                                                             sift_score, sift_median), by='variants')
-      }
-      if (!all(is.na(evcoup))){
+      if (!identical(evcoup, NA)){
         single_variants <- left_join(single_variants, select(evcoup, variants=mutant, evcoup_epistatic=prediction_epistatic,
                                                              evcoup_independent=prediction_independent), by='variants')
       }
@@ -214,6 +199,20 @@ for (dataset in deep_datasets){
       }
     }
     
+    # Add common values to single variants
+    if (!identical(pph, NA)){
+      single_variants <- left_join(single_variants, select(pph, variants, pph2_prediction=prediction, pph2_class, pph2_prob,
+                                                           pph2_FPR, pph2_TPR, pph2_FDR), by='variants')
+    }
+    if (!identical(env, NA)){
+      single_variants <- left_join(single_variants, select(env, variants=Variant, envision_prediction=Envision_predictions,
+                                                           log2_envision_prediction), by='variants')
+    }
+    if (!identical(sift, NA)){
+      single_variants <- left_join(single_variants, select(sift, variants=variant, sift_prediction,
+                                                           sift_score, sift_median), by='variants')
+    }
+    
     # Generate Data Object
     deep_variant_data[[dataset_name]] <- list(dm=dm,
                                          sift=sift,
@@ -222,9 +221,11 @@ for (dataset in deep_datasets){
                                          foldx=foldx,
                                          evcouplings=evcoup,
                                          single_variants=single_variants,
-                                         multi_variants=multi_variants)
+                                         multi_variants=multi_variants,
+                                         norm_factor=norm_factor,
+                                         manual_threshold=unname(MANUAL_THRESHOLDS[dataset_name]))
     
-    class(deep_variant_data[[dataset_name]]) <- c(cls, class(deep_variant_data[[dataset]]))
+    class(deep_variant_data[[dataset_name]]) <- c(cls, class(deep_variant_data[[dataset_name]]))
   }
 }
 
