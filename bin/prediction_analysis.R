@@ -15,10 +15,13 @@ deep_variant_plots$all_studies <- list()
 
 #### DM Data ####
 all_dm <- bind_rows(lapply(deep_variant_data, function(x){x$dm$variant_data}), .id='study') %>%
-  select(study, variants, score, raw_score) %>%
+  select(study, variants, score, raw_score, norm_score) %>%
   mutate(variants = str_replace_all(variants, 'p.', ''))
 
-thresh_df <- data_frame(study=names(MANUAL_THRESHOLDS), thresh=MANUAL_THRESHOLDS)
+thresh_df <- data_frame(study=names(deep_variant_data),
+                        thresh=sapply(deep_variant_data, function(x){x$manual_threshold}),
+                        factor=sapply(deep_variant_data, function(x){x$norm_factor}),
+                        norm_thresh=thresh/factor)
 
 deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = ggplot(all_dm, aes(x=score)) + 
                                                             geom_histogram() +
@@ -28,10 +31,19 @@ deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = ggplot(all_dm, aes
                                                             geom_vline(aes(xintercept=thresh), data = thresh_df, colour='red'),
                                                           width = 14, height = 9)
 
+deep_variant_plots$all_studies$dm_norm_hists <- labeled_ggplot(p = ggplot(all_dm, aes(x=norm_score)) + 
+                                                                 geom_histogram() +
+                                                                 facet_wrap(~study, scales = 'free') +
+                                                                 xlab(MUT_SCORE_NAME) +
+                                                                 ylab('Count') +
+                                                                 geom_vline(aes(xintercept=norm_thresh), data = thresh_df, colour='red'),
+                                                               width = 14, height = 9)
+
+
 #### Envision ####
 select_envision <- function(x){
   if ('envision_prediction' %in% names(x$single_variants)){
-    return(select(x$single_variants, variants, score, envision_prediction, log2_envision_prediction))
+    return(select(x$single_variants, variants, score, norm_score, envision_prediction, log2_envision_prediction))
   } else {
     return(NULL)
   }
@@ -39,6 +51,13 @@ select_envision <- function(x){
 
 envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study))
+
+deep_variant_plots$all_studies$envision_pred_vs_score <- ggplot(envision, aes(x=norm_score,
+                                                                              y=log2_envision_prediction)) +
+  geom_point(shape=20) +
+  xlab('Normalised Experimental Score') +
+  ylab('Log2 Envision Prediction') +
+  facet_wrap(~study, scales = 'free')
 
 deep_variant_plots$all_studies$envision_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(envision,
                                                                                                    y = 'envision_prediction',
@@ -62,7 +81,7 @@ deep_variant_plots$all_studies$envision_correlation <- ggplot(envision_cor_test,
 #### SIFT ####
 select_sift <- function(x){
   if ('sift_prediction' %in% names(x$single_variants)){
-    return(select(x$single_variants, variants, score, sift_prediction, sift_score, sift_median))
+    return(select(x$single_variants, variants, score, norm_score, sift_prediction, sift_score, sift_median))
   } else {
     return(NULL)
   }
@@ -71,6 +90,14 @@ select_sift <- function(x){
 sift <- bind_rows(lapply(deep_variant_data, select_sift), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study),
          sift_prediction = str_to_lower(gsub('TOLERATED', MUT_CATEGORIES$neutral, sift_prediction)))
+
+deep_variant_plots$all_studies$sift_pred_vs_score <- ggplot(sift, aes(x=norm_score,
+                                                                      y=sift_score)) +
+  geom_point(shape=20) +
+  xlab('Normalised Experimental Score') +
+  ylab('SIFT Score') +
+  scale_y_log10() +
+  facet_wrap(~study, scales = 'free')
 
 deep_variant_plots$all_studies$sift_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(sift,
                                                                                                y = 'sift_score',
@@ -131,9 +158,9 @@ select_foldx <- function(x){
   } else {
     return(NULL)
   }
-  tbl <- select(tbl, variants, score, starts_with('foldx_')) %>%
+  tbl <- select(tbl, variants, score, norm_score, starts_with('foldx_')) %>%
     rename_at(vars(contains('foldx_')), .funs = funs(gsub('foldx_', '', .))) %>%
-    gather(key = 'k', value = 'v', -variants, -score) %>%
+    gather(key = 'k', value = 'v', -variants, -score, -norm_score) %>%
     separate(k, into = c('pdb_id', 'k'), sep = '_') %>%
     spread(key = k, value = v)
   return(tbl)
@@ -143,6 +170,12 @@ foldx <- bind_rows(lapply(deep_variant_data, select_foldx), .id='study') %>%
   mutate(count = factor(sapply(variants, function(x){dim(str_split(x, ',', simplify = TRUE))[2]})),
          single = count == 1,
          exp_prediction = exp_mut_class(score, study))
+
+deep_variant_plots$all_studies$foldx_ddG_vs_score <- ggplot(filter(foldx, count==1), aes(x=norm_score, y=ddG)) +
+  geom_point(shape=20) +
+  xlab('Normalised Experimental Score') +
+  ylab('FoldX ddG') +
+  facet_wrap(~study, scales = 'free')
 
 deep_variant_plots$all_studies$foldx_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(foldx,
                                                                                                 y = 'ddG'),
@@ -203,7 +236,7 @@ deep_variant_plots$all_studies$foldx_prediction_accuracy <- labeled_ggplot(p = p
 #### Polyphen2 ####
 select_pph <- function(x){
   if ('pph2_class' %in% names(x$single_variants)){
-    return(select(x$single_variants, variants, score, pph2_prediction, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR))
+    return(select(x$single_variants, variants, score, norm_score, pph2_prediction, pph2_class, pph2_prob, pph2_FPR, pph2_TPR, pph2_FDR))
   } else {
     return(NULL)
   }
@@ -211,6 +244,14 @@ select_pph <- function(x){
 
 pph <- bind_rows(lapply(deep_variant_data, select_pph), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study))
+
+deep_variant_plots$all_studies$pph_prob_vs_score <- ggplot(pph, aes(x=norm_score,
+                                                                         y=pph2_prob)) +
+  geom_point(shape=20) +
+  xlab('Normalised Experimental Score') +
+  ylab('Polyphen2 Deleterious Probability') +
+  facet_wrap(~study, scales = 'free') +
+  scale_y_log10()
 
 deep_variant_plots$all_studies$pph_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(pph,
                                                                                               y = 'pph2_prob',
@@ -265,9 +306,9 @@ deep_variant_plots$all_studies$pph_prediction_accuracy <- labeled_ggplot(p = plo
 #### EVCouplings ####
 select_evcoup <- function(x){
   if ('evcoup_epistatic' %in% names(x$multi_variants)){
-    return(select(x$multi_variants, variants, score, evcoup_epistatic, evcoup_independent))
+    return(select(x$multi_variants, variants, score, norm_score, evcoup_epistatic, evcoup_independent))
   } else if ('evcoup_epistatic' %in% names(x$single_variants)){
-    return(select(x$single_variants, variants, score, evcoup_epistatic, evcoup_independent))
+    return(select(x$single_variants, variants, score, norm_score, evcoup_epistatic, evcoup_independent))
   } else {
     return(NULL)
   }
@@ -276,6 +317,13 @@ select_evcoup <- function(x){
 evcoup <- bind_rows(lapply(deep_variant_data, select_evcoup), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study),
          evcoup_prediction = ifelse(evcoup_epistatic < -6, MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral))
+
+deep_variant_plots$all_studies$evcoup_vs_score <- ggplot(evcoup, aes(x=norm_score,
+                                                                     y=evcoup_epistatic)) +
+  geom_point(shape=20) +
+  xlab('Normalised Experimental Score') +
+  ylab('EVCouplings Epistatic Score') +
+  facet_wrap(~study, scales = 'free')
 
 deep_variant_plots$all_studies$evcoup_experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(evcoup,
                                                                                                  y = 'evcoup_epistatic',
