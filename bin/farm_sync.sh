@@ -6,72 +6,38 @@
 green=$(tput setaf 2)
 normal=$(tput sgr0)
 
+# Local/Farm Roots
+local=$HOME/Projects/mutations
+farm=ebi:/nfs/research1/beltrao/ally/mutations
+
+# Sync function
+syncr () {
+   rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $local/rsync_exclude --dry-run $1 $2
+
+   read -p "Transfer? " -n 1 -r
+   echo
+   if [[ $REPLY =~ ^[Yy]$ ]]
+   then
+      rsync -auh --exclude-from $HOME/.rsync_exclude --exclude-from $local/rsync_exclude $1 $2
+   fi
+}
+
 ## Sync To Farm
-# Data folder
 printf "%s\n%s\n%s\n" "${green}Rsyncing mutations project${normal}" "${green}Local -> Farm${normal}" "${green}File List: Data/${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --dry-run $HOME/Projects/mutations/data/ ebi:/nfs/research1/beltrao/ally/mutations/data
+syncr $local/data/ $farm/data
 
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude $HOME/Projects/mutations/data/ ebi:/nfs/research1/beltrao/ally/mutations/data
-fi
-
-# Meta folder
 printf "\n%s\n" "${green}File List: Meta/${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md --dry-run $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
+syncr $local/meta/ $farm/meta
 
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md $HOME/Projects/mutations/meta/ ebi:/nfs/research1/beltrao/ally/mutations/meta
-fi
-
-# Figures folder
 printf "\n%s\n" "${green}File List: Figures/${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md --dry-run $HOME/Projects/mutations/figures/ ebi:/nfs/research1/beltrao/ally/mutations/figures
-
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md $HOME/Projects/mutations/figures/ ebi:/nfs/research1/beltrao/ally/mutations/figures
-fi
-
+syncr $local/figures/ $farm/figures
 
 ## Sync From Farm
-printf "\n%s\n" "${green}Farm -> Local${normal}"
-# Data Folder
-printf "%s\n" "${green}File List: Data${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --dry-run ebi:/nfs/research1/beltrao/ally/mutations/data/ $HOME/Projects/mutations/data
+printf "\n%s\n%s\n" "${green}Farm -> Local${normal}" "${green}File List: Data${normal}"
+syncr $farm/data/ $local/data
 
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/data/ $HOME/Projects/mutations/data
-fi
-
-# Meta Folder
 printf "\n\n%s\n" "${green}File List: Meta${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md --dry-run ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
+syncr $farm/meta/ $local/meta
 
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude=*.md --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/meta/ $HOME/Projects/mutations/meta
-fi
-
-# Figures Folder
 printf "\n\n%s\n" "${green}File List: Figures${normal}"
-rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude --exclude=*.md --dry-run ebi:/nfs/research1/beltrao/ally/mutations/figures/ $HOME/Projects/mutations/figures
-
-read -p "Transfer? " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-   rsync -auh --info=progress2 --exclude=*.md --exclude-from $HOME/.rsync_exclude --exclude-from $HOME/Projects/mutations/rsync_exclude ebi:/nfs/research1/beltrao/ally/mutations/figures/ $HOME/Projects/mutations/figures
-fi
+syncr $farm/figures/ $local/figures
