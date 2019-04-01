@@ -14,31 +14,45 @@ deep_variant_plots <- sapply(deep_variant_data, plot_predictions, simplify = FAL
 deep_variant_plots$all_studies <- list()
 
 #### DM Data ####
+meta_df <- data_frame(study = names(deep_variant_data),
+                      gene_type = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_type')}),
+                      gene_name = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_name')}),
+                      test_class = sapply(deep_variant_data, function(x){get_meta(x$dm, 'test_class')}),
+                      species = sapply(deep_variant_data, function(x){get_meta(x$dm, 'species')}))
+
 all_dm <- bind_rows(lapply(deep_variant_data, function(x){x$dm$variant_data}), .id='study') %>%
   select(study, variants, score, raw_score, norm_score) %>%
-  mutate(variants = str_replace_all(variants, 'p.', ''))
+  mutate(variants = str_replace_all(variants, 'p.', '')) %>%
+  left_join(., meta_df, by='study')
 
 thresh_df <- data_frame(study=names(deep_variant_data),
                         thresh=sapply(deep_variant_data, function(x){x$manual_threshold}),
                         factor=sapply(deep_variant_data, function(x){x$norm_factor}),
-                        norm_thresh=thresh/factor)
+                        norm_thresh=thresh/factor) %>%
+  left_join(., meta_df, by='study')
 
-deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = ggplot(all_dm, aes(x=score)) + 
-                                                            geom_histogram() +
-                                                            facet_wrap(~study, scales = 'free') +
-                                                            xlab(MUT_SCORE_NAME) +
-                                                            ylab('Count') +
-                                                            geom_vline(aes(xintercept=thresh), data = thresh_df, colour='red'),
-                                                          width = 14, height = 9)
+deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df), width = 14, height = 9)
 
-deep_variant_plots$all_studies$dm_norm_hists <- labeled_ggplot(p = ggplot(all_dm, aes(x=norm_score)) + 
-                                                                 geom_histogram() +
-                                                                 facet_wrap(~study, scales = 'free') +
-                                                                 xlab(MUT_SCORE_NAME) +
-                                                                 ylab('Count') +
-                                                                 geom_vline(aes(xintercept=norm_thresh), data = thresh_df, colour='red'),
+deep_variant_plots$all_studies$dm_norm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df, x='norm_score'),
                                                                width = 14, height = 9)
 
+deep_variant_plots$all_studies$dm_gene_type_hists <- labeled_ggplot(p = ggarrange(
+  plotlist = lapply(unique(meta_df$gene_type),
+                    function(x){plot_study_histogram(filter(all_dm, gene_type==x), filter(thresh_df, gene_type==x))}),
+  labels = unique(meta_df$gene_type)),
+  width=14, height=9)
+
+deep_variant_plots$all_studies$dm_test_class_hists <- labeled_ggplot(p = ggarrange(
+  plotlist = lapply(unique(meta_df$test_class),
+                    function(x){plot_study_histogram(filter(all_dm, test_class==x), filter(thresh_df, test_class==x))}),
+  labels = unique(meta_df$test_class)),
+  width=14, height=9)
+
+deep_variant_plots$all_studies$dm_species_hists <- labeled_ggplot(p = ggarrange(
+  plotlist = lapply(unique(meta_df$species),
+                    function(x){plot_study_histogram(filter(all_dm, species==x), filter(thresh_df, species==x))}),
+  labels = unique(meta_df$species)),
+  width=14, height=9)
 
 #### Envision ####
 select_envision <- function(x){

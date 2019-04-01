@@ -315,6 +315,21 @@ plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name=
   
 }
 
+# Plot study histograms
+plot_study_histogram <- function(tbl, thresh_tbl=NULL, x='score', group='study'){
+  p <- ggplot(tbl, aes_string(x=x)) + 
+    geom_histogram() +
+    facet_wrap(as.formula(str_c('~', group)), scales = 'free') +
+    xlab(MUT_SCORE_NAME) +
+    ylab('Count')
+  
+  if(!is.null(thresh_tbl)){
+    p <- p + geom_vline(aes(xintercept=thresh), data = thresh_tbl, colour='red')
+  }
+  return(p)
+}
+
+
 #### Misc Functions ####
 format_pdb_variants <- function(x, pdb_offset=0){
   x <- str_split(x, ',')[[1]]
