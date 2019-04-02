@@ -316,19 +316,31 @@ plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name=
 }
 
 # Plot study histograms
-plot_study_histogram <- function(tbl, thresh_tbl=NULL, x='score', group='study'){
-  p <- ggplot(tbl, aes_string(x=x)) + 
+plot_study_histogram <- function(tbl, thresh_tbl=NULL, x='score', fill='authour', facet='~study', thresh='thresh'){
+  p <- ggplot(tbl, aes_string(x=x, fill='authour')) + 
     geom_histogram() +
-    facet_wrap(as.formula(str_c('~', group)), scales = 'free') +
+    facet_wrap(facet, scales = 'free') +
     xlab(MUT_SCORE_NAME) +
     ylab('Count')
   
   if(!is.null(thresh_tbl)){
-    p <- p + geom_vline(aes(xintercept=thresh), data = thresh_tbl, colour='red')
+    p <- p + geom_vline(aes_string(xintercept=thresh), data = thresh_tbl, colour='red')
   }
+  
   return(p)
 }
 
+# Plot factor frequencies
+plot_factor_density <- function(tbl, facet, x='score', col='authour'){
+  p <- ggplot(tbl, aes_string(x=x, colour=col)) + 
+    geom_density(trim=TRUE) +
+    facet_wrap(facet, scales = 'free') +
+    xlab(MUT_SCORE_NAME) +
+    ylab('Density') +
+    scale_color_discrete()
+  
+  return(p)
+}
 
 #### Misc Functions ####
 format_pdb_variants <- function(x, pdb_offset=0){

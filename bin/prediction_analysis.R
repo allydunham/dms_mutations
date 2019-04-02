@@ -18,7 +18,8 @@ meta_df <- data_frame(study = names(deep_variant_data),
                       gene_type = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_type')}),
                       gene_name = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_name')}),
                       test_class = sapply(deep_variant_data, function(x){get_meta(x$dm, 'test_class')}),
-                      species = sapply(deep_variant_data, function(x){get_meta(x$dm, 'species')}))
+                      species = sapply(deep_variant_data, function(x){get_meta(x$dm, 'species')}),
+                      authour = sapply(deep_variant_data, function(x){get_meta(x$dm, 'authour')}))
 
 all_dm <- bind_rows(lapply(deep_variant_data, function(x){x$dm$variant_data}), .id='study') %>%
   select(study, variants, score, raw_score, norm_score) %>%
@@ -31,28 +32,29 @@ thresh_df <- data_frame(study=names(deep_variant_data),
                         norm_thresh=thresh/factor) %>%
   left_join(., meta_df, by='study')
 
-deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df), width = 14, height = 9)
+deep_variant_plots$all_studies$dm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df),
+                                                          width = 14, height = 9)
 
-deep_variant_plots$all_studies$dm_norm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df, x='norm_score'),
+deep_variant_plots$all_studies$dm_norm_hists <- labeled_ggplot(p = plot_study_histogram(all_dm, thresh_df,
+                                                                                        x='norm_score', thresh = 'norm_thresh'),
                                                                width = 14, height = 9)
 
-deep_variant_plots$all_studies$dm_gene_type_hists <- labeled_ggplot(p = ggarrange(
-  plotlist = lapply(unique(meta_df$gene_type),
-                    function(x){plot_study_histogram(filter(all_dm, gene_type==x), filter(thresh_df, gene_type==x))}),
-  labels = unique(meta_df$gene_type)),
-  width=14, height=9)
+deep_variant_plots$all_studies$dm_gene_type_density <- labeled_ggplot(p = plot_factor_density(all_dm, facet = '~gene_type',
+                                                                                              x='norm_score'),
+                                                                      width=14, height=9)
 
-deep_variant_plots$all_studies$dm_test_class_hists <- labeled_ggplot(p = ggarrange(
-  plotlist = lapply(unique(meta_df$test_class),
-                    function(x){plot_study_histogram(filter(all_dm, test_class==x), filter(thresh_df, test_class==x))}),
-  labels = unique(meta_df$test_class)),
-  width=14, height=9)
+deep_variant_plots$all_studies$dm_test_class_density <- labeled_ggplot(p = plot_factor_density(all_dm, facet = '~test_class',
+                                                                                               x='norm_score'),
+                                                                     width=14, height=9)
 
-deep_variant_plots$all_studies$dm_species_hists <- labeled_ggplot(p = ggarrange(
-  plotlist = lapply(unique(meta_df$species),
-                    function(x){plot_study_histogram(filter(all_dm, species==x), filter(thresh_df, species==x))}),
-  labels = unique(meta_df$species)),
-  width=14, height=9)
+deep_variant_plots$all_studies$dm_species_density <- labeled_ggplot(p = plot_factor_density(all_dm, facet = '~species',
+                                                                                            x='norm_score'),
+                                                                  width=14, height=9)
+
+deep_variant_plots$all_studies$dm_gene_density <- labeled_ggplot(p = plot_factor_density(all_dm, facet = '~gene_name',
+                                                                                         x='norm_score'),
+                                                                  width=14, height=9)
+
 
 #### Envision ####
 select_envision <- function(x){

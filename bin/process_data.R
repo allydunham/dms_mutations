@@ -641,7 +641,7 @@ df <- deep_mut_data$brenan_2016_erk2 %>%
   mutate_at(vars(nuc_acid_changes, dox_rank, sch_rank, vrt_rank, vrt_specific_allele, sch_specific_allele), as.integer)
 
 formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = 'ERK2', species = species_options$sapiens, transform = '-1 * raw_score',
-                                                authour = 'Brenan et al. 2016', year = 2016, aa_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
+                                                authour = 'Brenan et al.', year = 2016, aa_seq = str_c(raw_seqs$h_sapiens_mapk1, collapse = ''),
                                                 uniprot_id = 'P28482', pdb_id = c('1TVO:A:0:8-357'),
                                                 alt_name='MAPK1', doi='10.1016/j.celrep.2016.09.061', pmid='27760319',
                                                 url='https://www.sciencedirect.com/science/article/pii/S2211124716313171',
@@ -664,7 +664,7 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
                                                  title='Deep mutational scanning identifies sites in influenza nucleoprotein that affect viral inhibition by MxA',
                                                  doi='10.1371/journal.ppat.1006288', pmid='28346537',
                                                  url='https://journals.plos.org/plospathogens/article?id=10.1371/journal.ppat.1006288',
-                                                 gene_type='virus', test_class='complement')
+                                                 gene_type='viral', test_class='complement')
 
 #### Weile 2017 ube2i ####
 # deep_mut_data$weile_2017_ube2i <- read_csv('data/raw/processed/weile_2017_ube2i_score_comp.csv', na = c('NA','','None'))
