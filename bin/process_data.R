@@ -877,15 +877,17 @@ for (i in names(formatted_deep_data)){
   }
 }
 
-# Save Additional DM files in per codon folder
-write_deep_mut(formatted_deep_data$hietpas_2011_hsp90, 'data/standardised/hietpas_2011_hsp90/per_codon_scores/P02829_HSP90.dm')
-write_deep_mut(formatted_deep_data$weile_2017_ube2i, 'data/standardised/weile_2017_ube2i/per_codon_scores/P63279_UBE2I.dm')
-write_deep_mut(formatted_deep_data$weile_2017_sumo1, 'data/standardised/weile_2017_sumo1/per_codon_scores/P63165_SUMO1.dm')
-
-
 meta <- data_frame(authour = unlist(sapply(formatted_deep_data, get_meta, var='authour')),
                    gene_name = unlist(sapply(formatted_deep_data, get_meta, var='gene_name')),
                    uniprot_id = unlist(sapply(formatted_deep_data, get_meta, var='uniprot_id')),
                    species = unlist(sapply(formatted_deep_data, get_meta, var='species')),
                    size = unlist(sapply(formatted_deep_data, get_size)))
 write_tsv(meta, 'meta/gene_meta_data.tsv')
+
+write_lines(c('',
+              'Summary:',
+              str_c('Studies: ', dim(meta)[1]),
+              str_c('Genes: ', length(unique(meta$gene_name))),
+              str_c('Species: ',  length(unique(meta$species))),
+              str_c('Variant-condition datapoints: ', sum(meta$size))),
+              path = 'meta/gene_meta_data.tsv', append = TRUE)
