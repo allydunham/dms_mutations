@@ -136,6 +136,20 @@ deep_variant_plots$all_studies$sift_correlation <- ggplot(sift_cor_test, aes(y=e
   scale_fill_gradientn(colours = c('red', 'white', 'blue'), limits = c(-max_abs_t, max_abs_t)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
+sift_abs_cor_test <- group_by(sift, study) %>%
+  drop_na(score, sift_score) %>%
+  do(tidy(cor.test(abs(.$score), -log10(.$sift_score + min(.$sift_score[.$sift_score > 0], na.rm = TRUE)))))
+max_abs_t <- max(abs(sift_cor_test$statistic), na.rm = TRUE)
+
+deep_variant_plots$all_studies$sift_correlation_abs <- ggplot(sift_abs_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+  geom_col() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
+  ggtitle('Correlation between -log10(SIFT Score) and abs(mutagenesis scores)') +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_gradientn(colours = c('white', 'blue'), limits = c(0, max_abs_t)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
 # Predictions
 sift_summary <- group_by(sift, study, sift_prediction) %>%
   drop_na(sift_prediction, exp_prediction) %>%
@@ -393,6 +407,62 @@ deep_variant_plots$all_studies$evcoup_prediction_accuracy <- labeled_ggplot(p = 
                                                                                                     var_name = 'Proportion'),
                                                                          width = 12, height = 9)
 
+
+
+#### Combined Plots ####
+# Sift/FoldX Score Correlation with exp score
+format_study <- function(x){
+  spl <- str_split(x, '[_.]')[[1]]
+  
+  # Special case of Roscoe and Bolon 2014
+  if (all(spl[1:2] == c('roscoe', '2014'))){
+    result <- str_c('Roscoe & Bolon 2014 (UBI4, ', spl[4], ' ', spl[5], ')')
+  } else {
+    result <- str_c(str_to_title(spl[1]), ' et al. ', spl[2], ' (', str_to_upper(spl[3]), ')')
+    
+    if (!is.na(spl[4])){
+      result <- str_c(str_sub(result, end=-2), ', ', str_c(spl[4:length(spl)], collapse = ' '), ')')
+    }
+  }
+  
+  return(result)
+}
+ 
+fx <- ungroup(foldx_cor_test) %>%
+  filter(single) %>%
+  mutate(study=sapply(name, function(x){str_sub(x, end=-7)}),
+         pdb_id=sapply(name, function(x){str_sub(x, start=-5, end=-2)})) %>%
+  select(study, pdb_id, estimate, statistic, p.value, parameter, conf.low, conf.high)
+
+si <- filter(sift_abs_cor_test, study %in% fx$study) %>%
+  select(study, estimate, statistic, p.value, parameter, conf.low, conf.high)
+
+sift_foldx_cor <- bind_rows(SIFT=si, FoldX=fx, .id = 'tool') %>%
+  mutate(study_pretty = sapply(study, format_study),
+         p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1)))
+
+deep_variant_plots$all_studies$sift_foldx_correlations <- ggplot(sift_foldx_cor, aes(y=estimate,
+                                                                                     x=study_pretty,
+                                                                                     group=pdb_id,
+                                                                                     fill=p_cat)) + 
+  facet_wrap(~tool, ncol = 1) +
+  geom_col(position = position_dodge()) +
+# To ylim(0,...) elegantly use sapply(conf.low, function(x){max(x, 0)})
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
+  geom_hline(yintercept = 0) +
+  ggtitle('Correlation between -log10(SIFT) or FoldX ddG score and abs(mutagenesis score)') +
+#  ylim(0, 0.75) +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
+#  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+#        strip.background = element_rect(linetype = 0),
+#        axis.line.x.bottom = element_line(linetype = 0),
+#        axis.ticks.x = element_blank())
+
+deep_variant_plots$all_studies$sift_foldx_correlations <- labeled_ggplot(deep_variant_plots$all_studies$sift_foldx_correlations,
+                                                                         width=9, height=7)
 
 #### Save plots #####
 for (study_name in names(deep_variant_plots)){
