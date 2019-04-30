@@ -365,7 +365,7 @@ deep_variant_plots$all_studies$evcoup_experimental_boxplot <- labeled_ggplot(plo
 evcoup_cor_test <- group_by(evcoup, study) %>%
   drop_na(score, evcoup_epistatic)
 
-evcoup_cor_test <- full_join(do(evcoup_cor_test, tidy(cor.test(abs(.$score), .$evcoup_epistatic))),
+evcoup_cor_test <- full_join(do(evcoup_cor_test, tidy(cor.test(abs(.$score), -1*.$evcoup_epistatic))),
                             summarise(evcoup_cor_test, multi = any(grepl(',', variants))),
                             by = 'study')
 
@@ -374,7 +374,7 @@ deep_variant_plots$all_studies$evcoup_correlation <- ggplot(evcoup_cor_test, aes
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   geom_text(aes(label = ifelse(multi, '*', '')), position = position_stack(vjust = 1.1)) + 
-  ggtitle('Correlation between EVCouplings Epistatic Score and abs(experimental scores)') +
+  ggtitle('Correlation between -(EVCouplings Epistatic Score) and abs(experimental scores)') +
   xlab('') +
   ylab('Pearson Correlation Coefficient') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
@@ -434,10 +434,10 @@ fx <- ungroup(foldx_cor_test) %>%
          pdb_id=sapply(name, function(x){str_sub(x, start=-5, end=-2)})) %>%
   select(study, pdb_id, estimate, statistic, p.value, parameter, conf.low, conf.high)
 
-si <- filter(sift_abs_cor_test, study %in% fx$study) %>%
-  select(study, estimate, statistic, p.value, parameter, conf.low, conf.high)
+si <- select(sift_abs_cor_test, study, estimate, statistic, p.value, parameter, conf.low, conf.high)
 
-sift_foldx_cor <- bind_rows(SIFT=si, FoldX=fx, .id = 'tool') %>%
+sift_foldx_cor <- bind_rows(SIFT=filter(si, study %in% fx$study),
+                            FoldX=fx, .id = 'tool') %>%
   mutate(study_pretty = sapply(study, format_study),
          p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1)))
 
@@ -463,6 +463,40 @@ deep_variant_plots$all_studies$sift_foldx_correlations <- ggplot(sift_foldx_cor,
 
 deep_variant_plots$all_studies$sift_foldx_correlations <- labeled_ggplot(deep_variant_plots$all_studies$sift_foldx_correlations,
                                                                          width=9, height=7)
+
+# All tool correlations
+ev <- select(evcoup_cor_test, study, estimate, statistic, p.value, parameter, conf.low, conf.high, multi)
+en <- select(envision_cor_test, study, estimate, statistic, p.value, parameter, conf.low, conf.high)
+pp <- select(pph_cor_test, study, estimate, statistic, p.value, parameter, conf.low, conf.high)
+
+tool_titles <- c(si='SIFT: -log10(SIFT Score) vs abs(Exp Score)',
+                 fx='FoldX: ddG vs abs(Exp Score)',
+                 ev='EVCouplings: Epistatic Score vs abs(Exp Score)',
+                 en='Envision: log2(Envision Score) vs Exp Score',
+                 pp='Polyphen2: -log10(PPH Score) vs Exp Score')
+
+all_cor <- bind_rows(si=si, fx=fx, ev=ev, en=en, pp=pp, .id = 'tool') %>%
+  mutate(study_pretty = sapply(study, format_study),
+         p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1), include.lowest = TRUE),
+         tool_title=tool_titles[tool])
+
+deep_variant_plots$all_studies$all_correlations <- ggplot(all_cor, aes(y=estimate, x=study_pretty,
+                                                                       group=pdb_id, fill=p_cat)) + 
+  facet_wrap(~tool_title, ncol = 1) +
+  geom_col(position = position_dodge()) +
+  # To ylim(0,...) elegantly use sapply(conf.low, function(x){max(x, 0)})
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
+  geom_hline(yintercept = 0) +
+  ggtitle('Correlation between experimental deep mutagenesis scores and tool predictions') +
+  #  ylim(0, 0.75) +
+  xlab('') +
+  ylab('Pearson Correlation Coefficient') +
+  scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+deep_variant_plots$all_studies$all_correlations <- labeled_ggplot(deep_variant_plots$all_studies$all_correlations,
+                                                                         width=9, height=12)
+
 
 #### Save plots #####
 for (study_name in names(deep_variant_plots)){
