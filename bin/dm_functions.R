@@ -143,7 +143,7 @@ write_deep_mut.DeepMutSet <- function(x, root_dir, create_dir=TRUE){
 
 # Read deep mutagenesis data from a 'dm' file and return a DeepMut object
 read_deep_mut <- function(filepath){
-  tbl <- rename_all(read_tsv(filepath, comment = '#', col_names = TRUE), funs(gsub('\\?', '', .)))
+  tbl <- rename_all(read_tsv(filepath, comment = '#', col_names = TRUE), .funs = ~ gsub('\\?', '', .))
   dm <- DeepMut(tbl)
   
   fi <- file(filepath, 'r')

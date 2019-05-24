@@ -8,7 +8,7 @@ deep_variant_data <- list()
 
 deep_datasets <- dir('data/standardised')
 
-per_codon_datasets <- c('hietpas_2011_hsp90', 'weile_2017_sumo1', 'weile_2017_ube2i', 'findlay_2018_brca1')
+per_codon_datasets <- c('hietpas_2011_hsp90', 'weile_2017_sumo1', 'weile_2017_ube2i', 'findlay_2018_brca1', 'firnberg_2014_tem1')
 
 pph_col_classes = cols(o_pos=col_integer(),pos=col_integer(),pph2_prob=col_double(),pph2_FPR=col_double(),
                        pph2_TPR=col_double(),pph2_FDR=col_double(),dScore=col_double(),Score1=col_double(),Score2=col_double(),
@@ -123,8 +123,8 @@ for (dataset in deep_datasets){
     if (dataset %in% per_codon_datasets){
       dm$variant_data <- dm$variant_data %>%
         group_by(variants) %>%
-        summarise(score = mean(score),
-                  raw_score = mean(raw_score)) %>%
+        summarise(score = mean(score, na.rm=TRUE),
+                  raw_score = mean(raw_score, na.rm=TRUE)) %>%
         mutate(norm_score = score / norm_factor,
                position = as.integer(str_sub(variants, start = 4, end = -2))) %>%
         arrange(position) %>%
