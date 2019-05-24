@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Script to sync data and meta folders between farm and local folder
+# Script to sync folders between farm and local folder
 # Currently does not delete things - must be done manually for safety
+# Syncs folders passeed as arguments, or all folders if no args passed
 
-#Colours for printf
+# Colours for printf
 green=$(tput setaf 2)
+magenta=$(tput setaf 5)
+bold=$(tput bold)
 normal=$(tput sgr0)
 
 # Local/Farm Roots
@@ -12,32 +15,28 @@ farm=ebi:/nfs/research1/beltrao/ally/mutations
 
 # Sync function
 syncr () {
-   rsync -vauh --exclude-from $HOME/.rsync_exclude --exclude-from $local/rsync_exclude --dry-run $1 $2
+   rsync -vauh --exclude-from "$HOME/.rsync_exclude" --exclude-from "$local/rsync_exclude" --dry-run "$1" "$2"
 
    read -p "Transfer? " -n 1 -r
    echo
    if [[ $REPLY =~ ^[Yy]$ ]]
    then
-      rsync -auh --exclude-from $HOME/.rsync_exclude --exclude-from $local/rsync_exclude $1 $2
+      rsync -auh --exclude-from "$HOME/.rsync_exclude" --exclude-from "$local/rsync_exclude" "$1" "$2"
    fi
 }
 
-## Sync To Farm
-printf "%s\n%s\n%s\n" "${green}Rsyncing mutations project${normal}" "${green}Local -> Farm${normal}" "${green}File List: Data/${normal}"
-syncr $local/data/ $farm/data
+if [ $# -eq 0 ]
+   then
+   folders=( "data" "meta" "figures" )
+else
+   folders=( "$@" )
+fi
 
-printf "\n%s\n" "${green}File List: Meta/${normal}"
-syncr $local/meta/ $farm/meta
-
-printf "\n%s\n" "${green}File List: Figures/${normal}"
-syncr $local/figures/ $farm/figures
-
-## Sync From Farm
-printf "\n%s\n%s\n" "${green}Farm -> Local${normal}" "${green}File List: Data${normal}"
-syncr $farm/data/ $local/data
-
-printf "\n\n%s\n" "${green}File List: Meta${normal}"
-syncr $farm/meta/ $local/meta
-
-printf "\n\n%s\n" "${green}File List: Figures${normal}"
-syncr $farm/figures/ $local/figures
+printf "%s" "${magenta}${bold}Rsyncing mutations project${normal}"
+for f in "${folders[@]}"
+do
+   printf "\n%s\n%s\n" "${green}${bold}Folder: $f${normal}" "${green}Local -> Farm${normal}"
+   syncr "$local/$f/" "$farm/$f"
+   printf "\n%s\n" "${green}Farm -> Local${normal}"
+   syncr "$farm/$f/" "$local/$f"
+done
