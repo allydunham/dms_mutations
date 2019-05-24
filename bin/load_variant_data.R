@@ -8,8 +8,18 @@ deep_variant_data <- list()
 
 deep_datasets <- dir('data/standardised')
 
-per_codon_datasets <- c('hietpas_2011_hsp90', 'weile_2017_sumo1', 'weile_2017_ube2i')
+per_codon_datasets <- c('hietpas_2011_hsp90', 'weile_2017_sumo1', 'weile_2017_ube2i', 'findlay_2018_brca1')
 
+pph_col_classes = cols(o_pos=col_integer(),pos=col_integer(),pph2_prob=col_double(),pph2_FPR=col_double(),
+                       pph2_TPR=col_double(),pph2_FDR=col_double(),dScore=col_double(),Score1=col_double(),Score2=col_double(),
+                       MSAv=col_integer(),Nobs=col_integer(),Nstruct=col_integer(),Nfilt=col_integer(),PDB_pos=col_integer(),
+                       ident=col_double(),length=col_integer(),NormASA=col_double(),dVol=col_integer(),dProp=col_double(),
+                       `B-fact`=col_double(),`H-bonds`=col_double(),AveNHet=col_double(),MinDHet=col_double(),AveNInt=col_double(),
+                       MinDInt=col_double(),AveNSit=col_double(),MinDSit=col_double(),Transv=col_integer(),CodPos=col_integer(),
+                       CpG=col_integer(),MinDJxn=col_integer(),IdPmax=col_double(),IdPSNP=col_double(),
+                       IdQmin=col_double(), .default = col_character())
+
+# TODO Refactor into smaller functions
 for (dataset in deep_datasets){
   print(dataset)
   root <- str_c('data/standardised/', dataset)
@@ -57,7 +67,7 @@ for (dataset in deep_datasets){
           
           ddg <- read_tsv(str_c(root, '/', pdb_id, '/Average_', pdb_id, '_Repair.fxout'), skip = 8,
                           col_types = cols(.default=col_double(), Pdb=col_character())) %>%
-            rename_all(funs(str_to_lower(str_replace_all(., ' ', '_')))) %>%
+            rename_all(~ (str_to_lower(str_replace_all(., ' ', '_')))) %>%
             mutate(pdb=muts) %>%
             rename(variants=pdb)
           
@@ -102,7 +112,7 @@ for (dataset in deep_datasets){
     # Read PolyPhen2 Scores
     pph_file <- str_c('pph_', dm$gene_name,'.predictions')
     if (pph_file %in% dir(root)){
-      pph <- read_tsv(str_c(root, '/', pph_file), col_types = cols(effect=col_character())) %>%
+      pph <- read_tsv(str_c(root, '/', pph_file), col_types = pph_col_classes, na = '') %>%
         mutate(variants=str_c(aa1, pos, aa2))
       names(pph) <- str_replace(names(pph), '#', '')
     } else {
@@ -131,7 +141,7 @@ for (dataset in deep_datasets){
       }
       if (!identical(evcoup, NA)){
         evcoup <- group_by(evcoup, mutant) %>%
-          summarise_all(.funs = funs(mean)) %>%
+          summarise_all(.funs = mean) %>%
           mutate(position = as.integer(str_sub(mutant, start = 2, end = -2))) %>%
           arrange(position) %>%
           select(-position)
