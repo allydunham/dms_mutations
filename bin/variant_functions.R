@@ -13,20 +13,24 @@ plot_predictions.single_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   print(str_c('Generating plots for ', study))
   
-  plots <- sapply(names(x$foldx), function(id){plot_foldx(x$single_variants, id, study)}, simplify = FALSE) %>%
-               unname(.) %>%
-               unlist(., recursive = FALSE)
+  plots <- list()
+  if (length(names(x$foldx)) > 0){
+    plots$foldx <- sapply(names(x$foldx), function(id){plot_foldx(x$single_variants, id, study)}, simplify = FALSE) %>%
+      unname(.) %>%
+      unlist(., recursive = FALSE)
+  }
+  
   if ('sift_score' %in% names(x$single_variants)){
-    plots <- c(plots, plot_sift(x$single_variants, study))
+    plots$sift <- plot_sift(x$single_variants, study)
   }
   if ('pph2_prob' %in% names(x$single_variants)){
-    plots <- c(plots, plot_pph(x$single_variants, study))
+    plots$polyphen2 <- plot_pph(x$single_variants, study)
   }
   if ('envision_prediction' %in% names(x$single_variants)){
-    plots <- c(plots, plot_envision(x$single_variants, study))
+    plots$envision <- plot_envision(x$single_variants, study)
   }
   if ('evcoup_epistatic' %in% names(x$single_variants)){
-    plots <- c(plots, plot_evcoup(x$single_variants, study))
+    plots$evcouplings <- plot_evcoup(x$single_variants, study)
   }
   
   plots <- c(plots, plot_misc(x$single_variants, study))
@@ -39,21 +43,25 @@ plot_predictions.multi_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   print(str_c('Generating plots for ', study))
 
-  plots <- sapply(names(x$foldx), function(id){plot_foldx_multi(x$multi_variants, id, study)}, simplify = FALSE) %>%
-               unname(.) %>%
-               unlist(., recursive = FALSE)
+  plots <- list()
+  
+  if (length(names(x$foldx)) > 0){
+    plots$foldx <- sapply(names(x$foldx), function(id){plot_foldx_multi(x$multi_variants, id, study)}, simplify = FALSE) %>%
+      unname(.) %>%
+      unlist(., recursive = FALSE)
+  }
   
   if ('sift_score' %in% names(x$single_variants)){
-    plots <- c(plots, plot_sift(x$single_variants, study))
+    plots$sift <- plot_sift(x$single_variants, study)
   }
   if ('pph2_prob' %in% names(x$single_variants)){
-    plots <- c(plots, plot_pph(x$single_variants, study))
+    plots$polyphen2 <- plot_pph(x$single_variants, study)
   }
   if ('envision_prediction' %in% names(x$single_variants)){
-    plots <- c(plots, plot_envision(x$single_variants, study))
+    plots$envision <- plot_envision(x$single_variants, study)
   }
   if ('evcoup_epistatic' %in% names(x$multi_variants)){
-    plots <- c(plots, plot_evcoup_multi(x$multi_variants, study))
+    plots$evcouplings <- plot_evcoup_multi(x$multi_variants, study)
   }
   
   plots <- c(plots, plot_misc(x$single_variants, study))
@@ -182,7 +190,7 @@ plot_foldx <- function(tbl, pdb_id, study=''){
   p_raw_score <- p_score + aes(x=raw_score) + xlab(RAW_MUT_SCORE_NAME)
   
   l <- list(p_score, p_raw_score)
-  names(l) <- str_c('foldx_', pdb_id, c('_ddG_vs_score', '_ddG_vs_raw_score'))
+  names(l) <- str_c(pdb_id, c('_ddG_vs_score', '_ddG_vs_raw_score'))
   return(l)
 }
 
