@@ -10,9 +10,11 @@ library(readxl)
 library(ggpubr)
 
 # Source custom functions
-source('bin/autoplot.R')
-source('bin/dm_functions.R')
-source('bin/variant_functions.R')
+source('bin/r_modules/autoplot.R')
+source('bin/r_modules/dm_functions.R')
+source('bin/r_modules/variant_loading_functions.R')
+source('bin/r_modules/variant_analysis_functions.R')
+source('bin/r_modules/prediction_analysis_functions.R')
 
 ### Project configs ###
 # Constants
