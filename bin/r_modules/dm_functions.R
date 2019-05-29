@@ -254,7 +254,11 @@ get_meta <- function(x, var){
   if ('DeepMutSet' %in% class(x)){
     return(sapply(x, get_meta, var=var))
   } else if ('DeepMut' %in% class(x)){
-    return(x[[var]])
+    if (!is.null(x[[var]])){
+      return(x[[var]])
+    } else {
+      return(NA)
+    }
   }
 }
 
