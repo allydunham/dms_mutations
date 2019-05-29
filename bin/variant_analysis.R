@@ -96,6 +96,13 @@ deep_variant_plots$pcas <- list()
 
 deep_variant_plots$pcas$tt <- ggplot(pca_variants, aes(x=PC1, y=PC2, colour=sig_pos)) + geom_point()
 
+# PCAs against batchs
+deep_variant_plots$pcas$by_authour <- ggplot(pca_variants, aes(x=PC1, y=PC2, colour=study)) + geom_point()
+
+deep_variant_plots$pcas$by_authour_fields <- ggplot(filter(pca_variants,
+                                                           authour %in% c('araya', 'melamed', 'starita', 'kitzman', 'weile')),
+                                                    aes(x=PC1, y=PC2, colour=study)) + geom_point()
+
 # PCAs against AA types
 deep_variant_plots$pcas$by_aa <- ggplot(pca_variants, aes(x=PC1, y=PC2, colour=wt)) + geom_point()
 
@@ -132,15 +139,11 @@ deep_variant_plots$pcas$sig_aa_cor_heatmap <- ggplot(avg_sig_pca_variant_cors, a
   scale_fill_gradient2() +
   theme(axis.ticks = element_blank(), panel.background = element_blank())
 
-# PCAs against batchs
-deep_variant_plots$pcas$by_authour <- ggplot(pca_variants, aes(x=PC1, y=PC2, colour=study)) + geom_point()
-
-deep_variant_plots$pcas$by_authour_fields <- ggplot(filter(pca_variants,
-                                                           authour %in% c('araya', 'melamed', 'starita', 'kitzman', 'weile')),
-                                                    aes(x=PC1, y=PC2, colour=study)) + geom_point()
-
 # PCA against surface accesibility
 pca_surface <- left_join(pca_variants, rename(all_surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
+  drop_na(all_atom_abs:polar_rel)
+
+sig_pca_surface <- left_join(sig_pca_variants, rename(all_surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
   drop_na(all_atom_abs:polar_rel)
 
 deep_variant_plots$pcas$surface_acc <- ggplot(pca_surface, aes(x=PC1, y=PC2, colour=all_atom_rel)) +
@@ -150,6 +153,26 @@ deep_variant_plots$pcas$surface_acc <- ggplot(pca_surface, aes(x=PC1, y=PC2, col
 deep_variant_plots$pcas$surface_acc <- ggplot(pca_surface, aes(x=PC1, y=PC2, colour=all_atom_rel)) +
   geom_point() +
   scale_colour_gradientn(colours = c('blue', 'green', 'yellow', 'orange', 'red'))
+
+# Cor against surface accesibility
+sig_pca_variant_mat <- select(sig_pca_surface, starts_with('PC')) %>% 
+  set_colnames(str_c('PC', 1:dim(.)[2])) %>%
+  as.matrix()
+
+surface_acc_mat <- select(sig_pca_surface, all_atom_abs:polar_rel) %>% 
+  set_colnames(colnames(all_surface_accesibility)[-(1:3)]) %>%
+  as.matrix()
+
+pca_surface_cor_mat <- cor(sig_pca_variant_mat, surface_acc_mat)
+
+pca_surface_cors <- pca_surface_cor_mat %>%
+  as_tibble(rownames = 'PC') %>%
+  gather(key = 'Surf', value = 'cor', -PC)
+
+deep_variant_plots$pcas$sig_pc_surf_acc_cor_heatmap <- ggplot(pca_surface_cors, aes(x=PC, y=Surf, fill=cor)) + 
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
 
 
 #### Per AA PCAs ####
