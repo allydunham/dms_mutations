@@ -7,7 +7,7 @@ make_var_matrix <- function(x, score='score'){
   variants <- select(x$single_variants, variants, score=!!score) %>%
     mutate(wt = str_sub(variants, end=1),
            mut = str_sub(variants, start=-1),
-           pos = str_sub(variants, start=2, end=-2)) %>%
+           pos = as.integer(str_sub(variants, start=2, end=-2))) %>%
     select(-variants)
   
   if ('=' %in% variants$mut){
@@ -15,9 +15,36 @@ make_var_matrix <- function(x, score='score'){
   }
   
   variants <- spread(variants, key = 'mut', value = 'score') %>%
-    arrange(pos)
+    arrange(pos) %>%
+    select(pos, wt, A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y)
   
   return(variants)
+}
+
+# Impute missing values in variant profiles matrix
+# impute function is applied to each subsititution type (e.g. A->C) accross all 
+# positions in each study to build a per study profile
+impute_variant_profiles <- function(variant_matrix, background_matrix=NULL, impute_function=median){
+  # Per study/per AA median mutational profiles
+  if (is.null(background_matrix)){
+    background_matrix <- variant_matrix
+  }
+  per_study_mean_profiles <- select(background_matrix, study, pos, wt, A:Y) %>%
+    group_by(study, wt) %>%
+    summarise_at(.vars = vars(-pos), .funs = impute_function, na.rm=TRUE) %>%
+    replace(is.na(.), 0)
+  
+  # Matrix of mutational profiles with missing values imputed from the per study/AA medians
+  imputed_matrix <- gather(variant_matrix, key='mut', value='score', A:Y) %>%
+    left_join(., gather(per_study_mean_profiles, key='mut', value='imp_score', A:Y), by = c("study", 'mut', 'wt'))
+  
+  imputed_matrix$score[is.na(imputed_matrix$score)] <- imputed_matrix$imp_score[is.na(imputed_matrix$score)]
+  
+  imputed_matrix <- imputed_matrix %>%
+    select(-imp_score) %>%
+    spread(key=mut, value=score)
+  
+  return(imputed_matrix)
 }
 
 #### Plots ####
