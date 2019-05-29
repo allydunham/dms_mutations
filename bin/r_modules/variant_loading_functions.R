@@ -38,7 +38,8 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
     evcoup <- NA
   }
   
-  # TODO Add naccess
+  
+  naccess <- read_all_accesibility(dm$pdb_id, root_dir)
   
   # If dataset is given per codon take mean per codon
   if (per_codon){
@@ -58,6 +59,7 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
                       polyphen2=pph,
                       foldx=foldx,
                       evcouplings=evcoup,
+                      surface_accesibility=naccess,
                       norm_factor=norm_factor,
                       manual_threshold=unname(MANUAL_THRESHOLDS[dataset_name]))
   
@@ -311,3 +313,63 @@ adjust_evcouplings_per_codon <- function(x){
 }
 
 #### naccess ####
+read_all_accesibility <- function(pdb_ids, root){
+  if (length(pdb_ids) == 0){
+    return(NA)
+  }
+  
+  naccess <- list()
+  for (pdb in str_split(pdb_ids, ':')){
+    pdb_id <- pdb[1]
+    
+    filepath <- str_c(root, '/', pdb_id, '/', pdb_id, '_Repair.rsa')
+    if (file.exists(filepath)){
+      naccess[[pdb_id]] <- read_naccess_rsa(filepath)
+    }
+  }
+  
+  if (length(naccess) == 0){
+    return(NA)
+  }
+  
+  # Combine accesiblity per residues into final table (take average where multiple structures cover residue)
+  combined_accesibility <- sapply(names(naccess), function(x){naccess[[x]]$residues}, simplify = FALSE) %>%
+    bind_rows() %>%
+    select(-res3) %>%
+    group_by(res1, chain, pos) %>%
+    summarise_all(.funs = list(~ mean(.))) %>%
+    arrange(pos, chain)
+    
+  naccess$combined <- combined_accesibility
+  return(naccess)
+}
+  
+# Import a given naccess per residue output 
+read_naccess_rsa <- function(filepath){
+  fi <- read_lines(filepath)
+  fi <- grep('^REM', fi, invert = TRUE, value = TRUE)
+  
+  # Select table lines and read
+  tbl_str <- str_replace(grep('^RES', fi, value = TRUE),'RES ', '')
+  acc <- read_table2(tbl_str, col_names = c('res3', 'chain', 'pos', 'all_atom_abs', 'all_atom_rel',
+                                            'side_chain_abs', 'side_chain_rel', 'backbone_abs', 'backbone_rel',
+                                            'non_polar_abs', 'non_polar_rel', 'polar_abs', 'polar_rel')) %>%
+    mutate(res3 = str_to_title(res3)) %>%
+    add_column(res1 = structure(names(Biostrings::AMINO_ACID_CODE), names = Biostrings::AMINO_ACID_CODE)[.$res3], .after = 'res3')
+  
+  # Parse summary lines
+  chain <- str_split(grep('^CHAIN', fi, value = TRUE), '\\s+', simplify = TRUE)[,-c(1,2)]
+  if (is.null(dim(chain))){
+    chain <- set_names(chain, c('chain', 'all_atoms', 'side_chain', 'backbone', 'non_polar', 'polar'))
+  } else {
+    chain <- set_colnames(chain, c('chain', 'all_atoms', 'side_chain', 'backbone', 'non_polar', 'polar')) %>%
+      as_tibble()
+  }
+    
+  
+  total <- str_split(grep('^TOTAL', fi, value = TRUE), '\\s+', simplify = TRUE)[,-1] %>%
+    set_names(c('all_atoms', 'side_chain', 'backbone', 'non_polar', 'polar'))
+
+  return(list(residues = acc, chains = chain, total = total))
+}
+
