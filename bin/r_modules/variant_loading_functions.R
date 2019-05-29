@@ -321,10 +321,11 @@ read_all_accesibility <- function(pdb_ids, root){
   naccess <- list()
   for (pdb in str_split(pdb_ids, ':')){
     pdb_id <- pdb[1]
+    pdb_chain <- pdb[2]
     
     filepath <- str_c(root, '/', pdb_id, '/', pdb_id, '_Repair.rsa')
     if (file.exists(filepath)){
-      naccess[[pdb_id]] <- read_naccess_rsa(filepath)
+      naccess[[pdb_id]] <- read_naccess_rsa(filepath, chain=pdb_chain)
     }
   }
   
@@ -338,14 +339,15 @@ read_all_accesibility <- function(pdb_ids, root){
     select(-res3) %>%
     group_by(res1, chain, pos) %>%
     summarise_all(.funs = list(~ mean(.))) %>%
-    arrange(pos, chain)
+    arrange(pos, chain) %>%
+    ungroup()
     
   naccess$combined <- combined_accesibility
   return(naccess)
 }
   
-# Import a given naccess per residue output 
-read_naccess_rsa <- function(filepath){
+# Import a given naccess per residue output. chain filters which chain to keep
+read_naccess_rsa <- function(filepath, chain=NULL){
   fi <- read_lines(filepath)
   fi <- grep('^REM', fi, invert = TRUE, value = TRUE)
   
@@ -356,6 +358,10 @@ read_naccess_rsa <- function(filepath){
                                             'non_polar_abs', 'non_polar_rel', 'polar_abs', 'polar_rel')) %>%
     mutate(res3 = str_to_title(res3)) %>%
     add_column(res1 = structure(names(Biostrings::AMINO_ACID_CODE), names = Biostrings::AMINO_ACID_CODE)[.$res3], .after = 'res3')
+  if (!is.null(chain)){
+    acc <- filter(acc, chain == chain)
+  }
+    
   
   # Parse summary lines
   chain <- str_split(grep('^CHAIN', fi, value = TRUE), '\\s+', simplify = TRUE)[,-c(1,2)]
