@@ -17,6 +17,7 @@ raw_seqs <- sapply(fasta_files, readAAStringSet) %>% sapply(., function(x){as.ch
 names(raw_seqs) <- sapply(str_split(names(raw_seqs),'[\\/\\.]'), function(x){x[3]})
 
 #### Hietpas 2011 Hsp90 ####
+message('Hietpas 2011 Hsp90')
 deep_mut_data$hietpas_2011_hsp90 <- read_csv('data/raw/processed/hietpas_2011_pdz_ligands_fitness.csv') %>%
   rename(alt_aa = aa) %>%
   mutate(species = 'saccharomyces_cerevisiae',
@@ -43,6 +44,7 @@ formatted_deep_data$hietpas_2011_hsp90 <- DeepMut(df, gene_name = 'HSP90', speci
                                                   gene_type='TF', test_class='growth')
 
 #### Araya 2012 hYAP65 ####
+message('Araya 2012 hYAP65')
 deep_mut_data$araya_2012_hYAP65 <- read_tsv('data/raw/processed/araya_2012_hYAP65_ww.tsv', na = 'na',
                                             col_types = cols(positions=col_character())) %>%
   mutate(species = 'homo_sapiens',
@@ -74,6 +76,7 @@ formatted_deep_data$araya_2012_hYAP65 <- DeepMut(variant_data = df, gene_name = 
                                                  gene_type='TF', test_class='ligand_binding')
 
 #### Starita 2013 Ube4b ####
+message('Starita 2013 Ube4b')
 deep_mut_data$starita_2013_ube4b <- read_xlsx('data/raw/processed/starita_2013_ube4b_ubox.xlsx', na = c('NA', ''))
 
 df <- deep_mut_data$starita_2013_ube4b %>%
@@ -97,6 +100,7 @@ formatted_deep_data$starita_2013_ube4b <- DeepMut(variant_data = df, gene_name =
                                                   gene_type='e3_ligase', test_class='activity')
 
 #### Roscoe 2013 Ubiquitin ####
+message('Roscoe 2013 Ubiquitin')
 deep_mut_data$roscoe_2013_ubi <- read_xlsx('data/raw/processed/roscoe_2013_ubi_fitness.xlsx', skip = 4) %>%
   rename(position = Position,
          alt = `Amino Acid`,
@@ -127,8 +131,9 @@ formatted_deep_data$roscoe_2013_ubi <- DeepMut(variant_data = df, gene_name = 'U
                                                gene_type='ptm', test_class='growth')
 
 #### Jiang 2013 hsp90 ####
+message('Jiang 2013 hsp90')
 deep_mut_data$jiang_2013_hsp90 <- read_xlsx('data/raw/processed/jiang_2013_hsp90.xlsx', skip = 2) %>%
-  select(-X__1) %>%
+  select(-...10) %>%
   rename_all(tolower) %>%
   rename(alt_aa = `amino acid`,
          sd = `standard deviation`) %>%
@@ -152,6 +157,7 @@ formatted_deep_data$jiang_2013_hsp90 <- DeepMut(variant_data = df, gene_name = '
                                                 gene_type='TF', test_class='complement')
 
 #### Forsyth 2013 igg ####
+message('Forsyth 2013 igg')
 deep_mut_data$forsyth_2013_igg <- read_xlsx('data/raw/processed/forsyth_2013_igg_cdr.xlsx', na = 'NA') %>%
   rename(ref_codon = `WT codon`) %>%
   gather(key = 'alt_codon', value = 'enrichment', -position, -ref_codon, -distance) %>%
@@ -160,6 +166,7 @@ deep_mut_data$forsyth_2013_igg <- read_xlsx('data/raw/processed/forsyth_2013_igg
          position = str_sub(position, 2))
 
 #### Melamed 2013 pab1 ####
+message('Melamed 2013 pab1')
 deep_mut_data$melamed_2013_pab1 <- read_xlsx('data/raw/processed/melamed_2013_pab1_rrm_enrichment_ratios.xlsx') %>%
   rename(ref_aa = WT_aa) %>%
   gather(key = 'alt_aa', value = 'enrichment_ratio', -position, -ref_aa) %>%
@@ -181,23 +188,24 @@ formatted_deep_data$melamed_2013_pab1 <- DeepMut(variant_data = df, gene_name = 
                                                  gene_type='rna_binding', test_class='growth')
 
 #### Wagenaar 2014 braf ####
+message('Wagenaar 2014 braf')
 ## Only includes position/aa combos deemed significant
 deep_mut_data$wagenaar_2014_braf <- read_xls('data/raw/processed/wagenaar_2014_braf.xls', skip = 3) %>%
   rename(position = Position,
          alt_aa = acid,
          median_enrichment = Median,
          rep1_codon1 = `Replicate 1`,
-         rep1_codon2 = X__1,
-         rep1_codon3 = X__2,
-         rep1_codon4 = X__3,
-         rep1_codon5 = X__4,
-         rep1_codon6 = X__5,
+         rep1_codon2 = ...5,
+         rep1_codon3 = ...6,
+         rep1_codon4 = ...7,
+         rep1_codon5 = ...8,
+         rep1_codon6 = ...9,
          rep2_codon1 = `Replicate 2`,
-         rep2_codon2 = X__6,
-         rep2_codon3 = X__7,
-         rep2_codon4 = X__8,
-         rep2_codon5 = X__9,
-         rep2_codon6 = X__10,
+         rep2_codon2 = ...11,
+         rep2_codon3 = ...12,
+         rep2_codon4 = ...13,
+         rep2_codon5 = ...14,
+         rep2_codon6 = ...15,
          ic50_vs_brafV600E = BRAFV600E,
          individually_tested = `mutant?`,
          possible_by_single_sub = `substitution?`) %>%
@@ -223,6 +231,7 @@ formatted_deep_data$wagenaar_2014_braf <- DeepMut(variant_data = df, gene_name =
                                                   gene_type='kinase', test_class='complement')
 
 #### Firnberg 2014 tem1 ####
+message('Firnberg 2014 tem1')
 deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_tem1.xlsx') %>%
   rename(position = `Ambler Position`,
          ref_codon = `WT codon`,
@@ -231,18 +240,18 @@ deep_mut_data$firnberg_2014_tem1 <- read_xlsx('data/raw/processed/firnberg_2014_
          alt_aa = `Mutant AA`,
          base_changes = `Base Changes`,
          seq_counts_0.25 = `Sequencing Counts`,
-         seq_counts_0.5 = X__1,
-         seq_counts_1 = X__2,
-         seq_counts_2 = X__3,
-         seq_counts_4 = X__4,
-         seq_counts_8 = X__5,
-         seq_counts_16 = X__6,
-         seq_counts_32 = X__7,
-         seq_counts_64 = X__8,
-         seq_counts_128 = X__9,
-         seq_counts_256 = X__10,
-         seq_counts_512 = X__11,
-         seq_counts_1024 = X__12,
+         seq_counts_0.5 = ...8,
+         seq_counts_1 = ...9,
+         seq_counts_2 = ...10,
+         seq_counts_4 = ...11,
+         seq_counts_8 = ...12,
+         seq_counts_16 = ...13,
+         seq_counts_32 = ...14,
+         seq_counts_64 = ...15,
+         seq_counts_128 = ...16,
+         seq_counts_256 = ...17,
+         seq_counts_512 = ...18,
+         seq_counts_1024 = ...19,
          total_seq_count = `Total Counts`,
          fitness = Fitness,
          fitness_err = `Estimated error in fitness`)
@@ -265,6 +274,7 @@ formatted_deep_data$firnberg_2014_tem1 <- DeepMut(variant_data = df, gene_name =
                                                   gene_type='metabolic', test_class='coupled_growth')
 
 #### Roscoe 2014 Ubiquitin (E1 reactivity) ####
+message('Roscoe 2014 Ubiquitin (E1 reactivity)')
 deep_mut_data$roscoe_2014_ubi_limiting_e1 <- read_xlsx('data/raw/processed/roscoe_2014_ubi_limiting_E1_reactivity.xlsx', skip = 3) %>%
   rename(position = Position,
          alt_aa = `Amino Acid`,
@@ -302,7 +312,7 @@ formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(varia
                                                                            alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                            url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                            title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast',
-                                                                           gene_type='ptm', test_class='growth'),
+                                                                           gene_type='ptm', test_class='growth', group='limiting_e1'),
                                                        excess_e1=DeepMut(variant_data = df2, gene_name = 'UBI4', species = species_options$cerevisiae,
                                                                          aa_seq = str_c(raw_seqs$s_cerevisiae_ubi4, collapse = ''), transform = 'None',
                                                                          uniprot_id = 'P0CG63', authour = 'Roscoe and Bolon', year = 2014,
@@ -310,9 +320,10 @@ formatted_deep_data$roscoe_2014_ubi <- DeepMutSet(list(limiting_e1=DeepMut(varia
                                                                          alt_name='Ubiquitin', pmid='24862281', doi='10.1016/j.jmb.2014.05.019',
                                                                          url='https://www.sciencedirect.com/science/article/pii/S0022283614002587?via%3Dihub',
                                                                          title='Systematic Exploration of Ubiquitin Sequence, E1 Activation Efficiency, and Experimental Fitness in Yeast',
-                                                                         gene_type='ptm', test_class='growth')))
+                                                                         gene_type='ptm', test_class='growth', group='excess_e1')))
 
 #### Melnikov 2014 APH(3')II ####
+message("Melnikov 2014 APH(3')II")
 ## Large folder of different conditions, needs more processing
 melnikov_count_files <- dir('data/raw/processed/melnikov_2014_counts/') %>%
   grep('\\.aacounts\\.txt', ., value = TRUE)
@@ -323,8 +334,7 @@ melnikov_count_files <- melnikov_count_files[!grepl('(S[12]\\_Ami|S3\\_Kan)', me
 read_melnikov_table <- function(fi){
   tbl <- read_tsv(paste0('data/raw/processed/melnikov_2014_counts/', fi), skip = 1, col_names = FALSE) %>%
     t() %>%
-    set_rownames(NULL) %>%
-    as_tibble() %>%
+    as_tibble(rownames = NULL, .name_repair='minimal') %>%
     set_colnames(.[1,]) %>%
     filter(!Position == 'Position') %>%
     rename(position = Position,
@@ -393,12 +403,13 @@ lst <- sapply(unique(df_mean$drug),
                                   doi='10.1093/nar/gku511', pmid='24914046',
                                   url='https://academic.oup.com/nar/article/42/14/e112/1266940',
                                   notes='gene_name is transformed to be computer readable, main name in alt_name field. Concs are given relative to esstimated drug minimum inhibitory concentration (MIC)',
-                                  drug=x, gene_type='kinase', test_class='coupled_growth')},
+                                  drug=x, gene_type='kinase', test_class='coupled_growth', group=x)},
               simplify = FALSE)
 
 formatted_deep_data$melnikov_2014_aph3ii <- DeepMutSet(lst)
 
 #### Findlay 2014 BRCA1 ####
+message('Findlay 2014 BRCA1')
 deep_mut_data$findlay_2014_brca1_exon18 <- read_xlsx('data/raw/processed/findlay_2014_brca1_exon18_counts.xlsx', skip = 3) %>%
   rename(exon_position = `Exon Position`,
          alt = Variant,
@@ -432,6 +443,7 @@ deep_mut_data$findlay_2014_brca1_hexamers <- read_xlsx('data/raw/processed/findl
          log2_enrichment_score = `Log2 enrichment score`)
 
 #### Findlay 2014 DBR1 ####
+message('Findlay 2014 DBR1')
 deep_mut_data$findlay_2014_dbr1 <- read_xlsx('data/raw/processed/findlay_2014_dbr1_exon2_counts.xlsx', skip = 3) %>%
   rename(seq = Sequence,
          log2_enrichment_score_day11_rep1 = `Day 11 log2 enrichment score (replicate 1)`,
@@ -442,6 +454,7 @@ deep_mut_data$findlay_2014_dbr1 <- read_xlsx('data/raw/processed/findlay_2014_db
          mut_type = `Variant Class`)
 
 #### Olson 2014 Protein G ####
+message('Olson 2014 Protein G')
 single_muts <- read_xlsx('data/raw/processed/olson_2014_protein_g_counts.xlsx', range = cell_limits(ul = c(3, 14), lr = c(NA, 18))) %>%
   rename(ref_aa1 = `WT amino acid`,
          pos1 = `Position`,
@@ -486,6 +499,7 @@ formatted_deep_data$olson_2014_protein_g <- DeepMut(variant_data = df, gene_name
                                                     gene_type='immune', test_class='ligand_binding')
 
 #### Starita 2015 Brca1 ####
+message('Starita 2015 Brca1')
 deep_mut_data$starita_2015_brca1 <- read_xls('data/raw/processed/starita_2015_brca1_ring.xls', na = 'NA') %>%
   rename_all(tolower) %>%
   mutate(ref = raw_seqs$h_sapiens_brca1[pos], # Ref seq given by study has a mysterious, undocumented R at pos 175 where normal refs have K, using K here since the change is not explained in the paper and appears erroneous
@@ -511,7 +525,7 @@ formatted_deep_data$starita_2015_brca1 <- DeepMutSet(list(
                                title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
                                url='http://www.genetics.org/content/200/2/413',
                                doi='10.1534/genetics.115.175802', pmid='25823446',
-                               gene_type='e3_ligase', test_class='ligand_binding'),
+                               gene_type='e3_ligase', test_class='ligand_binding', group='bard1_ring_binding'),
   e3_activity = DeepMut(variant_data = df_e3, gene_name = 'BRCA1', domain = 'RING', species = species_options$sapiens,
                         aa_seq = str_c(raw_seqs$h_sapiens_brca1, collapse = ''), transform = 'log2(set < 0 to min > 0)',
                         uniprot_id = 'P38398', authour = 'Starita et al.', year = 2015,
@@ -519,9 +533,10 @@ formatted_deep_data$starita_2015_brca1 <- DeepMutSet(list(
                         title='Massively Parallel Functional Analysis of BRCA1 RING Domain Variants',
                         url='http://www.genetics.org/content/200/2/413',
                         doi='10.1534/genetics.115.175802', pmid='25823446',
-                        gene_type='e3_ligase', test_class='activity')))
+                        gene_type='e3_ligase', test_class='activity', group='e3_activity')))
 
 #### Kitzman 2015 Gal4 ####
+message('Kitzman 2015 Gal4')
 kitzman_2015_path <- 'data/raw/processed/kitzman_2015_gal4_enrichment.xlsx'
 read_kitzman_sheet <- function(sheet){
   tbl <- read_xlsx(kitzman_2015_path, skip = 1, na = 'ND', sheet = sheet) %>%
@@ -553,6 +568,7 @@ formatted_deep_data$kitzman_2015_gal4 <- DeepMut(variant_data = select(deep_mut_
                                                  gene_type='TF', test_class='coupled_growth')
 
 #### Mishra 2016 Hsp90 ####
+message('Mishra 2016 Hsp90')
 ## Each sheet also contains meta info that might be useful later
 mishra_2016_path <- 'data/raw/processed/mishra_2016_hsp90_enrichment.xlsx'
 read_mishra_sheet <- function(sheet){
@@ -564,7 +580,7 @@ read_mishra_sheet <- function(sheet){
     nom <- tbl[7,] %>% unlist(., use.names = FALSE)
     tbl <- tbl[8:length(tbl),] %>%
       set_names(nom) %>%
-      rename_at(vars(-position, -aa), funs(paste0('rep1_', .))) %>%
+      rename_at(vars(-position, -aa), list( ~ paste0('rep1_', .))) %>%
       mutate_at(vars(-aa), as.numeric) %>%
       rename(alt_aa = aa) %>%
       mutate(avg_norm_ratiochange = rep1_norm_ratiochange)
@@ -572,7 +588,7 @@ read_mishra_sheet <- function(sheet){
   } else {
     ## Process sheets with replicates
     # Get first row of sub-tables
-    top_row <- which(tbl$X__1 == 'position') + 1
+    top_row <- which(tbl$...1 == 'position') + 1
     
     # Get bottom row of sub-tables
     bot_row <- sapply(top_row, find_next_empty_row, tbl=tbl) - 1
@@ -585,11 +601,11 @@ read_mishra_sheet <- function(sheet){
     # Extract Subtables and add names
     rep1 <- tbl[top_row[1]:bot_row[1],] %>% 
       set_names(rep_nom) %>%
-      rename_at(vars(-position, -aa), funs(paste0('rep1_', .)))
+      rename_at(vars(-position, -aa), list( ~ paste0('rep1_', .)))
     
     rep2 <- tbl[top_row[2]:bot_row[2],] %>%
       set_names(rep_nom) %>%
-      rename_at(vars(-position, -aa), funs(paste0('rep2_', .)))
+      rename_at(vars(-position, -aa), list( ~ paste0('rep2_', .)))
     
     ave <- tbl[top_row[3]:bot_row[3],] %>%
       select_if(colSums(!is.na(.)) > 0) %>%
@@ -625,13 +641,15 @@ formatted_deep_data$mishra_2016_hsp90 <- DeepMut(variant_data = df, gene_name = 
                                                  gene_type='chaperone', test_class='growth')
 
 #### Sarkisyan 2016 GFP ####
+message('Sarkisyan 2016 GFP')
 # A file with just AAs is also available, but includes less info
 tmp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_AAs.tsv')
 deep_mut_data$sarkisyan_2016_gfp <- read_tsv('data/raw/processed/sarkisyan_2016_gfp_nucleotides.tsv')
 
 #### Brenan 2016 Erk2 ####
+message('Brenan 2016 Erk2')
 deep_mut_data$brenan_2016_erk2 <- read_xlsx('data/raw/processed/brenan_2016_erk2.xlsx', sheet = 'Supplemental_Table_1') %>%
-  rename_all(funs(gsub(' ', '_', tolower(.))))
+  rename_all(list( ~ gsub(' ', '_', tolower(.))))
 
 df <- deep_mut_data$brenan_2016_erk2 %>%
   mutate(variants = str_c('p.', erk2_mutant),
@@ -650,6 +668,7 @@ formatted_deep_data$brenan_2016_erk2 <- DeepMut(variant_data = df, gene_name = '
                                                 gene_type='kinase', test_class='growth')
 
 #### Ashenberg 2016 Flu Nucleoprotein ####
+message('Ashenberg 2016 Flu Nucleoprotein')
 deep_mut_data$ashenberg_2016_np <- read_csv('data/raw/processed/ashenberg_2017_flu_np.csv')
 
 df <- deep_mut_data$ashenberg_2016_np %>%
@@ -667,6 +686,7 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
                                                  gene_type='viral', test_class='complement')
 
 #### Weile 2017 ube2i ####
+message('Weile 2017 ube2i')
 # deep_mut_data$weile_2017_ube2i <- read_csv('data/raw/processed/weile_2017_ube2i_score_comp.csv', na = c('NA','','None'))
 # 
 # aa_code <- structure(names(Biostrings::AMINO_ACID_CODE), names=Biostrings::AMINO_ACID_CODE)
@@ -683,7 +703,7 @@ formatted_deep_data$ashenberg_2016_np <- DeepMut(variant_data = df, gene_name = 
 #                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 deep_mut_data$weile_2017_ube2i <- read_tsv('data/raw/processed/weile_2017_raw_counts_ube2i_tileseq.tsv') %>%
-  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), funs(pseudocount = . + min(.[. > 0]))) %>%
+  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), list( ~ pseudocount = . + min(.[. > 0]))) %>%
   mutate(mean_nonselect = (nonselect1_pseudocount + nonselect2_pseudocount)/2,
          mean_select = (select1_pseudocount + select2_pseudocount)/2,
          er = mean_select / mean_nonselect)
@@ -706,6 +726,7 @@ formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = '
                                                 gene_type='e2_conjugase', test_class='complement')
 
 #### Weile 2017 sumo1 ####
+message('Weile 2017 sumo1')
 # deep_mut_data$weile_2017_sumo1 <- read_csv('data/raw/processed/weile_2017_sumo1_score_comp.csv', na = c('NA','','None'))
 # 
 # df <- deep_mut_data$weile_2017_sumo1 %>%
@@ -713,7 +734,7 @@ formatted_deep_data$weile_2017_ube2i <- DeepMut(variant_data = df, gene_name = '
 #   select(variants, score, raw_score = pred.score)
 
 deep_mut_data$weile_2017_sumo1 <- read_tsv('data/raw/processed/weile_2017_raw_counts_sumo1_tileseq.tsv') %>%
-  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), funs(pseudocount = . + min(.[. > 0]))) %>%
+  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), list(pseudocount = ~ . + min(.[. > 0]))) %>%
   mutate(mean_nonselect = (nonselect1_pseudocount + nonselect2_pseudocount)/2,
          mean_select = (select1_pseudocount + select2_pseudocount)/2,
          er = mean_select / mean_nonselect)
@@ -736,16 +757,19 @@ formatted_deep_data$weile_2017_sumo1 <- DeepMut(variant_data = df, gene_name = '
                                                 gene_type='ptm', test_class='complement')
 
 #### Weile 2017 tpk1 ####
+message('Weile 2017 tpk1')
 ## Does not have raw count data on lab website
 deep_mut_data$weile_2017_tpk1 <- read_csv('data/raw/processed/weile_2017_tpk1_score_comp.csv', na = c('NA','','None'))
 
 #### Weile 2017 calm ####
+message('Weile 2017 calm')
 ## Does not have raw count data on lab website
 deep_mut_data$weile_2017_calm <- read_csv('data/raw/processed/weile_2017_calm_score_comp.csv', na = c('NA','','None'))
 
 #### Findlay 2018 Brca1 ####
+message('Findlay 2018 Brca1')
 deep_mut_data$findlay_2018_brca1 <- read_xlsx('data/raw/processed/findlay_2018_brca1_ring_brct.xlsx', skip = 2, na = 'NA') %>%
-  rename_all(funs(gsub('[\\/ \\(\\)]+', '_', .))) %>%
+  rename_all(list( ~ gsub('[\\/ \\(\\)]+', '_', .))) %>%
   rename(ref_nuc = reference,
          alt_nuc = alt,
          ref_aa = aa_ref,
@@ -767,6 +791,7 @@ formatted_deep_data$findlay_2018_brca1 <- DeepMut(variant_data = df, gene_name =
                                                   gene_type='e3_ligase', test_class='complement')
 
 #### Lee 2018 Flu haemagglutinin ####
+message('Lee 2018 Flu haemagglutinin')
 # Xlsx also has sheets with preferences for each repeat, but importing just the average result for now
 # Reports per site AA preference, which is fairly dissimilar to other metrics
 deep_mut_data$lee_2018_flu_ha <- read_xlsx('data/raw/processed/lee_2018_influenza_ha.xlsx', sheet = 'avg_prefs') %>%
@@ -802,8 +827,9 @@ formatted_deep_data$lee_2018_flu_ha <- DeepMut(variant_data = df, gene_name = 'H
                                                gene_type='viral', test_class='growth')
 
 #### Giacomelli 2018 tp53 ####
+message('Giacomelli 2018 tp53')
 deep_mut_data$giacomelli_2018_tp53 <- read_xlsx('data/raw/processed/giacomelli_2018_tp53.xlsx', skip=1) %>%
-  rename_all(funs(tolower(gsub('[\\/ \\(\\)\\-]+', '_', gsub('\\*', '_2', .))))) %>%
+  rename_all(list( ~ tolower(gsub('[\\/ \\(\\)\\-]+', '_', gsub('\\*', '_2', .))))) %>%
   rename(ref_aa = aa_wt,
          alt_aa = aa_variant)
 
@@ -837,7 +863,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                               title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                               doi='10.1038/s41588-018-0204-y', pmid='30224644',
                               url='https://www.nature.com/articles/s41588-018-0204-y',
-                              gene_type='TF', test_class='complement'),
+                              gene_type='TF', test_class='complement', group='p53_wt_nutlin3'),
        p53_null_nutlin3=DeepMut(variant_data = df2,
                                 gene_name = 'TP53', species = species_options$sapiens,
                                 authour = 'Giacomelli et al.', year = 2018, transform = '-1 * raw_score',
@@ -846,7 +872,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                                 title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                                 doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                 url='https://www.nature.com/articles/s41588-018-0204-y',
-                                gene_type='TF', test_class='complement'),
+                                gene_type='TF', test_class='complement', group='p53_null_nutlin3'),
        p53_null_etoposide=DeepMut(variant_data = df3,
                                   gene_name = 'TP53', species = species_options$sapiens,
                                   authour = 'Giacomelli et al.', year = 2018, transform = 'None',
@@ -855,7 +881,7 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
                                   title='Mutational processes shape the landscape of TP53 mutations in human cancer',
                                   doi='10.1038/s41588-018-0204-y', pmid='30224644',
                                   url='https://www.nature.com/articles/s41588-018-0204-y',
-                                  gene_type='TF', test_class='complement')
+                                  gene_type='TF', test_class='complement', group='p53_null_etoposide')
        ))
 
 #### Save processed output ####
@@ -877,7 +903,7 @@ for (i in names(formatted_deep_data)){
   }
 }
 
-meta <- data_frame(authour = unlist(sapply(formatted_deep_data, get_meta, var='authour')),
+meta <- tibble(authour = unlist(sapply(formatted_deep_data, get_meta, var='authour')),
                    gene_name = unlist(sapply(formatted_deep_data, get_meta, var='gene_name')),
                    uniprot_id = unlist(sapply(formatted_deep_data, get_meta, var='uniprot_id')),
                    species = unlist(sapply(formatted_deep_data, get_meta, var='species')),

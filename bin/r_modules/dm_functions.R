@@ -10,6 +10,19 @@ gen_mut_id <- function(acc, ref, alt, pos){
   return(paste0(acc, '_', pos, '_', alt))
 }
 
+# Make consistent dataset name from DeepMut object
+make_dm_dataset_name <- function(deep_mut, uniprot_id=FALSE){
+  return(
+    str_c(str_split(deep_mut$authour, ' ', simplify = TRUE)[1,1], '_',
+          deep_mut$year, '_',
+          ifelse(uniprot_id, deep_mut$uniprot_id, deep_mut$gene_name),
+          ifelse(is.null(deep_mut$group), '', '.'),
+          deep_mut$group) %>%
+      str_to_lower() %>%
+      str_replace_all(., '-', '_')
+  )
+}
+
 ## DeepMut data 'Class'
 # variant_data = data frame with variants (requires: protein variant string (comma separated list of variants in hgvs protein format),
 # score & raw_score, supports other orig columns too)
@@ -135,8 +148,10 @@ write_deep_mut.DeepMutSet <- function(x, root_dir, create_dir=TRUE){
   }
   for (set in names(x)){
     dm_path <- gsub(' ', '',
-                    str_c(root_dir, '/', str_replace_na(x[[set]]$uniprot_id, replacement = ''), '_',
-                          str_replace_na(x[[set]]$gene_name, replacement = ''), '.', set, '.dm'))
+                    str_c(root_dir, '/',
+                          str_replace_na(x[[set]]$uniprot_id, replacement = ''), '_',
+                          str_replace_na(x[[set]]$gene_name, replacement = ''), '.',
+                          ifelse(is.null(x[[set]]$group), set, x[[set]]$group), '.dm'))
     write_deep_mut(x[[set]], dm_path)
   }
 }

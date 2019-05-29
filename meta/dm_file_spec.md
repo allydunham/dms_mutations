@@ -57,3 +57,6 @@ Initial version. Current rules:
 
 #### Version 2.1.1
 * Added subset field to PDB IDs, allowing sepcification of which section of the protein is mdoelled: pdb\_id:chain:offset:X-Y for region between residues numbered X and Y (inclusive)
+
+#### Version 2.1.2
+* Added optional group field for studies with multiple experimental analyses of a gene by one team
