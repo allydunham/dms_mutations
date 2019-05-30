@@ -11,6 +11,7 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
   dm$variant_data <- mutate(dm$variant_data, norm_score = score / norm_factor)
   
   dataset_name <- make_dm_dataset_name(dm)
+  message(dataset_name)
   
   # Import prediction data
   sift_file <- str_c(root_dir, '/', dm$gene_name, '.SIFTprediction')
@@ -325,7 +326,7 @@ read_all_accesibility <- function(pdb_ids, root){
     
     filepath <- str_c(root, '/', pdb_id, '/', pdb_id, '_Repair.rsa')
     if (file.exists(filepath)){
-      naccess[[pdb_id]] <- read_naccess_rsa(filepath, chain=pdb_chain)
+      naccess[[pdb_id]] <- read_naccess_rsa(filepath, pdb_chain=pdb_chain)
     }
   }
   
@@ -336,10 +337,10 @@ read_all_accesibility <- function(pdb_ids, root){
   # Combine accesiblity per residues into final table (take average where multiple structures cover residue)
   combined_accesibility <- sapply(names(naccess), function(x){naccess[[x]]$residues}, simplify = FALSE) %>%
     bind_rows() %>%
-    select(-res3) %>%
-    group_by(res1, chain, pos) %>%
-    summarise_all(.funs = list(~ mean(.))) %>%
-    arrange(pos, chain) %>%
+    select(-res3, -chain) %>%
+    group_by(res1, pos) %>%
+    summarise_all(.funs = list(~ mean(., na.rm=TRUE))) %>%
+    arrange(pos) %>%
     ungroup()
     
   naccess$combined <- combined_accesibility
@@ -347,22 +348,23 @@ read_all_accesibility <- function(pdb_ids, root){
 }
   
 # Import a given naccess per residue output. chain filters which chain to keep
-read_naccess_rsa <- function(filepath, chain=NULL){
+read_naccess_rsa <- function(filepath, pdb_chain=NULL){
   fi <- read_lines(filepath)
   fi <- grep('^REM', fi, invert = TRUE, value = TRUE)
   
   # Select table lines and read
   tbl_str <- str_replace(grep('^RES', fi, value = TRUE),'RES ', '')
+  str_sub(tbl_str, 6, 5) <- ' ' # hack inserting space between chain and position in 4digit positions, which naccess doesn't do 
   acc <- read_table2(tbl_str, col_names = c('res3', 'chain', 'pos', 'all_atom_abs', 'all_atom_rel',
                                             'side_chain_abs', 'side_chain_rel', 'backbone_abs', 'backbone_rel',
                                             'non_polar_abs', 'non_polar_rel', 'polar_abs', 'polar_rel')) %>%
     mutate(res3 = str_to_title(res3)) %>%
     add_column(res1 = structure(names(Biostrings::AMINO_ACID_CODE), names = Biostrings::AMINO_ACID_CODE)[.$res3], .after = 'res3')
-  if (!is.null(chain)){
-    acc <- filter(acc, chain == chain)
+  
+  if (!is.null(pdb_chain)){
+    acc <- filter(acc, chain == pdb_chain)
   }
     
-  
   # Parse summary lines
   chain <- str_split(grep('^CHAIN', fi, value = TRUE), '\\s+', simplify = TRUE)[,-c(1,2)]
   if (is.null(dim(chain))){
