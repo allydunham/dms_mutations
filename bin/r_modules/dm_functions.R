@@ -1,29 +1,7 @@
 #!/usr/bin/env Rscript 
 # Script containing general functions for deep mutagenesis analysis
 
-#### Formatting and Storage ####
-# generate mut id for variants
-gen_mut_id <- function(acc, ref, alt, pos){
-  if (is.na(ref)){
-    ref <- 'X'
-  }
-  return(paste0(acc, '_', pos, '_', alt))
-}
-
-# Make consistent dataset name from DeepMut object
-make_dm_dataset_name <- function(deep_mut, uniprot_id=FALSE){
-  return(
-    str_c(str_split(deep_mut$authour, ' ', simplify = TRUE)[1,1], '_',
-          deep_mut$year, '_',
-          ifelse(uniprot_id, deep_mut$uniprot_id, deep_mut$gene_name),
-          ifelse(is.null(deep_mut$group), '', '.'),
-          deep_mut$group) %>%
-      str_to_lower() %>%
-      str_replace_all(., '-', '_')
-  )
-}
-
-## DeepMut data 'Class'
+#### DeepMut data 'Class' ####
 # variant_data = data frame with variants (requires: protein variant string (comma separated list of variants in hgvs protein format),
 # score & raw_score, supports other orig columns too)
 # gene_name = name string
@@ -61,17 +39,15 @@ DeepMutSet <- function(lst){
   return(lst)
 }
 
-# Generic for writing deep mut file
+# Write DeepMut Objects
 write_deep_mut <- function(x, ...){
   UseMethod('write_deep_mut', x)
 }
 
-# Default Write deep mut method
 write_deep_mut.default <- function(x){
   stop(str_c('Error: to write a dm file(s) "x" must be of class "DeepMut" or "DeepMutSet" but class(x) = ', class(x)))
 }
 
-# write 'DeepMut' classed objects to a consistent file type (termed dm file for now)
 write_deep_mut.DeepMut <- function(x, outfile, create_dir=TRUE){
   keys <- names(x)
   keys <- keys[!keys == 'variant_data']
@@ -271,7 +247,54 @@ get_size <- function(x){
   }
 }
 
-#### Analysis ####
+########
+
+#### Misc Helper Functions####
+# generate mut id for variants
+gen_mut_id <- function(acc, ref, alt, pos){
+  if (is.na(ref)){
+    ref <- 'X'
+  }
+  return(paste0(acc, '_', pos, '_', alt))
+}
+
+# Make consistent dataset name from DeepMut object
+make_dm_dataset_name <- function(deep_mut, uniprot_id=FALSE){
+  return(
+    str_c(str_split(deep_mut$authour, ' ', simplify = TRUE)[1,1], '_',
+          deep_mut$year, '_',
+          ifelse(uniprot_id, deep_mut$uniprot_id, deep_mut$gene_name),
+          ifelse(is.null(deep_mut$group), '', '.'),
+          deep_mut$group) %>%
+      str_to_lower() %>%
+      str_replace_all(., '-', '_')
+  )
+}
+
+## Predict mutation class
+# Wrapper (exp_mut_class) allows changing system across whole analysis
+exp_mut_class <- function(score, study){
+  return(exp_manual_thresh(score, study))
+}
+
+# Use manual study thresholds
+exp_manual_thresh <- function(score, study){
+  res <- rep(MUT_CATEGORIES$neutral, length(score))
+  for (n in names(MANUAL_THRESHOLDS)){
+    res[study == n & score < MANUAL_THRESHOLDS[n]] <- MUT_CATEGORIES$deleterious
+  }
+  return(res)
+}
+
+# Assume any deviation from neutral is bad
+exp_not_neut <- function(x){
+  res <- rep(MUT_CATEGORIES$neutral, length(x))
+  res[abs(x) > 0.5] <- MUT_CATEGORIES$deleterious
+  return(res)
+}
+########
+
+#### Data importing ####
 # Find the next empty row (All NA or bottom) in a tbl
 find_next_empty_row <- function(start_row, tbl){
   r <- start_row
@@ -339,4 +362,4 @@ e_score <- function(sel, bkg){
   return(freq_sel/freq_bkg)
 }
 
-
+########
