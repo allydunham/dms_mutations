@@ -1,14 +1,12 @@
 #!/usr/bin/env Rscript 
 # Script containing functions for loading and analysis of predictions from Envision, SIFT, FoldX, Polyphen2 & EVCouplings
 
-#### Plotting function ####
-## Plot deep mutagenesis data and variant effect predictions
-# Generic
+#### Plotting ####
+# Plot generic variant effect prediction results for a study
 plot_predictions <- function(x, ...){
   UseMethod('plot_predictions', x)
 }
 
-# Single Variants
 plot_predictions.single_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   print(str_c('Generating plots for ', study))
@@ -36,7 +34,6 @@ plot_predictions.single_variant <- function(x){
   return(plots)
 }
 
-# Multi Variants
 plot_predictions.multi_variant <- function(x){
   study <- str_c(x$dm$authour, ' ', x$dm$year, ': ', x$dm$gene_name)
   print(str_c('Generating plots for ', study))
@@ -302,3 +299,5 @@ plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name=
   }
   
 }
+
+########
