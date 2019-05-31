@@ -138,6 +138,20 @@ positional_profile_PCA <- function(variant_matrix){
 
 basic_pca_plots <- function(pca){
   plots <- list()
+  plots$all_pcs <- labeled_ggplot(
+    ggarrange(
+      plotlist = lapply(
+        seq(1, 19, 2),
+        function(x){
+          ggplot(pca$variants, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour='wt')) + 
+            geom_point()
+        }),
+      nrow = 2, ncol = 5, common.legend = TRUE, legend = 'right'
+    ),
+    width = 20, height = 15
+  )
+    
+  
   plots$by_authour <- ggplot(pca$variants, aes(x=PC1, y=PC2, colour=gene_name)) + 
     facet_wrap(~study) +
     geom_point()
@@ -229,4 +243,30 @@ per_aa_pcas <- function(aa, variant_matrix){
   
   return(c(basic_plots, pc_surface_acc_heatmap=surface_heatmap))
 }
+########
+
+#### SIFT/FoldX comparison ####
+# compute pairwise distance between positions within each gene
+compute_per_gene_pairwise_profile_dists <- function(variants, score_name='dist'){
+  dists <- variants %>%
+    group_by(study) %>%
+    do(compute_pairwise_mut_profile_dists(., score_name))
+  return(dists)
+}
+
+# Compute pairwise distances between profiles in a tbl. Expects columns A:Y with per residue substitution scores
+compute_pairwise_mut_profile_dists <- function(variants, score_name='dist'){
+  dists <- variants %>%
+    select(A:Y) %>%
+    as.matrix() %>%
+    set_rownames(variants %>% unite(col='id', pos, wt, sep='-') %>% pull(id)) %>%
+    dist() %>%
+    as.matrix() %>%
+    as_tibble(rownames = 'var1') %>%
+    gather('var2', !!score_name, -var1) %>%
+    separate(var1, c('pos1', 'aa1'), sep='-') %>%
+    separate(var2, c('pos2', 'aa2'), sep='-')
+  return(dists)
+}
+
 ########

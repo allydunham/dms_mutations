@@ -115,6 +115,12 @@ sub_scores <- variant_matrices$norm_all_variants %>%
             by=c('wt', 'mut'))
 
 deep_variant_plots$blosum <- list()
+
+deep_variant_plots$blosum$aa_profile_heatmap <- ggplot(sub_profile_scores, aes(x=wt, y=mut, fill=er)) + 
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+        
 deep_variant_plots$blosum$er_vs_blosum <- ggplot(sub_scores, aes(x=blosum62, y=er, group=blosum62)) + geom_boxplot()
 deep_variant_plots$blosum$profile_er_vs_blosum <- ggplot(sub_profile_scores, aes(x=blosum62, y=er, group=blosum62)) + 
   geom_boxplot()
@@ -153,70 +159,28 @@ prediction_martices$sift <- bind_rows(lapply(dms_data, make_var_matrix, score='s
   mutate(sift = TRUE)
 prediction_martices$foldx <- bind_rows(lapply(dms_data, make_foldx_var_matrix), .id = 'study')  %>%
   mutate(foldx = TRUE)
+prediction_martices$exp <- select(variant_matrices$norm_all_variants, study, pos, wt, A:Y)
 
-
-var_preds_mat <- variant_matrices$norm_all_variants %>%
-  left_join(., prediction_martices$foldx, suffix = c('', '_foldx'), by=c('study', 'pos', 'wt')) %>%
-  left_join(., prediction_martices$sift, suffix = c('', '_sift'), by=c('study', 'pos', 'wt')) %>%
-  mutate(foldx = !is.na(foldx),
-         sift = !is.na(sift))
-
-#distance_mats <- 
-
-# FoldX
-# Rows are experimental, cols foldx
-foldx_dist_mat <- pdist(var_preds_mat %>%
-                      filter(foldx) %>%
-                      select(A:Y) %>%
-                      as.matrix(),
-                    var_preds_mat %>%
-                      filter(foldx) %>%
-                      select(A_foldx:Y_foldx) %>%
-                      as.matrix()) %>%
-  as.matrix() %>%
-  set_colnames(var_preds_mat %>% filter(foldx) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id)) %>%
-  set_rownames(var_preds_mat %>% filter(foldx) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id))
-
-foldx_dist_tbl <- foldx_dist_mat %>%
-  as_tibble(rownames = 'exp_id') %>%
-  gather(key='foldx_id', value='foldx_dist', -exp_id) %>%
-  separate(exp_id, into = c('study', 'pos', 'wt'), sep='-', convert = TRUE) %>%
-  left_join(., select(var_preds_mat, study, pos, wt, sig_count), by = c('study', 'pos', 'wt')) %>%
-  separate(foldx_id, into = c('foldx_study', 'foldx_pos', 'foldx_wt'), sep='-', convert = TRUE) %>%
-  left_join(., select(var_preds_mat, study, pos, wt, sig_count) %>% rename_all(~ str_c('foldx_', .)),
-            by = c('foldx_study', 'foldx_pos', 'foldx_wt'))
+pairwise_dists <- mapply(compute_per_gene_pairwise_profile_dists,
+                         prediction_martices,
+                         str_c(names(prediction_martices),'_dist'),
+                         SIMPLIFY = FALSE) %>%
+  reduce(left_join, by = c('study', 'pos1', 'aa1', 'pos2', 'aa2'))
 
 deep_variant_plots$pred_dists <- list()
-deep_variant_plots$pred_dists$foldx_dist_boxes <- ggplot(foldx_dist_tbl, aes(x=sig_count, group=sig_count, y=foldx_dist)) + 
-  geom_boxplot() +
-  geom_smooth(method = 'lm', group=1)
+deep_variant_plots$pred_dists$foldx <- ggplot(drop_na(pairwise_dists, foldx_dist), aes(x=exp_dist, y=foldx_dist, colour=study)) + 
+  geom_density_2d() +
+  geom_smooth(method = 'lm', colour='black') +
+  facet_wrap(~study) + 
+  theme(legend.position = 'none')
 
-# SIFT
-sift_dist_mat <- pdist(var_preds_mat %>%
-                      filter(sift) %>%
-                      select(A:Y) %>%
-                      as.matrix(),
-                    var_preds_mat %>%
-                      filter(sift) %>%
-                      select(A_sift:Y_sift) %>%
-                      mutate_all(~ log10(. + 0.0001)) %>%
-                      as.matrix()) %>%
-  as.matrix() %>%
-  set_colnames(var_preds_mat %>% filter(sift) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id)) %>%
-  set_rownames(var_preds_mat %>% filter(sift) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id))
+deep_variant_plots$pred_dists$sift <- ggplot(drop_na(pairwise_dists, sift_dist), aes(x=exp_dist, y=sift_dist, colour=study)) + 
+  geom_density_2d() +
+  geom_smooth(method = 'lm', colour='black') +
+  facet_wrap(~study) + 
+  theme(legend.position = 'none')
 
-sift_dist_tbl <- sift_dist_mat %>%
-  as_tibble(rownames = 'exp_id') %>%
-  gather(key='sift_id', value='sift_dist', -exp_id) %>%
-  separate(exp_id, into = c('study', 'pos', 'wt'), sep='-', convert = TRUE) %>%
-  left_join(., select(var_preds_mat, study, pos, wt, sig_count), by = c('study', 'pos', 'wt')) %>%
-  separate(sift_id, into = c('sift_study', 'sift_pos', 'sift_wt'), sep='-', convert = TRUE) %>%
-  left_join(., select(var_preds_mat, study, pos, wt, sig_count) %>% rename_all(~ str_c('sift_', .)),
-            by = c('sift_study', 'sift_pos', 'sift_wt'))
-
-deep_variant_plots$pred_dists$sift_dist_boxes <- ggplot(sift_dist_tbl, aes(x=sig_count, group=sig_count, y=sift_dist)) + 
-  geom_boxplot() +
-  geom_smooth(method = 'lm', group=1)
+########
 
 #### Save plots #####
 save_plot_list(deep_variant_plots, root='figures/variant_analysis/')
