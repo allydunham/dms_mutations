@@ -8,6 +8,7 @@ library(magrittr)
 library(broom)
 library(readxl)
 library(ggpubr)
+library(pdist)
 
 # Source custom functions
 source('bin/r_modules/autoplot.R')

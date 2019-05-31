@@ -49,6 +49,23 @@ variant_matrices$all_variants <- mutate(variant_matrices$all_variants,
 
 variant_matrices$sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
 
+variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix, score='norm_score'), .id = 'study') %>%
+  filter(!wt %in% c('Z', 'B')) %>%
+  drop_na(wt, pos) %>%
+  left_join(., meta_df, by='study') %>%
+  left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
+  select(-factor, -thresh) # Need to switch thresh if using norm_score
+
+variant_matrices$norm_all_variants <- mutate(variant_matrices$norm_all_variants,
+                                        sig_count = variant_matrices$norm_all_variants %>%
+                                          mutate_at(.vars = vars(A:Y), .funs = list(~ . < norm_thresh)) %>%
+                                          select(A:Y) %>%
+                                          rowSums(na.rm = TRUE)
+)
+
+variant_matrices$norm_sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
+
+
 imputed_matrices <- sapply(variant_matrices, impute_variant_profiles, background_matrix=variant_matrices$all_variants, simplify=FALSE)
 
 #### Enrichment Score Distributions ####
@@ -77,9 +94,9 @@ deep_variant_plots$score_distributions$per_position_boxplots <- per_position_box
 names(deep_variant_plots$score_distributions$per_position_boxplots) <- per_position_boxplots$study
 ########
 
-#### Average severity vs Blosum ####
+#### Mutation severity vs Blosum ####
 data(BLOSUM62)
-sub_scores <- variant_matrices$all_variants %>%
+sub_profile_scores <- variant_matrices$norm_all_variants %>%
   select(wt, A:Y) %>%
   group_by(wt) %>%
   summarise_all(.funs = mean, na.rm=TRUE) %>%
@@ -89,9 +106,19 @@ sub_scores <- variant_matrices$all_variants %>%
               gather(key='mut', value = 'blosum62', -wt),
             by=c('wt', 'mut'))
 
-deep_variant_plots$avg_scores <- list()
-deep_variant_plots$avg_scores$er_vs_blosum <- ggplot(sub_scores, aes(x=er, y=blosum62)) + geom_point()
-  
+sub_scores <- variant_matrices$norm_all_variants %>%
+  select(study, pos, wt, A:Y) %>%
+  gather(key = 'mut', value = 'er', -wt, -study, -pos) %>%
+  left_join(., BLOSUM62 %>%
+              as_tibble(rownames = 'wt') %>%
+              gather(key='mut', value = 'blosum62', -wt),
+            by=c('wt', 'mut'))
+
+deep_variant_plots$blosum <- list()
+deep_variant_plots$blosum$er_vs_blosum <- ggplot(sub_scores, aes(x=blosum62, y=er, group=blosum62)) + geom_boxplot()
+deep_variant_plots$blosum$profile_er_vs_blosum <- ggplot(sub_profile_scores, aes(x=blosum62, y=er, group=blosum62)) + 
+  geom_boxplot()
+
 ########
 
 #### Variant Score PCAs ####
@@ -128,32 +155,68 @@ prediction_martices$foldx <- bind_rows(lapply(dms_data, make_foldx_var_matrix), 
   mutate(foldx = TRUE)
 
 
-var_preds_mat <- variant_matrices$all_variants %>%
+var_preds_mat <- variant_matrices$norm_all_variants %>%
   left_join(., prediction_martices$foldx, suffix = c('', '_foldx'), by=c('study', 'pos', 'wt')) %>%
   left_join(., prediction_martices$sift, suffix = c('', '_sift'), by=c('study', 'pos', 'wt')) %>%
   mutate(foldx = !is.na(foldx),
          sift = !is.na(sift))
 
+#distance_mats <- 
+
 # FoldX
-foldx_dist <- pdist(var_preds_mat %>%
+# Rows are experimental, cols foldx
+foldx_dist_mat <- pdist(var_preds_mat %>%
                       filter(foldx) %>%
                       select(A:Y) %>%
                       as.matrix(),
                     var_preds_mat %>%
                       filter(foldx) %>%
                       select(A_foldx:Y_foldx) %>%
-                      as.matrix())
+                      as.matrix()) %>%
+  as.matrix() %>%
+  set_colnames(var_preds_mat %>% filter(foldx) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id)) %>%
+  set_rownames(var_preds_mat %>% filter(foldx) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id))
 
-# FoldX
-sift_dist <- pdist(var_preds_mat %>%
+foldx_dist_tbl <- foldx_dist_mat %>%
+  as_tibble(rownames = 'exp_id') %>%
+  gather(key='foldx_id', value='foldx_dist', -exp_id) %>%
+  separate(exp_id, into = c('study', 'pos', 'wt'), sep='-', convert = TRUE) %>%
+  left_join(., select(var_preds_mat, study, pos, wt, sig_count), by = c('study', 'pos', 'wt')) %>%
+  separate(foldx_id, into = c('foldx_study', 'foldx_pos', 'foldx_wt'), sep='-', convert = TRUE) %>%
+  left_join(., select(var_preds_mat, study, pos, wt, sig_count) %>% rename_all(~ str_c('foldx_', .)),
+            by = c('foldx_study', 'foldx_pos', 'foldx_wt'))
+
+deep_variant_plots$pred_dists <- list()
+deep_variant_plots$pred_dists$foldx_dist_boxes <- ggplot(foldx_dist_tbl, aes(x=sig_count, group=sig_count, y=foldx_dist)) + 
+  geom_boxplot() +
+  geom_smooth(method = 'lm', group=1)
+
+# SIFT
+sift_dist_mat <- pdist(var_preds_mat %>%
                       filter(sift) %>%
                       select(A:Y) %>%
                       as.matrix(),
                     var_preds_mat %>%
                       filter(sift) %>%
                       select(A_sift:Y_sift) %>%
-                      as.matrix())
+                      mutate_all(~ log10(. + 0.0001)) %>%
+                      as.matrix()) %>%
+  as.matrix() %>%
+  set_colnames(var_preds_mat %>% filter(sift) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id)) %>%
+  set_rownames(var_preds_mat %>% filter(sift) %>% select(study, pos, wt) %>% unite('id', sep='-') %>% pull(id))
 
+sift_dist_tbl <- sift_dist_mat %>%
+  as_tibble(rownames = 'exp_id') %>%
+  gather(key='sift_id', value='sift_dist', -exp_id) %>%
+  separate(exp_id, into = c('study', 'pos', 'wt'), sep='-', convert = TRUE) %>%
+  left_join(., select(var_preds_mat, study, pos, wt, sig_count), by = c('study', 'pos', 'wt')) %>%
+  separate(sift_id, into = c('sift_study', 'sift_pos', 'sift_wt'), sep='-', convert = TRUE) %>%
+  left_join(., select(var_preds_mat, study, pos, wt, sig_count) %>% rename_all(~ str_c('sift_', .)),
+            by = c('sift_study', 'sift_pos', 'sift_wt'))
+
+deep_variant_plots$pred_dists$sift_dist_boxes <- ggplot(sift_dist_tbl, aes(x=sig_count, group=sig_count, y=sift_dist)) + 
+  geom_boxplot() +
+  geom_smooth(method = 'lm', group=1)
 
 #### Save plots #####
 save_plot_list(deep_variant_plots, root='figures/variant_analysis/')
