@@ -23,7 +23,8 @@ DeepMut <- function(variant_data, ...){
   }
   
   
-  defaults <- list(gene_name=NA, domain=NA, species=NA, aa_seq=NA, transform='None', uniprot_id=NA, authour=NA, year=NA)
+  defaults <- list(gene_name=NA, domain=NA, species=NA, aa_seq=NA, transform='None', uniprot_id=NA, authour=NA, year=NA,
+                   pdb_id=NA)
 
   deep_mut <- list(variant_data=variant_data, ...)
   deep_mut <- c(deep_mut, defaults[!names(defaults) %in% names(deep_mut)])

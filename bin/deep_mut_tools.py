@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
 Functions and Classes for processing Deep Mutational Scanning data
-
-ToDo:
-- currently ref_seq is dealt with separately, would be more elegant to introduce a long
-  form key:value meta pair type if any others are introduced (e.g. DNA seq)
 """
 import fileinput
 import re
