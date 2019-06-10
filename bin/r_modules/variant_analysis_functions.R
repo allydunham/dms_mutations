@@ -60,7 +60,7 @@ col_unique_counts <- function(tbl){
 
 # Wrapper to deal with different/no structures for studies
 make_foldx_var_matrix <- function(dm_data){
-  if (is.null(dm_data$dm$pdb_id)){
+  if (identical(NA, dm_data$dm$pdb_id)){
     return(NULL)
   }
   
@@ -155,6 +155,19 @@ basic_pca_plots <- function(pca){
   plots$by_authour <- ggplot(pca$variants, aes(x=PC1, y=PC2, colour=gene_name)) + 
     facet_wrap(~study) +
     geom_point()
+  
+  plots$secondary_structure <- labeled_ggplot(
+    ggarrange(
+      plotlist = lapply(
+        seq(1, 19, 2),
+        function(x){
+          ggplot(pca$variants, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour='sec_struct')) + 
+            geom_point()
+        }),
+      nrow = 2, ncol = 5, common.legend = TRUE, legend = 'right'
+    ),
+    width = 20, height = 15
+  )
   
   plots$fields_group_studies <- ggplot(filter(pca$variants,
                                               authour %in% c('Araya et al.', 'Melamed et al.', 'Starita et al.',
@@ -267,6 +280,72 @@ compute_pairwise_mut_profile_dists <- function(variants, score_name='dist'){
     separate(var1, c('pos1', 'aa1'), sep='-') %>%
     separate(var2, c('pos2', 'aa2'), sep='-')
   return(dists)
+}
+
+########
+
+#### Secondary Structure ####
+plot_secondary_structure_profile <- function(tbl){
+  ah_mat <- group_by(tbl, alpha_helix_position) %>%
+    summarise_at(.vars = vars(A:Y), .funs = mean, na.rm=TRUE) %>%
+    gather(key = 'mut', value = 'score', -alpha_helix_position) %>%
+    filter(alpha_helix_position < 20)
+  
+  p_ah <- ggplot(ah_mat, aes(x=alpha_helix_position, y=mut, fill=score)) +
+    geom_tile() +
+    scale_fill_gradient2()
+  
+  bs_mat <- group_by(tbl, beta_sheet_position) %>%
+    summarise_at(.vars = vars(A:Y), .funs = mean, na.rm=TRUE) %>%
+    gather(key = 'mut', value = 'score', -beta_sheet_position) %>%
+    filter(beta_sheet_position < 9)
+  
+  p_bs <- ggplot(bs_mat, aes(x=beta_sheet_position, y=mut, fill=score)) +
+    geom_tile() +
+    scale_fill_gradient2()
+  
+  return(list(alpha_helix_profile = p_ah, beta_sheet_profile = p_bs))
+}
+
+# Label secondary structure on variant profile matrices
+label_secondary_structure <- function(tbl){
+  tbl <- group_by(tbl, study) %>%
+      mutate(region = split_protein_regions(pos)) %>%
+      group_by(study, region) %>%
+      mutate(beta_sheets = find_secondary_structures(sec_struct, target='E', prefix = str_c(first(study), '_', first(region), '_')),
+             alpha_helices = find_secondary_structures(sec_struct, target='H', prefix = str_c(first(study), '_', first(region), '_'))) %>%
+      group_by(beta_sheets) %>%
+      mutate(beta_sheet_position = 1:n()) %>%
+      group_by(alpha_helices) %>%
+      mutate(alpha_helix_position = 1:n()) %>%
+      ungroup()
+  tbl$alpha_helix_position[is.na(tbl$alpha_helices)] <- NA
+  tbl$beta_sheet_position[is.na(tbl$beta_sheets)] <- NA
+  
+  return(tbl)
+}
+
+# Find simple secondary structure runs
+find_secondary_structures <- function(x, target='E', min_length=4, prefix=NULL){
+  runs <- rle(x)
+  target_runs <- runs$values == target & runs$lengths >= min_length
+  
+  final_runs <- rep(NA, length(target_runs))
+  final_runs[target_runs] <- 1:sum(target_runs)
+  final_runs <- rep(final_runs, times = runs$lengths)
+  
+  if (!is.null(prefix)){
+    final_runs <- str_c(prefix, final_runs)
+  }
+  
+  return(final_runs)
+}
+
+# Find continuous regions with data
+split_protein_regions <- function(pos){
+  reg_ends <- which(c(diff(pos) > 1, TRUE))
+  reg_labels <- rep(1:length(reg_ends), times=c(reg_ends[1], diff(reg_ends)))
+  return(reg_labels)
 }
 
 ########

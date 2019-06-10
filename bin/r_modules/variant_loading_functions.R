@@ -42,6 +42,8 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
   
   naccess <- read_all_accesibility(dm$pdb_id, root_dir)
   
+  secondary_structure <- read_secondary_structure(root_dir, dm)
+  
   # If dataset is given per codon take mean per codon
   if (per_codon){
     dm <- adjust_dm_per_codon(dm, norm_factor)
@@ -61,6 +63,7 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
                       foldx=foldx,
                       evcouplings=evcoup,
                       surface_accesibility=naccess,
+                      secondary_structure=secondary_structure,
                       norm_factor=norm_factor,
                       manual_threshold=unname(MANUAL_THRESHOLDS[dataset_name]))
   
@@ -381,3 +384,34 @@ read_naccess_rsa <- function(filepath, pdb_chain=NULL){
   return(list(residues = acc, chains = chain, total = total))
 }
 
+
+#### Secondary Structure ####
+read_secondary_structure <- function(root, dm){
+  seq_preds <- read_ss8(str_c(root, '/', dm$gene_name, '.fa.ss8'))
+  
+  if (identical(NA, dm$pdb_id)){
+    return(seq_preds)
+  }
+  
+  struc_preds <- sapply(str_split(dm$pdb_id, ':', simplify = TRUE)[,1],
+                        function(x){read_ss8(str_c(root, '/', x, '/', x, '.ss8'))},
+                        simplify = FALSE) %>%
+    bind_rows(.id = 'pdb') %>%
+    group_by(pos, aa) %>%
+    summarise_at(.vars = vars(-pdb), .funs = first)
+  
+  overall_preds <- seq_preds %>%
+    filter(!pos %in% struc_preds$pos) %>%
+    bind_rows(., struc_preds) %>%
+    arrange(pos)
+  
+  return(overall_preds)
+}
+
+read_ss8 <- function(path){
+  return(
+    read_tsv(path) %>%
+      rename(pos = `#`) %>%
+      rename_all(.funs = str_to_lower)
+  )
+}

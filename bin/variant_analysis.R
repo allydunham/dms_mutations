@@ -25,6 +25,11 @@ surface_accesibility <- sapply(dms_data, function(x){if(!identical(NA, x$surface
                                    simplify = FALSE) %>%
   bind_rows(.id = 'study')
 
+# Secondary structure predictions for all positions
+secondary_structure <- sapply(dms_data, function(x){if(!identical(NA, x$secondary_structure)){x$secondary_structure}},
+                              simplify = FALSE) %>%
+  bind_rows(.id = 'study')
+
 # Dataframe of all individually scored variant/sets of variants in all studies
 all_variants <- bind_rows(lapply(dms_data, function(x){x$dm$variant_data}), .id = 'study') %>%
   select(study, variants, score, raw_score, norm_score) %>%
@@ -38,14 +43,13 @@ variant_matrices$all_variants <- bind_rows(lapply(dms_data, make_var_matrix, sco
   drop_na(wt, pos) %>%
   left_join(., meta_df, by='study') %>%
   left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
-  select(-factor, -norm_thresh) # Need to switch thresh if using norm_score
-
-variant_matrices$all_variants <- mutate(variant_matrices$all_variants,
-                                        sig_count = variant_matrices$all_variants %>%
-                                          mutate_at(.vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
-                                          select(A:Y) %>%
-                                          rowSums(na.rm = TRUE)
-)
+  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss) %>%
+              rename_at(vars(-study, -pos, -wt, -sec_struct), .funs= ~ str_c('ss_prob_', .)),
+            by=c('study', 'wt', 'pos')) %>%
+  select(-factor, -norm_thresh) %>%
+  mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
+           select(A:Y) %>%
+           rowSums(na.rm = TRUE))
 
 variant_matrices$sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
 
@@ -54,17 +58,15 @@ variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix
   drop_na(wt, pos) %>%
   left_join(., meta_df, by='study') %>%
   left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
-  select(-factor, -thresh) # Need to switch thresh if using norm_score
+  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss) %>%
+              rename_at(vars(-study, -pos, -wt, -sec_struct), .funs= ~ str_c('ss_prob_', .)),
+            by=c('study', 'wt', 'pos')) %>%
+  select(-factor, -thresh, thresh = norm_thresh) %>%
+  mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
+           select(A:Y) %>%
+           rowSums(na.rm = TRUE))
 
-variant_matrices$norm_all_variants <- mutate(variant_matrices$norm_all_variants,
-                                        sig_count = variant_matrices$norm_all_variants %>%
-                                          mutate_at(.vars = vars(A:Y), .funs = list(~ . < norm_thresh)) %>%
-                                          select(A:Y) %>%
-                                          rowSums(na.rm = TRUE)
-)
-
-variant_matrices$norm_sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
-
+variant_matrices$norm_sig_positions <- filter(variant_matrices$norm_all_variants, sig_count > 0)
 
 imputed_matrices <- sapply(variant_matrices, impute_variant_profiles, background_matrix=variant_matrices$all_variants, simplify=FALSE)
 
@@ -153,6 +155,8 @@ deep_variant_plots <- list_modify(deep_variant_plots, pcas=sapply(imputed_matric
   list(per_aa_pcas=sapply(AAs, per_aa_pcas, variant_matrix=x, simplify = FALSE))
 }, simplify = FALSE))
 
+########
+
 #### Profile vs SIFT/FoldX ####
 prediction_martices <- list()
 prediction_martices$sift <- bind_rows(lapply(dms_data, make_var_matrix, score='sift_score'), .id = 'study') %>%
@@ -179,6 +183,23 @@ deep_variant_plots$pred_dists$sift <- ggplot(drop_na(pairwise_dists, sift_dist),
   geom_smooth(method = 'lm', colour='black') +
   facet_wrap(~study) + 
   theme(legend.position = 'none')
+
+########
+
+#### Secondary structure ####
+variant_matrices <- sapply(variant_matrices, label_secondary_structure, simplify = FALSE)
+
+deep_variant_plots$secondary_structure <- lapply(variant_matrices, plot_secondary_structure_profile)
+deep_variant_plots$secondary_structure$alpha_helix_lengths <- ggplot(variant_matrices$all_variants %>%
+                                                              group_by(alpha_helices) %>%
+                                                              summarise(length = max(alpha_helix_position)),
+                                                            aes(x = length)) + geom_histogram()
+
+deep_variant_plots$secondary_structure$beta_sheet_lengths <- ggplot(variant_matrices$all_variants %>%
+                                                              group_by(beta_sheets) %>%
+                                                              summarise(length = max(beta_sheet_position)),
+                                                            aes(x = length)) + geom_histogram()
+
 
 ########
 
