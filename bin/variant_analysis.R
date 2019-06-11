@@ -20,6 +20,12 @@ meta_df <- tibble(study = names(dms_data),
                   factor=sapply(dms_data, function(x){x$norm_factor}),
                   norm_thresh=thresh/factor)
 
+# Helix propensity
+a_helix_propensity <- read_tsv('meta/alpha_helix_energy', comment = '#') %>%
+  rename_all(str_to_lower) %>%
+  mutate(aa1 = aa_3_to_1(aa)) %>%
+  select(aa1, aa3 = aa, exptl:luque)
+
 # Surface accessibility scores for all variants
 surface_accesibility <- sapply(dms_data, function(x){if(!identical(NA, x$surface_accesibility)){x$surface_accesibility$combined}},
                                    simplify = FALSE) %>%
@@ -189,18 +195,18 @@ deep_variant_plots$pred_dists$sift <- ggplot(drop_na(pairwise_dists, sift_dist),
 #### Secondary structure ####
 variant_matrices <- sapply(variant_matrices, label_secondary_structure, simplify = FALSE)
 
-deep_variant_plots$secondary_structure <- lapply(variant_matrices, plot_secondary_structure_profile)
+deep_variant_plots$secondary_structure <- lapply(variant_matrices, plot_secondary_structure_profile, a_helix_propensity=a_helix_propensity)
 deep_variant_plots$secondary_structure$alpha_helix_lengths <- ggplot(variant_matrices$all_variants %>%
-                                                              group_by(alpha_helices) %>%
+                                                              group_by(alpha_helix) %>%
                                                               summarise(length = max(alpha_helix_position)),
                                                             aes(x = length)) + geom_histogram()
 
 deep_variant_plots$secondary_structure$beta_sheet_lengths <- ggplot(variant_matrices$all_variants %>%
-                                                              group_by(beta_sheets) %>%
+                                                              group_by(beta_sheet) %>%
                                                               summarise(length = max(beta_sheet_position)),
                                                             aes(x = length)) + geom_histogram()
 
-
+# TODO Add dist plots for all variant sets
 ########
 
 #### Save plots #####

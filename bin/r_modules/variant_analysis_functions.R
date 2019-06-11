@@ -285,26 +285,130 @@ compute_pairwise_mut_profile_dists <- function(variants, score_name='dist'){
 ########
 
 #### Secondary Structure ####
-plot_secondary_structure_profile <- function(tbl){
-  ah_mat <- group_by(tbl, alpha_helix_position) %>%
+plot_secondary_structure_profile <- function(tbl, a_helix_propensity=NULL){
+  # AH Positional profile
+  ah_pos_avg <- group_by(tbl, alpha_helix_position) %>%
     summarise_at(.vars = vars(A:Y), .funs = mean, na.rm=TRUE) %>%
-    gather(key = 'mut', value = 'score', -alpha_helix_position) %>%
-    filter(alpha_helix_position < 20)
+    gather(key = 'mut', value = 'score', -alpha_helix_position)
   
-  p_ah <- ggplot(ah_mat, aes(x=alpha_helix_position, y=mut, fill=score)) +
+  p_ah_pos_profile <- ggplot(filter(ah_pos_avg, alpha_helix_position < 20),
+                 aes(x=alpha_helix_position, y=mut, fill=score)) +
     geom_tile() +
     scale_fill_gradient2()
   
+  # AH Propensity Plot
+  if (!is.null(a_helix_propensity)){
+    ah_avg_profile <- filter(tbl, !is.na(alpha_helix)) %>%
+      select(A:Y) %>%
+      gather(key = 'mut', value = 'score') %>%
+      group_by(mut) %>%
+      summarise(mean = mean(score, na.rm=TRUE),
+                sd = sd(score, na.rm = TRUE),
+                n = sum(!is.na(score))) %>%
+      left_join(., select(a_helix_propensity, mut = aa1, exptl), by='mut')
+    
+    p_ah_propensity <- ggplot(ah_avg_profile, aes(x = mean, y = exptl, label = mut)) +
+      geom_text() +
+      geom_smooth(method = 'lm') +
+      xlab('Avg Mutant Enrichment Score') + 
+      ylab('Experimental Helix Propensity')
+  } else {
+    p_ah_propensity <- NULL
+  }
+  
+  # AH Substitution Matrix
+  ah_mat <- filter(tbl, !is.na(alpha_helix)) %>%
+    gather(key = 'mut', value = 'score', A:Y) %>%
+    select(study, pos, wt, mut, score) %>%
+    group_by(wt, mut) %>%
+    summarise(score = mean(score, na.rm=TRUE))
+  
+  p_ah_subs_mat <- ggplot(ah_mat, aes(x=wt, y=mut, fill=score)) +
+    geom_tile() +
+    scale_fill_gradient2()
+  
+  # BS Positional Profile
   bs_mat <- group_by(tbl, beta_sheet_position) %>%
     summarise_at(.vars = vars(A:Y), .funs = mean, na.rm=TRUE) %>%
-    gather(key = 'mut', value = 'score', -beta_sheet_position) %>%
-    filter(beta_sheet_position < 9)
+    gather(key = 'mut', value = 'score', -beta_sheet_position)
+    
   
-  p_bs <- ggplot(bs_mat, aes(x=beta_sheet_position, y=mut, fill=score)) +
+  p_bs_pos_profile <- ggplot(filter(bs_mat, beta_sheet_position < 9), aes(x=beta_sheet_position, y=mut, fill=score)) +
     geom_tile() +
     scale_fill_gradient2()
   
-  return(list(alpha_helix_profile = p_ah, beta_sheet_profile = p_bs))
+  # BS Substitution Matrix
+  bs_mat <- filter(tbl, !is.na(beta_sheet)) %>%
+    gather(key = 'mut', value = 'score', A:Y) %>%
+    select(study, pos, wt, mut, score) %>%
+    group_by(wt, mut) %>%
+    summarise(score = mean(score, na.rm=TRUE))
+  
+  p_bs_subs_mat <- ggplot(bs_mat, aes(x=wt, y=mut, fill=score)) +
+    geom_tile() +
+    scale_fill_gradient2()
+  
+  return(list(alpha_helix_profile = p_ah_pos_profile,
+              alpha_helix_propensity = p_ah_propensity,
+              alpha_helix_substitution_matrix = p_ah_subs_mat,
+              beta_sheet_profile = p_bs_pos_profile,
+              beta_sheet_substitution_matrix = p_bs_subs_mat))
+}
+
+plot_alpha_helix_rot_dist_vs_profile_dist <- function(tbl, seq_intervals=5){
+  tbl <- select(tbl, alpha_helix, alpha_helix_position, pos, wt, A:Y) %>%
+    drop_na(alpha_helix) %>%
+    mutate(alpha_helix_angle = mod((alpha_helix_position - 1) * 100, 360)) %>%
+    group_by(alpha_helix) %>%
+    do(get_ah_distances(.))
+  
+  cut_size <- max(tbl$seq_dist) / seq_intervals
+  tbl <- mutate(tbl,
+                seq_dist_cut = cut(seq_dist, breaks = seq_intervals, labels = FALSE)*cut_size-cut_size/2)
+  
+  p_angle <- ggplot(tbl, aes(x=angle_dist, y=profile_dist)) +
+    geom_boxplot(aes(group=angle_dist)) +
+    geom_smooth(method = 'lm') +
+    xlab('Angular Distance') +
+    ylab('Enrichment Profile Distance')
+  
+  p_seq_point <- ggplot(tbl, aes(x=seq_dist, y=profile_dist, colour=angle_dist)) +
+    geom_point() +
+    geom_smooth(method = 'lm') +
+    xlab('Sequence Distance') +
+    ylab('Enrichment Profile Distance')
+  
+  p_seq_viol <- ggplot(tbl, aes(x=seq_dist, y=profile_dist)) +
+    geom_violin(aes(group=seq_dist_cut), scale = 'width') +
+    geom_smooth(method = 'lm') +
+    xlab('Sequence Distance') +
+    ylab('Enrichment Profile Distance')
+  
+  return(list(angular_dist_vs_profile_dist = p_angle,
+              seq_dist_vs_profile_dist = p_seq_point,
+              seq_dist_vs_profile_dist_viol = p_seq_viol))
+}
+
+# Calculate distances between enrichment profiles and angular distances for all positions within an a-helix
+get_ah_distances <- function(tbl){
+  prof_dists <- select(tbl, A:Y) %>%
+    as.matrix() %>%
+    dist(method = 'manhattan')
+  
+  angle_dists <- select(tbl, alpha_helix_angle) %>%
+    as.matrix() %>%
+    dist(method = 'manhattan')
+  
+  helix_len <- dim(tbl)[1]
+  dists <- tibble(pos1 = rep(1:helix_len, helix_len),
+                  pos2 = rep(1:helix_len, each=helix_len)) %>%
+    filter(pos1 != pos2, pos1 > pos2) %>%
+    mutate(profile_dist = prof_dists[helix_len*(pos2-1) - pos2*(pos2-1)/2 + pos1 - pos2],
+           angle_dist = angle_dists[helix_len*(pos2-1) - pos2*(pos2-1)/2 + pos1 - pos2],
+           angle_dist = pmin(angle_dist, abs(360 - angle_dist)),
+           seq_dist = pos1 - pos2)
+  
+  return(dists)
 }
 
 # Label secondary structure on variant profile matrices
@@ -312,15 +416,15 @@ label_secondary_structure <- function(tbl){
   tbl <- group_by(tbl, study) %>%
       mutate(region = split_protein_regions(pos)) %>%
       group_by(study, region) %>%
-      mutate(beta_sheets = find_secondary_structures(sec_struct, target='E', prefix = str_c(first(study), '_', first(region), '_')),
-             alpha_helices = find_secondary_structures(sec_struct, target='H', prefix = str_c(first(study), '_', first(region), '_'))) %>%
-      group_by(beta_sheets) %>%
+      mutate(beta_sheet = find_secondary_structures(sec_struct, target='E', prefix = str_c(first(study), '_', first(region), '_')),
+             alpha_helix = find_secondary_structures(sec_struct, target='H', prefix = str_c(first(study), '_', first(region), '_'))) %>%
+      group_by(beta_sheet) %>%
       mutate(beta_sheet_position = 1:n()) %>%
-      group_by(alpha_helices) %>%
+      group_by(alpha_helix) %>%
       mutate(alpha_helix_position = 1:n()) %>%
       ungroup()
-  tbl$alpha_helix_position[is.na(tbl$alpha_helices)] <- NA
-  tbl$beta_sheet_position[is.na(tbl$beta_sheets)] <- NA
+  tbl$alpha_helix_position[is.na(tbl$alpha_helix)] <- NA
+  tbl$beta_sheet_position[is.na(tbl$beta_sheet)] <- NA
   
   return(tbl)
 }

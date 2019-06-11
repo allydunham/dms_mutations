@@ -11,6 +11,7 @@ library(ggpubr)
 library(pdist)
 
 # Source custom functions
+source('bin/r_modules/utility_functions.R')
 source('bin/r_modules/autoplot.R')
 source('bin/r_modules/dm_functions.R')
 source('bin/r_modules/variant_loading_functions.R')
