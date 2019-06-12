@@ -215,7 +215,8 @@ deep_variant_plots$secondary_structure$beta_sheet_lengths <- ggplot(variant_matr
 deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(variant_matrices, plot_alpha_helix_dist_plots, simplify = FALSE))
 deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(
   variant_matrices, simplify = FALSE, function(x){list(beta_sheet_side_boxplot=plot_beta_sheet_orientation(x))}))
-
+deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(imputed_matrices, plot_sec_struct_pca, simplify = FALSE))
+  
 ########
 
 #### Save plots #####

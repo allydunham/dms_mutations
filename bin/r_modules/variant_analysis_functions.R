@@ -142,18 +142,7 @@ positional_profile_PCA <- function(variant_matrix){
 
 basic_pca_plots <- function(pca){
   plots <- list()
-  plots$all_pcs <- labeled_ggplot(
-    ggarrange(
-      plotlist = lapply(
-        seq(1, 19, 2),
-        function(x){
-          ggplot(pca$variants, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour='wt')) + 
-            geom_point()
-        }),
-      nrow = 2, ncol = 5, common.legend = TRUE, legend = 'right'
-    ),
-    width = 20, height = 15
-  )
+  plots$all_pcs <- plot_all_pcs(ah_pca$variants, colour_var = 'wt')
     
   
   plots$by_authour <- ggplot(pca$variants, aes(x=PC1, y=PC2, colour=gene_name)) + 
@@ -359,12 +348,12 @@ plot_secondary_structure_profile <- function(tbl, a_helix_propensity=NULL){
               beta_sheet_substitution_matrix = p_bs_subs_mat))
 }
 
-plot_alpha_helix_dist_plots <- function(tbl, seq_intervals=5){
-  ah_tbl <- select(tbl, alpha_helix, alpha_helix_position, pos, wt, A:Y) %>%
+plot_alpha_helix_dist_plots <- function(tbl, seq_intervals=5, cols=quo(A:Y)){
+  ah_tbl <- select(tbl, alpha_helix, alpha_helix_position, pos, wt, !!cols) %>%
     drop_na(alpha_helix) %>%
     mutate(alpha_helix_angle = mod((alpha_helix_position - 1) * 100, 360)) %>%
     group_by(alpha_helix) %>%
-    do(get_ah_distances(.))
+    do(get_ah_distances(., cols = cols))
   
   cut_size <- max(ah_tbl$seq_dist) / seq_intervals
   ah_tbl <- mutate(ah_tbl,
@@ -394,8 +383,8 @@ plot_alpha_helix_dist_plots <- function(tbl, seq_intervals=5){
 }
 
 # Calculate distances between enrichment profiles and angular distances for all positions within an a-helix
-get_ah_distances <- function(tbl){
-  prof_dists <- select(tbl, A:Y) %>%
+get_ah_distances <- function(tbl, cols=quo(A:Y)){
+  prof_dists <- select(tbl, !!cols) %>%
     as.matrix() %>%
     dist(method = 'manhattan')
   
@@ -415,11 +404,11 @@ get_ah_distances <- function(tbl){
   return(dists)
 }
 
-plot_beta_sheet_orientation <- function(tbl){
+plot_beta_sheet_orientation <- function(tbl, cols=quo(A:Y)){
   bs_tbl <- filter(tbl, !is.na(beta_sheet)) %>%
-    select(study, pos, wt, beta_sheet, beta_sheet_position, A:Y) %>%
+    select(study, pos, wt, beta_sheet, beta_sheet_position, !!cols) %>%
     group_by(beta_sheet) %>%
-    do(get_bs_cors(.))
+    do(get_bs_cors(., cols = cols))
   
   p_bs_side_cor <- ggplot(bs_tbl, aes(x = same_side, y = cor)) +
     geom_boxplot()
@@ -427,8 +416,8 @@ plot_beta_sheet_orientation <- function(tbl){
   return(p_bs_side_cor)
 }
 
-get_bs_cors <- function(tbl){
-  select(tbl, A:Y) %>%
+get_bs_cors <- function(tbl, cols=quo(A:Y)){
+  select(tbl, !!cols) %>%
     as.matrix() %>%
     t() %>%
     cor(use = 'pairwise.complete.obs') %>%
@@ -444,7 +433,22 @@ get_bs_cors <- function(tbl){
     return()
 }
 
-
+# PCA of residues in AH/BS structures
+plot_sec_struct_pca <- function(tbl){
+  ah_pca <- filter(tbl, !is.na(alpha_helix)) %>%
+    positional_profile_PCA()
+  
+  bs_pca <- filter(tbl, !is.na(beta_sheet)) %>%
+    positional_profile_PCA()
+  
+  plots <- list()
+  plots$ah_pcs <- plot_all_pcs(ah_pca$variants, colour_var = 'sig_count')
+  plots$bs_pcs <- plot_all_pcs(bs_pca$variants, colour_var = 'sig_count')
+  plots$bs_orientation <- plot_beta_sheet_orientation(bs_pca$variants, cols=quo(PC1:PC20))
+  plots <- c(plots, plot_alpha_helix_dist_plots(ah_pca$variants, cols=quo(PC1:PC20)))
+  
+  return(plots)
+}
 
 # Label secondary structure on variant profile matrices
 label_secondary_structure <- function(tbl){
