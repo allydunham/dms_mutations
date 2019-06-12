@@ -12,3 +12,24 @@ aa_1_to_3 <- function(x){
 aa_3_to_1 <- function(x){
   return(unname(AA_CODE_3_TO_1[x]))
 }
+
+# Plot all PCs
+plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width = NULL, height = NULL){
+  if (nrow * ncol * 2 != max_pc){
+    stop('Invalid row/col numbers: nrow * ncol * 2 != max_pc')
+  }
+  return(
+    labeled_ggplot(
+      ggarrange(
+        plotlist = lapply(
+          seq(1, max_pc-1, 2),
+          function(x){
+            ggplot(tbl, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour=colour_var)) + 
+              geom_point()
+          }),
+        nrow = nrow, ncol = ncol, common.legend = TRUE, legend = 'right'
+      ),
+      width = ifelse(is.null(width), ncol * 4, width), ifelse(is.null(height), nrow * 4, height)
+    )
+  )
+}
