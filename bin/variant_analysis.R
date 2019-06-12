@@ -169,6 +169,10 @@ deep_variant_plots <- list_modify(deep_variant_plots, pcas=sapply(imputed_matric
   list(per_aa_pcas=sapply(AAs, per_aa_pcas, variant_matrix=x, simplify = FALSE))
 }, simplify = FALSE))
 
+# Predict properties from PCs
+
+
+
 ########
 
 #### Profile vs SIFT/FoldX ####

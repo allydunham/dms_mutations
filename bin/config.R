@@ -9,6 +9,7 @@ library(broom)
 library(readxl)
 library(ggpubr)
 library(pdist)
+library(caret)
 
 # Source custom functions
 source('bin/r_modules/utility_functions.R')

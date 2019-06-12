@@ -149,18 +149,7 @@ basic_pca_plots <- function(pca){
     facet_wrap(~study) +
     geom_point()
   
-  plots$secondary_structure <- labeled_ggplot(
-    ggarrange(
-      plotlist = lapply(
-        seq(1, 19, 2),
-        function(x){
-          ggplot(pca$variants, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour='sec_struct')) + 
-            geom_point()
-        }),
-      nrow = 2, ncol = 5, common.legend = TRUE, legend = 'right'
-    ),
-    width = 20, height = 15
-  )
+  plots$secondary_structure <- plot_all_pcs(ah_pca$variants, colour_var = 'sec_struct')
   
   plots$fields_group_studies <- ggplot(filter(pca$variants,
                                               authour %in% c('Araya et al.', 'Melamed et al.', 'Starita et al.',
@@ -248,6 +237,19 @@ per_aa_pcas <- function(aa, variant_matrix){
   surface_heatmap <- pca_surface_heatmap(surface_cor)
   
   return(c(basic_plots, pc_surface_acc_heatmap=surface_heatmap))
+}
+
+fit_on_pcs <- function(pca, target='is_alpha_helix'){
+  train_index <- createDataPartition(pca[[target]], p = 0.8, list = FALSE)
+  
+  train_control <- trainControl(method = "repeatedcv",
+                              number = 5,
+                              repeats = 5)
+  
+  fit <- train(as.formula(str_c(target, ' ~ .')),
+               data = select(pca[train_index[,1],], !!target, PC1:PC20),
+               method = 'rf',
+               trControl=train_control)
 }
 ########
 
@@ -456,7 +458,9 @@ label_secondary_structure <- function(tbl){
       mutate(region = split_protein_regions(pos)) %>%
       group_by(study, region) %>%
       mutate(beta_sheet = find_secondary_structures(sec_struct, target='E', prefix = str_c(first(study), '_', first(region), '_')),
-             alpha_helix = find_secondary_structures(sec_struct, target='H', prefix = str_c(first(study), '_', first(region), '_'))) %>%
+             alpha_helix = find_secondary_structures(sec_struct, target='H', prefix = str_c(first(study), '_', first(region), '_')),
+             is_beta_sheet = as.factor(!is.na(beta_sheet)),
+             is_alpha_helix = as.factor(!is.na(alpha_helix))) %>%
       group_by(beta_sheet) %>%
       mutate(beta_sheet_position = 1:n()) %>%
       group_by(alpha_helix) %>%
