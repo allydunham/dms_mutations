@@ -16,6 +16,7 @@ meta_df <- tibble(study = names(dms_data),
                   species = sapply(dms_data, function(x){get_meta(x$dm, 'species')}),
                   authour = sapply(dms_data, function(x){get_meta(x$dm, 'authour')}),
                   group = sapply(dms_data, function(x){get_meta(x$dm, 'group')}),
+                  single = sapply(dms_data, function(x){"single_variant" %in% class(x)}),
                   thresh=sapply(dms_data, function(x){x$manual_threshold}),
                   factor=sapply(dms_data, function(x){x$norm_factor}),
                   norm_thresh=thresh/factor)
@@ -57,8 +58,6 @@ variant_matrices$all_variants <- bind_rows(lapply(dms_data, make_var_matrix, sco
            select(A:Y) %>%
            rowSums(na.rm = TRUE))
 
-variant_matrices$sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
-
 variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix, score='norm_score'), .id = 'study') %>%
   filter(!wt %in% c('Z', 'B')) %>%
   drop_na(wt, pos) %>%
@@ -72,7 +71,16 @@ variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix
            select(A:Y) %>%
            rowSums(na.rm = TRUE))
 
+# Label secondary structure before filtering data
+variant_matrices <- sapply(variant_matrices, label_secondary_structure, simplify = FALSE)
+
+# Filter interesting subsets
+variant_matrices$sig_positions <- filter(variant_matrices$all_variants, sig_count > 0)
 variant_matrices$norm_sig_positions <- filter(variant_matrices$norm_all_variants, sig_count > 0)
+variant_matrices$single_variants <- filter(variant_matrices$all_variants, single)
+variant_matrices$sig_single_variants <- filter(variant_matrices$sig_positions, single)
+variant_matrices$norm_single_variants <- filter(variant_matrices$norm_all_variants, single)
+variant_matrices$norm_sig_single_variants <- filter(variant_matrices$norm_sig_positions, single)
 
 imputed_matrices <- sapply(variant_matrices, impute_variant_profiles, background_matrix=variant_matrices$all_variants, simplify=FALSE)
 
@@ -193,8 +201,6 @@ deep_variant_plots$pred_dists$sift <- ggplot(drop_na(pairwise_dists, sift_dist),
 ########
 
 #### Secondary structure ####
-variant_matrices <- sapply(variant_matrices, label_secondary_structure, simplify = FALSE)
-
 deep_variant_plots$secondary_structure <- lapply(variant_matrices, plot_secondary_structure_profile, a_helix_propensity=a_helix_propensity)
 deep_variant_plots$secondary_structure$alpha_helix_lengths <- ggplot(variant_matrices$all_variants %>%
                                                               group_by(alpha_helix) %>%
@@ -206,7 +212,10 @@ deep_variant_plots$secondary_structure$beta_sheet_lengths <- ggplot(variant_matr
                                                               summarise(length = max(beta_sheet_position)),
                                                             aes(x = length)) + geom_histogram()
 
-# TODO Add dist plots for all variant sets
+deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(variant_matrices, plot_alpha_helix_dist_plots, simplify = FALSE))
+deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(
+  variant_matrices, simplify = FALSE, function(x){list(beta_sheet_side_boxplot=plot_beta_sheet_orientation(x))}))
+
 ########
 
 #### Save plots #####
