@@ -10,6 +10,7 @@ pandas = "*"
 evcouplings = "*"
 pytest = "*"
 hypothesis = "*"
+jupyter = "*"
 
 [dev-packages]
 
