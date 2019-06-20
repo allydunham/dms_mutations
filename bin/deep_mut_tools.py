@@ -4,10 +4,11 @@ Functions and Classes for processing Deep Mutational Scanning data
 """
 import fileinput
 import re
-#import os
-#import numpy as np
+import copy
 import pandas as pd
 from smart_open import smart_open
+
+# TODO enforce expected types of fields
 
 DM_FILE_VERSION = '2.1.0'
 RE_NUMERIC = re.compile(r'^-?[0-9]+(\.[0-9]+)?$')
@@ -152,7 +153,7 @@ def read_deep_mut(path):
 
 def read_deep_mut_header(path):
     """Import header of a .dm file as a dictionary"""
-    meta = {}
+    meta = copy.copy(DeepMut.required_metadata)
     with fileinput.input(path) as file_obj:
         for line in file_obj:
             if line[0] == '#':
