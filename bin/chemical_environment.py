@@ -57,7 +57,7 @@ class ChemicalEnvironment:
             self.residues = [list(c.get_residues()) for c in self.model]
 
         else:
-            self.residues = [[self.model[chain].get_residues() for chain in group] for
+            self.residues = [[r for chain in group for r in self.model[chain].get_residues()] for
                              group in groups]
 
         if drop_hetero:

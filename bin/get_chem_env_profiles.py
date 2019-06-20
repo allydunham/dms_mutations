@@ -15,6 +15,8 @@ import deep_mut_tools as dmt
 
 # TODO don't assume model 0 always?
 # TODO Add keep_hetero option?
+# TODO TEST!
+# TODO loading bars/progress stuff
 
 def main(args):
     """Main script"""
@@ -28,7 +30,15 @@ def main(args):
         for dm_file in args.input:
             root = '/'.join(dm_file.split('/')[:-1])
             dm_header = dmt.read_deep_mut_header(dm_file)
-            pdb_ids = [i.split(':') for i in dm_header['pdb_id']]
+
+            if dm_header['pdb_id'] is None:
+                print(f'Warning: No PDB IDs found in dm file {dm_file}', file=sys.stderr)
+                continue
+
+            try:
+                pdb_ids = [dm_header['pdb_id'].split(':')]
+            except AttributeError:
+                pdb_ids = [i.split(':') for i in dm_header['pdb_id']]
 
             for pdb in pdb_ids:
                 pdb_files.append({'pdb_file': f'{root}/{pdb[0]}/{pdb[0]}.pdb',
