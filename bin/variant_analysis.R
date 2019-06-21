@@ -33,9 +33,11 @@ surface_accesibility <- sapply(dms_data, function(x){if(!identical(NA, x$surface
   bind_rows(.id = 'study')
 
 # Secondary structure predictions for all positions
+ss_reduced_hash = c(C='None', S='Turn', H='Helix', T='Turn', E='Strand', G='Helix', B='Strand', I='Helix')
 secondary_structure <- sapply(dms_data, function(x){if(!identical(NA, x$secondary_structure)){x$secondary_structure}},
                               simplify = FALSE) %>%
-  bind_rows(.id = 'study')
+  bind_rows(.id = 'study') %>%
+  mutate(ss_reduced = ss_reduced_hash[ss])
 
 # Chemical environment profiles
 chemical_environments <- sapply(dms_data,
@@ -44,7 +46,8 @@ chemical_environments <- sapply(dms_data,
   bind_rows(.id = 'study')  %>%
   rename(struct_group = group) %>%
   left_join(., meta_df, by = 'study') %>%
-  left_join(., select(secondary_structure, study, position = pos, aa, ss), by = c('study', 'position', 'aa'))
+  left_join(., select(secondary_structure, study, position = pos, aa, ss, ss_reduced), by = c('study', 'position', 'aa')) %>%
+  left_join(., rename(surface_accesibility, aa=res1, position=pos), by = c('study', 'position', 'aa'))
 
 # Dataframe of all individually scored variant/sets of variants in all studies
 all_variants <- bind_rows(lapply(dms_data, function(x){x$dm$variant_data}), .id = 'study') %>%
@@ -59,8 +62,8 @@ variant_matrices$all_variants <- bind_rows(lapply(dms_data, make_var_matrix, sco
   drop_na(wt, pos) %>%
   left_join(., meta_df, by='study') %>%
   left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
-  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss) %>%
-              rename_at(vars(-study, -pos, -wt, -sec_struct), .funs= ~ str_c('ss_prob_', .)),
+  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss, sec_struct_reduced=ss_reduced) %>%
+              rename_at(vars(-study, -pos, -wt, -sec_struct, -sec_struct_reduced), .funs= ~ str_c('ss_prob_', .)),
             by=c('study', 'wt', 'pos')) %>%
   select(-factor, -norm_thresh) %>%
   mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
@@ -322,7 +325,9 @@ chem_env_deduped <- distinct(chemical_environments, pdb_id, chain, position, aa,
 chem_env_pcas <- sapply(c('nearest_10', 'within_10.0'), function(x){chem_env_pca(chem_env_deduped, var=x)}, simplify = FALSE)
 
 deep_variant_plots$chemical_environments <- list()
-deep_variant_plots$chemical_environments$pcas <- sapply(chem_env_pcas, function(x){plot_all_pcs(x$profiles, colour_var = 'ss')}, simplify = FALSE)
+deep_variant_plots$chemical_environments$pcas_gene <- sapply(chem_env_pcas, function(x){plot_all_pcs(x$profiles, colour_var = 'ss')}, simplify = FALSE)
+deep_variant_plots$chemical_environments$pcas_ss <- sapply(chem_env_pcas, function(x){plot_all_pcs(x$profiles, colour_var = 'ss_reduced')}, simplify = FALSE)
+deep_variant_plots$chemical_environments$pcas_surface_accesibility <- sapply(chem_env_pcas, function(x){plot_all_pcs(x$profiles, colour_var = 'all_atom_rel')}, simplify = FALSE)
 
 ########
 
