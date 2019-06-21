@@ -42,7 +42,7 @@ def main(args):
 
             for pdb in pdb_ids:
                 pdb_files.append({'pdb_file': f'{root}/{pdb[0]}/{pdb[0]}.pdb',
-                                  'groups': 'all' if args.combine_chains else [pdb[1]],
+                                  'groups': 'all' if args.combine_chains else [[pdb[1]]],
                                   'offset': {pdb[1]:int(pdb[2])} if len(pdb) > 2 else 0})
 
     else:

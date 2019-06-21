@@ -125,7 +125,8 @@ class ChemicalEnvironment:
             elif isinstance(self.residue_groups[i], str):
                 group = self.residue_groups[i]
             else:
-                group = f"chains_{'_'.join(self.residue_groups[i])}"
+                group = (f"chain{'s' if len(self.residue_groups[i]) > 1 else ''}"
+                         f"_{'_'.join(self.residue_groups[i])}")
 
             for j, res in enumerate(residues):
                 res_id = res.get_full_id()
