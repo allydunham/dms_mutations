@@ -37,6 +37,15 @@ secondary_structure <- sapply(dms_data, function(x){if(!identical(NA, x$secondar
                               simplify = FALSE) %>%
   bind_rows(.id = 'study')
 
+# Chemical environment profiles
+chemical_environments <- sapply(dms_data,
+                                function(x){if(!identical(NA, x$chem_env)){if(!identical(NA, x$chem_env$combine_long)){x$chem_env$combine_long}}},
+                                simplify = TRUE) %>%
+  bind_rows(.id = 'study')  %>%
+  rename(struct_group = group) %>%
+  left_join(., meta_df, by = 'study') %>%
+  left_join(., select(secondary_structure, study, position = pos, aa, ss), by = c('study', 'position', 'aa'))
+
 # Dataframe of all individually scored variant/sets of variants in all studies
 all_variants <- bind_rows(lapply(dms_data, function(x){x$dm$variant_data}), .id = 'study') %>%
   select(study, variants, score, raw_score, norm_score) %>%
@@ -168,11 +177,6 @@ AAs <- sort(unique(variant_matrices$all_variants$wt))
 deep_variant_plots <- list_modify(deep_variant_plots, pcas=sapply(imputed_matrices, function(x){
   list(per_aa_pcas=sapply(AAs, per_aa_pcas, variant_matrix=x, simplify = FALSE))
 }, simplify = FALSE))
-
-# Predict properties from PCs
-
-
-
 ########
 
 #### Profile vs SIFT/FoldX ####
@@ -205,7 +209,94 @@ deep_variant_plots$pred_dists$sift <- ggplot(drop_na(pairwise_dists, sift_dist),
 ########
 
 #### Secondary structure ####
-deep_variant_plots$secondary_structure <- lapply(variant_matrices, plot_secondary_structure_profile, a_helix_propensity=a_helix_propensity)
+deep_variant_plots$secondary_structure <- list()
+
+# Overall AA frequencies in secondary structure
+labeled_secondary_structures <- label_secondary_structure(secondary_structure, ss_col = 'ss')
+
+ss_aa_frequencies <- mutate(labeled_secondary_structures, pos_class = ifelse(is.na(beta_sheet),
+                                                                               ifelse(is.na(alpha_helix),
+                                                                                      'background',
+                                                                                      'alpha_helix'),
+                                                                               'beta_sheet')) %>%
+  group_by(pos_class) %>%
+  group_modify(.f = ~ tibble(!!!table(.$aa)/sum(table(.$aa)))) %>%
+  ungroup() %>%
+  tibble_to_matrix(., -pos_class, row_names = 'pos_class') %>% 
+  t() %>% 
+  as_tibble(rownames = 'aa') %>%
+  mutate(alpha_helix_rel = log2(alpha_helix/background),
+         beta_sheet_rel = log2(beta_sheet/background))
+
+deep_variant_plots$secondary_structure$ss_aa_freqs <- ggplot(select(ss_aa_frequencies, -alpha_helix_rel, -beta_sheet_rel) %>%
+                                                               gather(key = 'ss', value = 'freq', -aa),
+                                                             aes(x=aa, y=ss, fill=freq)) +
+  geom_tile() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+deep_variant_plots$secondary_structure$rel_ss_aa_freqs <- ggplot(select(ss_aa_frequencies, aa, alpha_helix=alpha_helix_rel, beta_sheet=beta_sheet_rel) %>%
+                                                                   gather(key = 'ss', value = 'log2_freq', -aa) %>%
+                                                                   filter(!aa == 'Z'),
+                                                             aes(x=aa, y=ss, fill=log2_freq)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+# Per position alpha helix frequencies
+max_common_alpha_helix_length <- 20
+per_position_ah_aa_freqs <- filter(labeled_secondary_structures, !is.na(alpha_helix)) %>%
+  select(study, pos, aa, alpha_helix, alpha_helix_position) %>%
+  group_by(alpha_helix_position) %>%
+  group_modify(.f = ~ tibble(!!!table(.$aa)/sum(table(.$aa)))) %>%
+  ungroup() %>%
+  select(alpha_helix_position, !!!sort(Biostrings::AA_STANDARD)) %>%
+  filter(alpha_helix_position <= max_common_alpha_helix_length) %>% # Don't have many examples after this
+  tibble_to_matrix(., -alpha_helix_position) %>%
+  apply(1, function(x){log2(x/ss_aa_frequencies$background[1:20])}) %>% # 1:20 removes Z (which is tiny proportion anyway)
+  t() %>%
+  as_tibble() %>%
+  mutate(alpha_helix_position = 1:max_common_alpha_helix_length) %>%
+  gather(key = 'aa', value = 'log2_freq', -alpha_helix_position)
+
+deep_variant_plots$secondary_structure$rel_alpha_helix_pos_aa_freqs <- ggplot(per_position_ah_aa_freqs,
+                                                                              aes(x=alpha_helix_position, y=aa, fill=log2_freq)) +
+  geom_tile() + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+# Per position beta_sheet frequencies
+max_common_beta_sheet_length <- 8
+per_position_bs_aa_freqs <- filter(labeled_secondary_structures, !is.na(beta_sheet)) %>%
+  select(study, pos, aa, beta_sheet, beta_sheet_position) %>%
+  group_by(beta_sheet_position) %>%
+  group_modify(.f = ~ tibble(!!!table(.$aa)/sum(table(.$aa)))) %>%
+  ungroup() %>%
+  select(beta_sheet_position, !!!sort(Biostrings::AA_STANDARD)) %>%
+  filter(beta_sheet_position <= max_common_beta_sheet_length) %>% # Don't have many examples after this
+  tibble_to_matrix(., -beta_sheet_position) %>%
+  apply(1, function(x){log2(x/ss_aa_frequencies$background[1:20])}) %>% # 1:20 removes Z (which is tiny proportion anyway)
+  t() %>%
+  as_tibble() %>%
+  mutate(beta_sheet_position = 1:max_common_beta_sheet_length) %>%
+  gather(key = 'aa', value = 'log2_freq', -beta_sheet_position)
+
+deep_variant_plots$secondary_structure$rel_beta_sheet_pos_aa_freqs <- ggplot(per_position_bs_aa_freqs,
+                                                                              aes(x=beta_sheet_position, y=aa, fill=log2_freq)) +
+  geom_tile() + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+
+# SS against deep mut results
+deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(variant_matrices,
+                                                                                 plot_sec_strct_freq_enrichment_correlation,
+                                                                                 overall_freqs=ss_aa_frequencies,
+                                                                                 ah_per_pos_freqs=per_position_ah_aa_freqs,
+                                                                                 bs_per_pos_freqs=per_position_bs_aa_freqs,
+                                                                                 simplify = FALSE))
+
+deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(variant_matrices, plot_secondary_structure_profile,
+                                                                                 a_helix_propensity=a_helix_propensity, simplify = FALSE))
 deep_variant_plots$secondary_structure$alpha_helix_lengths <- ggplot(variant_matrices$all_variants %>%
                                                               group_by(alpha_helix) %>%
                                                               summarise(length = max(alpha_helix_position)),
@@ -220,7 +311,19 @@ deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply
 deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(
   variant_matrices, simplify = FALSE, function(x){list(beta_sheet_side_boxplot=plot_beta_sheet_orientation(x))}))
 deep_variant_plots <- list_modify(deep_variant_plots, secondary_structure=sapply(imputed_matrices, plot_sec_struct_pca, simplify = FALSE))
-  
+
+
+
+########
+
+#### Chemical Environment Profiles ####
+# Cluster profiles
+chem_env_deduped <- distinct(chemical_environments, pdb_id, chain, position, aa, .keep_all = TRUE)
+chem_env_pcas <- sapply(c('nearest_10', 'within_10.0'), function(x){chem_env_pca(chem_env_deduped, var=x)}, simplify = FALSE)
+
+deep_variant_plots$chemical_environments <- list()
+deep_variant_plots$chemical_environments$pcas <- sapply(chem_env_pcas, function(x){plot_all_pcs(x$profiles, colour_var = 'ss')}, simplify = FALSE)
+
 ########
 
 #### Save plots #####
