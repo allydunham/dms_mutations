@@ -39,10 +39,11 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
     evcoup <- NA
   }
   
-  
   naccess <- read_all_accesibility(dm$pdb_id, root_dir)
   
   secondary_structure <- read_secondary_structure(root_dir, dm)
+  
+  chem_env <- read_all_chemical_environment(dm$pdb_id, root_dir)
   
   # If dataset is given per codon take mean per codon
   if (per_codon){
@@ -64,6 +65,7 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
                       evcouplings=evcoup,
                       surface_accesibility=naccess,
                       secondary_structure=secondary_structure,
+                      chem_env=chem_env,
                       norm_factor=norm_factor,
                       manual_threshold=unname(MANUAL_THRESHOLDS[dataset_name]))
   
@@ -414,4 +416,39 @@ read_ss8 <- function(path){
       rename(pos = `#`) %>%
       rename_all(.funs = str_to_lower)
   )
+}
+
+#### Chemical environment ####
+read_all_chemical_environment <- function(pdb_ids, root_dir, ext='.chem_env'){
+  if (identical(pdb_ids, NA)){
+    return(NA)
+  }
+  
+  pdb_ids <- str_split(pdb_ids, ':', simplify = TRUE)[,1]
+  tbls <- sapply(pdb_ids, function(x){read_chemical_environment(str_c(root_dir, '/', x, '/', x, ext))}, simplify = FALSE)
+  
+  if (length(tbls) > 1){
+    # Combining makes several assumptions to make sense:
+    # - all residues listed are from the same protein, grouped in one way, with the same position numbering
+    combine_wide <- Reduce(function(x, y){full_join(tbls[[x]], tbls[[y]], by = c('position', 'aa'), suffix=str_c('_', c(x,y)))}, names(tbls)) %>%
+      select(position, aa, everything()) %>%
+      mutate(num_pdbs = rowSums(select(., starts_with('pdb_id_')) %>% mutate_all(~ !is.na(.)))) %>%
+      select(-starts_with('pdb_id_'))
+  } else {
+    combine_wide <- tbls[[1]] %>%
+      select(position, aa, everything()) %>%
+      rename_at(vars(-position, -aa), ~ str_c(., '_', names(tbls)[1]))
+  }
+  
+  combine_long <- bind_rows(tbls) %>%
+    arrange(position)
+
+  return(list(combine_long=combine_long, combine_wide=combine_wide, split=tbls))
+}
+
+read_chemical_environment <- function(path){
+  read_tsv(path) %>%
+    mutate_at(.vars = vars(-pdb_id, -chain, -group, -position, -aa), .funs = ~ str_split(., ',')) %>%
+    mutate_at(.vars = vars(-pdb_id, -chain, -group, -position, -aa), .funs = ~ lapply(., as.integer)) %>%
+    return()
 }
