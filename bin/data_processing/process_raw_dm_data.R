@@ -3,7 +3,7 @@
 # Fields each dataset needs:
 ## accession, species, common name, gene name, domain name, mut_id, position(s), variant(s)
 
-source('bin/config.R')
+source('src/config.R')
 
 deep_mut_data <- list()
 formatted_deep_data <- list()
@@ -703,7 +703,7 @@ message('Weile 2017 ube2i')
 #                                                             url='http://msb.embopress.org/content/13/12/957'))
 
 deep_mut_data$weile_2017_ube2i <- read_tsv('data/raw/processed/weile_2017_raw_counts_ube2i_tileseq.tsv') %>%
-  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), list( ~ pseudocount = . + min(.[. > 0]))) %>%
+  mutate_at(.vars = vars(nonselect1, nonselect2, select1, select2), list( pseudocount= ~ . + min(.[. > 0]))) %>%
   mutate(mean_nonselect = (nonselect1_pseudocount + nonselect2_pseudocount)/2,
          mean_select = (select1_pseudocount + select2_pseudocount)/2,
          er = mean_select / mean_nonselect)
@@ -885,8 +885,8 @@ formatted_deep_data$giacomelli_2018_tp53 <- DeepMutSet(
        ))
 
 #### Save processed output ####
-saveRDS(deep_mut_data, 'data/raw_deep_mut_data.RDS')
-saveRDS(formatted_deep_data, 'data/formatted_deep_mut_data.RDS')
+saveRDS(deep_mut_data, 'data/rdata/raw_deep_mut_data.RDS')
+saveRDS(formatted_deep_data, 'data/rdata/formatted_deep_mut_data.RDS')
 
 # Files written in form /UniprotID_GeneName.set.dm
 for (i in names(formatted_deep_data)){

@@ -345,7 +345,7 @@ melnikov_fitness <- function(sel, exp_name, bkg){
   #fitness <- e_scores/mean(e_scores[wt_inds])
   fitness <- e_scores
 
-  fitness %<>% as.tibble() %>%
+  fitness %<>% as_tibble(.name_repair = 'unique') %>%
     mutate(position = 1:gene_length,
            ref_aa = ref_aas) %>%
     gather(key = 'alt_aa', value = 'e_score', -ref_aa, -position)

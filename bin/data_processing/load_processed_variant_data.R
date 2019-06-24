@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript 
 # Script to load processed deep mutagenesis data for analysis
 
-source('bin/config.R')
+source('src/config.R')
+source('src/data_processing/variant_loading.R')
 
 #### Load Data ####
 root <- 'data/standardised'
@@ -16,5 +17,5 @@ deep_variant_data <- mapply(import_dm_predictions_dataset, dm_file=deep_datasets
 names(deep_variant_data) <- sapply(deep_variant_data, function(x){make_dm_dataset_name(x$dm)})
 
 # Save generated dataset
-write_rds(deep_variant_data, 'data/variant_data.RDS')
+write_rds(deep_variant_data, 'data/rdata/processed_variant_data.RDS')
 

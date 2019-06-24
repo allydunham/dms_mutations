@@ -1,11 +1,12 @@
 #!/usr/bin/env Rscript 
 # Script to analyse tool predictions on deep mutagenesis data
 
-source('bin/config.R')
+source('src/config.R')
+source('src/analysis/prediction_analysis.R')
 
 # Import data
-formatted_deep_data <- readRDS('data/formatted_deep_mut_data.RDS')
-deep_variant_data <- readRDS('data/variant_data.RDS')
+formatted_deep_data <- readRDS('data/rdata/formatted_deep_mut_data.RDS')
+deep_variant_data <- readRDS('data/rdata/processed_variant_data.RDS')
 
 # Basic plots per study
 deep_variant_plots <- sapply(deep_variant_data, plot_predictions, simplify = FALSE)

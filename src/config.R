@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript 
-# Script to load libraries and configurations for all mutations analyses, to keep consistency
+# Load libraries and configurations for all mutations analyses, to keep consistency within project
 
 # Load all libraries (keeps namespace consistent)
 library(Biostrings)
@@ -12,12 +12,9 @@ library(pdist)
 library(caret)
 
 # Source custom functions
-source('bin/r_modules/utility_functions.R')
-source('bin/r_modules/autoplot.R')
-source('bin/r_modules/dm_functions.R')
-source('bin/r_modules/variant_loading_functions.R')
-source('bin/r_modules/variant_analysis_functions.R')
-source('bin/r_modules/prediction_analysis_functions.R')
+source('src/util/misc_util.R')
+source('src/util/autoplot.R')
+source('src/data_processing/deep_mut_data.R')
 
 #### Project config ####
 # Constants
