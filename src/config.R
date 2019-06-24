@@ -23,6 +23,9 @@ RAW_MUT_SCORE_NAME <- 'Raw Mutagenesis Score'
 
 MUT_CATEGORIES <- list(deleterious='deleterious', neutral='neutral', beneficial='beneficial')
 
+# Categories of secondary structure
+SS_REDUCED_HASH = c(C='None', S='Turn', H='Helix', T='Turn', E='Strand', G='Helix', B='Strand', I='Helix')
+
 # Manual deleterious thresholds per dms study
 MANUAL_THRESHOLDS <- c(araya_2012_yap1=-2, ashenberg_2016_nucleoprotein=-1, brenan_2016_erk2=-0.5, findlay_2018_brca1=-1,
                        firnberg_2014_tem1=-1.5, giacomelli_2018_tp53.p53_null_etoposide=-1, giacomelli_2018_tp53.p53_null_nutlin3=-0.75,

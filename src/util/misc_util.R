@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript 
 # Script containing small utility functions used throughout the project
 
+#### Tibbles ####
 # Convert a subset of a tibble to a matrix with labeled rows
 tibble_to_matrix <- function(tbl, columns, row_names=NULL){
   columns <- enquo(columns)
@@ -17,6 +18,14 @@ tibble_to_matrix <- function(tbl, columns, row_names=NULL){
   return(tbl)
 }
 
+# Count the number of unique values in each column of a tibble
+col_unique_counts <- function(tbl){
+  return(apply(tbl, 2, function(x){length(unique(x))}))
+}
+
+########
+
+#### Proteins ####
 # Convert AA encoding between 1 letter/3 letter
 AA_CODE_1_TO_3 <- AMINO_ACID_CODE
 AA_CODE_3_TO_1 <- structure(names(AMINO_ACID_CODE), names=AMINO_ACID_CODE)
@@ -28,7 +37,9 @@ aa_1_to_3 <- function(x){
 aa_3_to_1 <- function(x){
   return(unname(AA_CODE_3_TO_1[x]))
 }
+########
 
+#### Plotting ####
 # Plot all PCs
 plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width = NULL, height = NULL){
   if (nrow * ncol * 2 != max_pc){
@@ -49,3 +60,4 @@ plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width 
     )
   )
 }
+########
