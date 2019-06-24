@@ -3,6 +3,8 @@
 
 source('src/config.R')
 
+variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
+
 plots <- list()
 
 #### Mutation severity vs Blosum ####
