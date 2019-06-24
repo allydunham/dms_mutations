@@ -248,7 +248,7 @@ plot_sec_strct_freq_enrichment_correlation <- function(tbl, overall_freqs, ah_pe
 }
 
 # Label secondary structure on variant profile matrices
-label_secondary_structure <- function(tbl, ss_col='sec_struct', min_ah_length=6, min_bs_length=4){
+label_secondary_structure <- function(tbl, ss_col='ss', min_ah_length=6, min_bs_length=4){
   tbl <- group_by(tbl, study) %>%
     mutate(region = split_protein_regions(pos)) %>%
     group_by(study, region) %>%
