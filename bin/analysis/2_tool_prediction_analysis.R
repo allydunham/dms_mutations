@@ -2,13 +2,14 @@
 # Script to analyse tool predictions on deep mutagenesis data
 
 source('src/config.R')
+source('src/analysis/data_processing.R')
 source('src/analysis/tool_prediction_analysis.R')
 
 # Import data
-formatted_deep_data <- readRDS('data/rdata/formatted_deep_mut_data.RDS')
 deep_variant_data <- readRDS('data/rdata/processed_variant_data.RDS')
 all_variants <- readRDS('data/rdata/all_study_variants.RDS')
 meta_df <- readRDS('data/rdata/study_meta_data.RDS')
+variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 
 # Generate basic plots per study
 per_study_plots <- sapply(deep_variant_data, plot_predictions, simplify = FALSE)
@@ -480,6 +481,33 @@ combined_plots$all_correlations <- ggplot(all_cor, aes(y=estimate, x=study_prett
 
 combined_plots$all_correlations <- labeled_ggplot(combined_plots$all_correlations,
                                                                width=9, height=12)
+########
+
+#### SIFT/FoldX Position Profiles vs DMS Position Profiles ####
+prediction_martices <- list()
+prediction_martices$sift <- bind_rows(lapply(deep_variant_data, make_var_matrix, score='sift_score'), .id = 'study') %>%
+  mutate(sift = TRUE)
+prediction_martices$foldx <- bind_rows(lapply(deep_variant_data, make_foldx_var_matrix), .id = 'study')  %>%
+  mutate(foldx = TRUE)
+prediction_martices$exp <- select(variant_matrices$norm_all_variants, study, pos, wt, A:Y)
+
+pairwise_dists <- mapply(compute_per_gene_pairwise_profile_dists,
+                         prediction_martices,
+                         str_c(names(prediction_martices),'_dist'),
+                         SIMPLIFY = FALSE) %>%
+  reduce(left_join, by = c('study', 'pos1', 'aa1', 'pos2', 'aa2'))
+
+combined_plots$foldx$per_position_profile_cor <- ggplot(drop_na(pairwise_dists, foldx_dist), aes(x=exp_dist, y=foldx_dist, colour=study)) + 
+  geom_density_2d() +
+  geom_smooth(method = 'lm', colour='black') +
+  facet_wrap(~study) + 
+  theme(legend.position = 'none')
+
+combined_plots$sift$per_position_profile_cor <- ggplot(drop_na(pairwise_dists, sift_dist), aes(x=exp_dist, y=sift_dist, colour=study)) + 
+  geom_density_2d() +
+  geom_smooth(method = 'lm', colour='black') +
+  facet_wrap(~study) + 
+  theme(legend.position = 'none')
 ########
 
 # Save all study plots 
