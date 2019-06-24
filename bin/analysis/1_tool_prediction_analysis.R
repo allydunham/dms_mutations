@@ -2,40 +2,23 @@
 # Script to analyse tool predictions on deep mutagenesis data
 
 source('src/config.R')
-source('src/analysis/prediction_analysis.R')
+source('src/analysis/tool_prediction_analysis.R')
 
 # Import data
 formatted_deep_data <- readRDS('data/rdata/formatted_deep_mut_data.RDS')
 deep_variant_data <- readRDS('data/rdata/processed_variant_data.RDS')
+all_variants <- readRDS('data/rdata/all_study_variants.RDS')
+meta_df <- readRDS('data/rdata/study_meta_data.RDS')
 
-# Basic plots per study
-deep_variant_plots <- sapply(deep_variant_data, plot_predictions, simplify = FALSE)
+# Generate basic plots per study
+per_study_plots <- sapply(deep_variant_data, plot_predictions, simplify = FALSE)
+save_plot_list(per_study_plots, root='figures/2_tool_prediction_analysis/per_study/')
 
-### General plots across studies ###
-deep_variant_plots$combined <- list()
-
-#### DM Data ####
-
-meta_df <- data_frame(study = names(deep_variant_data),
-                      gene_type = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_type')}),
-                      gene_name = sapply(deep_variant_data, function(x){get_meta(x$dm, 'gene_name')}),
-                      test_class = sapply(deep_variant_data, function(x){get_meta(x$dm, 'test_class')}),
-                      species = sapply(deep_variant_data, function(x){get_meta(x$dm, 'species')}),
-                      authour = sapply(deep_variant_data, function(x){get_meta(x$dm, 'authour')}))
-
-all_dm <- bind_rows(lapply(deep_variant_data, function(x){x$dm$variant_data}), .id='study') %>%
-  select(study, variants, score, raw_score, norm_score) %>%
-  mutate(variants = str_replace_all(variants, 'p.', '')) %>%
-  left_join(., meta_df, by='study')
-
-thresh_df <- data_frame(study=names(deep_variant_data),
-                        thresh=sapply(deep_variant_data, function(x){x$manual_threshold}),
-                        factor=sapply(deep_variant_data, function(x){x$norm_factor}),
-                        norm_thresh=thresh/factor) %>%
-  left_join(., meta_df, by='study')
+# General plots across all studies
+combined_plots <- list()
 
 #### Envision ####
-deep_variant_plots$combined$envision <- list()
+combined_plots$envision <- list()
 
 select_envision <- function(x){
   if ('envision_prediction' %in% names(x$single_variants)){
@@ -48,14 +31,14 @@ select_envision <- function(x){
 envision <- bind_rows(lapply(deep_variant_data, select_envision), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study))
 
-deep_variant_plots$combined$envision$pred_vs_score <- ggplot(envision, aes(x=norm_score,
+combined_plots$envision$pred_vs_score <- ggplot(envision, aes(x=norm_score,
                                                                            y=log2_envision_prediction)) +
   geom_point(shape=20) +
   xlab('Normalised Experimental Score') +
   ylab('Log2 Envision Prediction') +
   facet_wrap(~study, scales = 'free')
 
-deep_variant_plots$combined$envision$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(envision,
+combined_plots$envision$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(envision,
                                                                                                 y = 'envision_prediction',
                                                                                                 y_name = 'Envision Prediction'),
                                                                             width = 12,
@@ -65,7 +48,7 @@ envision_cor_test <- group_by(envision, study) %>%
   do(tidy(cor.test(.$score, .$log2_envision_prediction)))
 max_abs_t <- max(abs(envision_cor_test$statistic))
 
-deep_variant_plots$combined$envision$correlation <- ggplot(envision_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+combined_plots$envision$correlation <- ggplot(envision_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   ggtitle('Correlation between log2(Envision predictions) and mutagenesis scores') +
@@ -73,9 +56,10 @@ deep_variant_plots$combined$envision$correlation <- ggplot(envision_cor_test, ae
   ylab('Pearson Correlation Coefficient') +
   scale_fill_gradientn(colours = c('red', 'white', 'blue'), limits = c(-max_abs_t, max_abs_t)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+########
 
 #### SIFT ####
-deep_variant_plots$combined$sift <- list()
+combined_plots$sift <- list()
 
 select_sift <- function(x){
   if ('sift_prediction' %in% names(x$single_variants)){
@@ -89,7 +73,7 @@ sift <- bind_rows(lapply(deep_variant_data, select_sift), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study),
          sift_prediction = str_to_lower(gsub('TOLERATED', MUT_CATEGORIES$neutral, sift_prediction)))
 
-deep_variant_plots$combined$sift$pred_vs_score <- ggplot(sift, aes(x=norm_score,
+combined_plots$sift$pred_vs_score <- ggplot(sift, aes(x=norm_score,
                                                                    y=sift_score)) +
   geom_point(shape=20) +
   xlab('Normalised Experimental Score') +
@@ -97,7 +81,7 @@ deep_variant_plots$combined$sift$pred_vs_score <- ggplot(sift, aes(x=norm_score,
   scale_y_log10() +
   facet_wrap(~study, scales = 'free')
 
-deep_variant_plots$combined$sift$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(sift,
+combined_plots$sift$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(sift,
                                                                                             y = 'sift_score',
                                                                                             y_name = 'SIFT Score'),
                                                                         width = 12,
@@ -109,7 +93,7 @@ sift_cor_test <- group_by(sift, study) %>%
   do(tidy(cor.test(.$score, log10(.$sift_score + min(.$sift_score[.$sift_score > 0], na.rm = TRUE)))))
 max_abs_t <- max(abs(sift_cor_test$statistic), na.rm = TRUE)
 
-deep_variant_plots$combined$sift$correlation <- ggplot(sift_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+combined_plots$sift$correlation <- ggplot(sift_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   ggtitle('Correlation between log10(SIFT Score) and mutagenesis scores') +
@@ -123,7 +107,7 @@ sift_abs_cor_test <- group_by(sift, study) %>%
   do(tidy(cor.test(abs(.$score), -log10(.$sift_score + min(.$sift_score[.$sift_score > 0], na.rm = TRUE)))))
 max_abs_t <- max(abs(sift_cor_test$statistic), na.rm = TRUE)
 
-deep_variant_plots$combined$sift$correlation_abs <- ggplot(sift_abs_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+combined_plots$sift$correlation_abs <- ggplot(sift_abs_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   ggtitle('Correlation between -log10(SIFT Score) and abs(mutagenesis scores)') +
@@ -143,7 +127,7 @@ sift_summary <- group_by(sift, study, sift_prediction) %>%
   mutate(prop = count/sum(count)) %>%
   arrange(study, sift_prediction)
 
-deep_variant_plots$combined$sift$prediction_counts <- labeled_ggplot(
+combined_plots$sift$prediction_counts <- labeled_ggplot(
   p = plot_contingency_table(sift_summary,
                              cat1 = 'sift_prediction',
                              cat2 = 'exp_prediction',
@@ -153,7 +137,7 @@ deep_variant_plots$combined$sift$prediction_counts <- labeled_ggplot(
                              var_name = 'Count'),
   width = 12, height = 9)
 
-deep_variant_plots$combined$sift$prediction_accuracy <- labeled_ggplot(
+combined_plots$sift$prediction_accuracy <- labeled_ggplot(
   p = plot_contingency_table(sift_summary,
                              cat1 = 'sift_prediction',
                              cat2 = 'exp_prediction',
@@ -162,9 +146,10 @@ deep_variant_plots$combined$sift$prediction_accuracy <- labeled_ggplot(
                              cat2_name = 'Exp. Prediction',
                              var_name = 'Proportion'),
   width = 12, height = 9)
+########
 
 #### FoldX ####
-deep_variant_plots$combined$foldx <- list()
+combined_plots$foldx <- list()
 
 select_foldx <- function(x){
   if (any(grepl('foldx_', names(x$multi_variants)))){
@@ -175,7 +160,7 @@ select_foldx <- function(x){
     return(NULL)
   }
   tbl <- select(tbl, variants, score, norm_score, starts_with('foldx_')) %>%
-    rename_at(vars(contains('foldx_')), .funs = funs(gsub('foldx_', '', .))) %>%
+    rename_at(vars(contains('foldx_')), .funs = ~ gsub('foldx_', '', .)) %>%
     gather(key = 'k', value = 'v', -variants, -score, -norm_score) %>%
     separate(k, into = c('pdb_id', 'k'), sep = '_') %>%
     spread(key = k, value = v)
@@ -187,18 +172,18 @@ foldx <- bind_rows(lapply(deep_variant_data, select_foldx), .id='study') %>%
          single = count == 1,
          exp_prediction = exp_mut_class(score, study))
 
-deep_variant_plots$combined$foldx$ddG_vs_score <- ggplot(filter(foldx, count==1), aes(x=norm_score, y=ddG)) +
+combined_plots$foldx$ddG_vs_score <- ggplot(filter(foldx, count==1), aes(x=norm_score, y=ddG)) +
   geom_point(shape=20) +
   xlab('Normalised Experimental Score') +
   ylab('FoldX ddG') +
   facet_wrap(~study, scales = 'free')
 
-deep_variant_plots$combined$foldx$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(foldx,
+combined_plots$foldx$experimental_boxplot <- labeled_ggplot(plot_exp_pred_boxes(foldx,
                                                                                              y = 'ddG'),
                                                                          width = 12,
                                                                          height = 8)
 
-deep_variant_plots$combined$foldx$experimental_boxplot_single <- labeled_ggplot(plot_exp_pred_boxes(filter(foldx, single),
+combined_plots$foldx$experimental_boxplot_single <- labeled_ggplot(plot_exp_pred_boxes(filter(foldx, single),
                                                                                                     y = 'ddG'),
                                                                                 width = 12,
                                                                                 height = 8)
@@ -211,7 +196,7 @@ foldx_cor_test <- group_by(foldx, study, pdb_id, single) %>%
   unite(name, study, pdb_id, multi)
 
 max_abs_t <- max(abs(foldx_cor_test$statistic))
-deep_variant_plots$combined$foldx$correlation <- ggplot(foldx_cor_test, aes(y=estimate, x=name, fill=statistic)) + 
+combined_plots$foldx$correlation <- ggplot(foldx_cor_test, aes(y=estimate, x=name, fill=statistic)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   ggtitle('Correlation between FoldX ddG and abs(experimental scores)') +
@@ -230,7 +215,7 @@ foldx_summary <- mutate(foldx, foldx_prediction = ifelse(abs(ddG) > 2, MUT_CATEG
   mutate(prop = count/sum(count)) %>%
   arrange(study, foldx_prediction)
 
-deep_variant_plots$combined$foldx$foldx_prediction_counts <- labeled_ggplot(
+combined_plots$foldx$foldx_prediction_counts <- labeled_ggplot(
   p = plot_contingency_table(foldx_summary,
                              cat1 = 'foldx_prediction',
                              cat2 = 'exp_prediction',
@@ -240,7 +225,7 @@ deep_variant_plots$combined$foldx$foldx_prediction_counts <- labeled_ggplot(
                              var_name = 'Count'),
   width = 12, height = 9)
 
-deep_variant_plots$combined$foldx$foldx_prediction_accuracy <- labeled_ggplot(
+combined_plots$foldx$foldx_prediction_accuracy <- labeled_ggplot(
   p = plot_contingency_table(foldx_summary,
                              cat1 = 'foldx_prediction',
                              cat2 = 'exp_prediction',
@@ -249,10 +234,10 @@ deep_variant_plots$combined$foldx$foldx_prediction_accuracy <- labeled_ggplot(
                              cat2_name = 'Exp. Prediction',
                              var_name = 'Proportion'),
   width = 12, height = 9)
-
+########
 
 #### Polyphen2 ####
-deep_variant_plots$combined$polyphen2 <- list()
+combined_plots$polyphen2 <- list()
 
 select_pph <- function(x){
   if ('pph2_class' %in% names(x$single_variants)){
@@ -263,17 +248,17 @@ select_pph <- function(x){
 }
 
 pph <- bind_rows(lapply(deep_variant_data, select_pph), .id='study') %>%
-  mutate(exp_prediction = exp_mut_class(score, study))
+  mutate(exp_prediction = exp_mut_class(score, study)) %>%
+  drop_na(pph2_prob)
 
-deep_variant_plots$combined$polyphen2$prob_vs_score <- ggplot(pph, aes(x=norm_score,
-                                                                       y=pph2_prob)) +
+combined_plots$polyphen2$prob_vs_score <- ggplot(pph, aes(x=norm_score, y=pph2_prob + min(pph2_prob[pph2_prob > 0]))) +
   geom_point(shape=20) +
   xlab('Normalised Experimental Score') +
-  ylab('Polyphen2 Deleterious Probability') +
-  facet_wrap(~study, scales = 'free') +
+  ylab('log10(Polyphen2 Deleterious Probability)') +
+  facet_wrap(~study) +
   scale_y_log10()
 
-deep_variant_plots$combined$polyphen2$experimental_boxplot <- labeled_ggplot(
+combined_plots$polyphen2$experimental_boxplot <- labeled_ggplot(
   plot_exp_pred_boxes(pph,
                       y = 'pph2_prob',
                       y_name = 'Polyphen2 Probability'),
@@ -286,7 +271,7 @@ pph_cor_test <- group_by(pph, study) %>%
   do(tidy(cor.test(.$score, -log10(.$pph2_prob + min(.$pph2_prob[.$pph2_prob > 0], na.rm = TRUE)))))
 max_abs_t <- max(abs(pph_cor_test$statistic), na.rm = TRUE)
 
-deep_variant_plots$combined$polyphen2$correlation <- ggplot(pph_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
+combined_plots$polyphen2$correlation <- ggplot(pph_cor_test, aes(y=estimate, x=study, fill=statistic)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   ggtitle('Correlation between -log10(Polyphen2 Probability) and mutagenesis scores') +
@@ -306,7 +291,7 @@ pph_summary <- group_by(pph, study, pph2_class) %>%
   mutate(prop = count/sum(count)) %>%
   arrange(study, pph2_class)
 
-deep_variant_plots$combined$polyphen2$prediction_counts <- labeled_ggplot(
+combined_plots$polyphen2$prediction_counts <- labeled_ggplot(
   p = plot_contingency_table(pph_summary,
                              cat1 = 'pph2_class',
                              cat2 = 'exp_prediction',
@@ -316,7 +301,7 @@ deep_variant_plots$combined$polyphen2$prediction_counts <- labeled_ggplot(
                              var_name = 'Count'),
   width = 12, height = 9)
 
-deep_variant_plots$combined$polyphen2$prediction_accuracy <- labeled_ggplot(
+combined_plots$polyphen2$prediction_accuracy <- labeled_ggplot(
   p = plot_contingency_table(pph_summary,
                              cat1 = 'pph2_class',
                              cat2 = 'exp_prediction',
@@ -325,9 +310,10 @@ deep_variant_plots$combined$polyphen2$prediction_accuracy <- labeled_ggplot(
                              cat2_name = 'Exp. Prediction',
                              var_name = 'Proportion'),
   width = 12, height = 9)
+########
 
 #### EVCouplings ####
-deep_variant_plots$combined$evcouplings <- list()
+combined_plots$evcouplings <- list()
 
 select_evcoup <- function(x){
   if ('evcoup_epistatic' %in% names(x$multi_variants)){
@@ -343,7 +329,7 @@ evcoup <- bind_rows(lapply(deep_variant_data, select_evcoup), .id='study') %>%
   mutate(exp_prediction = exp_mut_class(score, study),
          evcoup_prediction = ifelse(evcoup_epistatic < -6, MUT_CATEGORIES$deleterious, MUT_CATEGORIES$neutral))
 
-deep_variant_plots$combined$evcouplings$evcoup_vs_score <- ggplot(
+combined_plots$evcouplings$evcoup_vs_score <- ggplot(
   evcoup, aes(x=norm_score,
               y=evcoup_epistatic)) +
   geom_point(shape=20) +
@@ -351,7 +337,7 @@ deep_variant_plots$combined$evcouplings$evcoup_vs_score <- ggplot(
   ylab('EVCouplings Epistatic Score') +
   facet_wrap(~study, scales = 'free')
 
-deep_variant_plots$combined$evcouplings$experimental_boxplot <- labeled_ggplot(
+combined_plots$evcouplings$experimental_boxplot <- labeled_ggplot(
   plot_exp_pred_boxes(evcoup,
                       y = 'evcoup_epistatic',
                       y_name = 'EVCouplings Epistatic Score'),
@@ -367,7 +353,7 @@ evcoup_cor_test <- full_join(do(evcoup_cor_test, tidy(cor.test(abs(.$score), -1*
                              by = 'study')
 
 max_abs_t <- max(abs(evcoup_cor_test$statistic))
-deep_variant_plots$combined$evcouplings$correlation <- ggplot(evcoup_cor_test, aes(y=estimate, x=study, fill=multi)) + 
+combined_plots$evcouplings$correlation <- ggplot(evcoup_cor_test, aes(y=estimate, x=study, fill=multi)) + 
   geom_col() +
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5) +
   geom_text(aes(label = ifelse(multi, '*', '')), position = position_stack(vjust = 1.1)) + 
@@ -386,7 +372,7 @@ evcoup_summary <- group_by(evcoup, study, evcoup_prediction)  %>%
   mutate(prop = count/sum(count)) %>%
   arrange(study, evcoup_prediction)
 
-deep_variant_plots$combined$evcouplings$prediction_counts <- labeled_ggplot(
+combined_plots$evcouplings$prediction_counts <- labeled_ggplot(
   p = plot_contingency_table(evcoup_summary,
                              cat1 = 'evcoup_prediction',
                              cat2 = 'exp_prediction',
@@ -396,7 +382,7 @@ deep_variant_plots$combined$evcouplings$prediction_counts <- labeled_ggplot(
                              var_name = 'Count'),
   width = 12, height = 9)
 
-deep_variant_plots$combined$evcouplings$prediction_accuracy <- labeled_ggplot(
+combined_plots$evcouplings$prediction_accuracy <- labeled_ggplot(
   p = plot_contingency_table(evcoup_summary,
                              cat1 = 'evcoup_prediction',
                              cat2 = 'exp_prediction',
@@ -405,10 +391,9 @@ deep_variant_plots$combined$evcouplings$prediction_accuracy <- labeled_ggplot(
                              cat2_name = 'Exp. Prediction',
                              var_name = 'Proportion'),
   width = 12, height = 9)
+########
 
-
-
-#### Combined Plots ####
+#### Mixture Plots ####
 # Sift/FoldX Score Correlation with exp score
 format_study <- function(x){
   spl <- str_split(x, '[_.]')[[1]]
@@ -440,7 +425,7 @@ sift_foldx_cor <- bind_rows(SIFT=filter(si, study %in% fx$study),
   mutate(study_pretty = sapply(study, format_study),
          p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1)))
 
-deep_variant_plots$combined$sift_foldx_correlations <- ggplot(sift_foldx_cor, aes(y=estimate,
+combined_plots$sift_foldx_correlations <- ggplot(sift_foldx_cor, aes(y=estimate,
                                                                                   x=study_pretty,
                                                                                   group=pdb_id,
                                                                                   fill=p_cat)) + 
@@ -460,7 +445,7 @@ deep_variant_plots$combined$sift_foldx_correlations <- ggplot(sift_foldx_cor, ae
 #        axis.line.x.bottom = element_line(linetype = 0),
 #        axis.ticks.x = element_blank())
 
-deep_variant_plots$combined$sift_foldx_correlations <- labeled_ggplot(deep_variant_plots$combined$sift_foldx_correlations,
+combined_plots$sift_foldx_correlations <- labeled_ggplot(combined_plots$sift_foldx_correlations,
                                                                       width=9, height=7)
 
 # All tool correlations
@@ -479,7 +464,7 @@ all_cor <- bind_rows(si=si, fx=fx, ev=ev, en=en, pp=pp, .id = 'tool') %>%
          p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1), include.lowest = TRUE),
          tool_title=tool_titles[tool])
 
-deep_variant_plots$combined$all_correlations <- ggplot(all_cor, aes(y=estimate, x=study_pretty,
+combined_plots$all_correlations <- ggplot(all_cor, aes(y=estimate, x=study_pretty,
                                                                     group=pdb_id, fill=p_cat)) + 
   facet_wrap(~tool_title, ncol = 1) +
   geom_col(position = position_dodge()) +
@@ -493,10 +478,9 @@ deep_variant_plots$combined$all_correlations <- ggplot(all_cor, aes(y=estimate, 
   scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
-deep_variant_plots$combined$all_correlations <- labeled_ggplot(deep_variant_plots$combined$all_correlations,
+combined_plots$all_correlations <- labeled_ggplot(combined_plots$all_correlations,
                                                                width=9, height=12)
+########
 
-
-
-#### Save plots #####
-save_plot_list(deep_variant_plots, root='figures/tool_analysis/')
+# Save all study plots 
+save_plot_list(combined_plots, root='figures/2_tool_prediction_analysis/')
