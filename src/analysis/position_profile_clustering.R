@@ -19,7 +19,8 @@ basic_pca_plots <- function(pca){
     facet_wrap(~study) +
     geom_point()
   
-  plots$secondary_structure <- plot_all_pcs(pca$variants, colour_var = 'sec_struct')
+  plots$secondary_structure <- plot_all_pcs(pca$variants, colour_var = 'ss')
+  plots$secondary_structure_reduced <- plot_all_pcs(pca$variants, colour_var = 'ss_reduced')
   
   plots$fields_group_studies <- ggplot(filter(pca$variants,
                                               authour %in% c('Araya et al.', 'Melamed et al.', 'Starita et al.',

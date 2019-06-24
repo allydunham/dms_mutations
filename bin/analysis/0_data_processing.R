@@ -67,8 +67,8 @@ variant_matrices$all_variants <- bind_rows(lapply(dms_data, make_var_matrix, sco
   drop_na(wt, pos) %>%
   left_join(., meta_df, by='study') %>%
   left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
-  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss, sec_struct_reduced=ss_reduced) %>%
-              rename_at(vars(-study, -pos, -wt, -sec_struct, -sec_struct_reduced), .funs= ~ str_c('ss_prob_', .)),
+  left_join(., rename(secondary_structure, wt=aa) %>%
+               rename_at(vars(-study, -pos, -wt, -ss, -ss_reduced), .funs= ~ str_c('ss_prob_', .)),
             by=c('study', 'wt', 'pos')) %>%
   select(-factor, -norm_thresh) %>%
   mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
@@ -80,8 +80,8 @@ variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix
   drop_na(wt, pos) %>%
   left_join(., meta_df, by='study') %>%
   left_join(., rename(surface_accesibility, wt=res1), by=c('study', 'wt', 'pos')) %>%
-  left_join(., rename(secondary_structure, wt=aa, sec_struct=ss) %>%
-              rename_at(vars(-study, -pos, -wt, -sec_struct), .funs= ~ str_c('ss_prob_', .)),
+  left_join(., rename(secondary_structure, wt=aa) %>%
+               rename_at(vars(-study, -pos, -wt, -ss, -ss_reduced), .funs= ~ str_c('ss_prob_', .)),
             by=c('study', 'wt', 'pos')) %>%
   select(-factor, -thresh, thresh = norm_thresh) %>%
   mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
