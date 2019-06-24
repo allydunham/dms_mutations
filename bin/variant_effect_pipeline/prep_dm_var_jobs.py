@@ -226,7 +226,7 @@ def envision_job(deep_mut, out_dir, dm_path, env_dbs, log_dir, ram, dm_id, batch
                              f'> {out_dir}/{uniprot_id}_envision_db.csv'])
 
     py_command = ' '.join(['python',
-                           f"{CONFIG['misc']['bin_path']}/dmt.py",
+                           f"{CONFIG['misc']['dmt_path']}",
                            f'--env {out_dir}/{uniprot_id}_envision_db.csv',
                            f'--path {out_dir}/{gene_name}_envision_vars.csv',
                            'envision',
@@ -263,7 +263,7 @@ def foldx_job(pdb_id, out_dir, log_dir, ram, dm_id, batch_id, files):
                      name=model_name,
                      cwd=pdb_dir, dep=f'ended({repair_name})')
 
-    cat_job = bsub(f"{CONFIG['misc']['bin_path']}/foldx_cat.sh {pdb_id}",
+    cat_job = bsub(f"{CONFIG['foldx']['foldx_cat_path']} {pdb_id}",
                    log=f'{log_dir}/{dm_id}_foldx_cat_{pdb_id}', ram=500,
                    name=f'{batch_id}_{dm_id}_foldx_cat_{pdb_id}', cwd=pdb_dir,
                    dep=f'ended({model_name})')
