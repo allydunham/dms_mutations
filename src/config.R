@@ -24,7 +24,17 @@ RAW_MUT_SCORE_NAME <- 'Raw Mutagenesis Score'
 MUT_CATEGORIES <- list(deleterious='deleterious', neutral='neutral', beneficial='beneficial')
 
 # Categories of secondary structure
-SS_REDUCED_HASH = c(C='None', S='Turn', H='Helix', T='Turn', E='Strand', G='Helix', B='Strand', I='Helix')
+SS_REDUCED_HASH <- c(C='None', S='Turn', H='Helix', T='Turn', E='Strand', G='Helix', B='Strand', I='Helix')
+
+# Categories of amino acid
+# From Sigma-Aldrich website (https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html)
+AA_REDUCED_HASH <- c(A='Aliphatic', I='Aliphatic', L='Aliphatic', M='Aliphatic', V='Aliphatic',
+                     F='Aromatic', W='Aromatic', Y='Aromatic',
+                     N='Polar', C='Polar', Q='Polar', S='Polar', T='Polar',
+                     R='Basic', H='Basic', K='Basic',
+                     D='Acidic', E='Acidic',
+                     G='Glycine',
+                     P='Proline')
 
 # Manual deleterious thresholds per dms study
 MANUAL_THRESHOLDS <- c(araya_2012_yap1=-2, ashenberg_2016_nucleoprotein=-1, brenan_2016_erk2=-0.5, findlay_2018_brca1=-1,
