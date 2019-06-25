@@ -41,7 +41,7 @@ aa_3_to_1 <- function(x){
 
 #### Plotting ####
 # Plot all PCs
-plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width = NULL, height = NULL){
+plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width = NULL, height = NULL, geom=geom_point()){
   if (nrow * ncol * 2 != max_pc){
     stop('Invalid row/col numbers: nrow * ncol * 2 != max_pc')
   }
@@ -52,7 +52,7 @@ plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width 
           seq(1, max_pc-1, 2),
           function(x){
             ggplot(tbl, aes_string(x=str_c('PC', x), y=str_c('PC', x + 1), colour=colour_var)) + 
-              geom_point()
+              geom
           }),
         nrow = nrow, ncol = ncol, common.legend = TRUE, legend = 'right'
       ),
