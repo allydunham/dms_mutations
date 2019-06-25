@@ -50,7 +50,11 @@ chemical_environments <- sapply(dms_data,
   rename(struct_group = group) %>%
   left_join(., meta_df, by = 'study') %>%
   left_join(., select(secondary_structure, study, position = pos, aa, ss, ss_reduced), by = c('study', 'position', 'aa')) %>%
-  left_join(., rename(surface_accesibility, aa=res1, position=pos), by = c('study', 'position', 'aa'))
+  left_join(., rename(surface_accesibility, aa=res1, position=pos), by = c('study', 'position', 'aa')) %>%
+  mutate(aa_reduced=AA_REDUCED_HASH[aa]) %>%
+  group_by(pdb_id) %>%
+  mutate(relative_position = position/max(position)) %>%
+  ungroup()
 saveRDS(chemical_environments, 'data/rdata/position_chemical_environments.RDS')
 
 # Dataframe of all individually scored variant/sets of variants in all studies
