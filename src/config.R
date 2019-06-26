@@ -8,6 +8,7 @@ library(magrittr)
 library(broom)
 library(readxl)
 library(ggpubr)
+library(GGally)
 library(pdist)
 library(caret)
 library(Rtsne)
@@ -29,13 +30,15 @@ SS_REDUCED_HASH <- c(C='None', S='Turn', H='Helix', T='Turn', E='Strand', G='Hel
 
 # Categories of amino acid
 # From Sigma-Aldrich website (https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html)
-AA_REDUCED_HASH <- c(A='Aliphatic', I='Aliphatic', L='Aliphatic', M='Aliphatic', V='Aliphatic',
-                     F='Aromatic', W='Aromatic', Y='Aromatic',
-                     N='Polar', C='Polar', Q='Polar', S='Polar', T='Polar',
-                     R='Basic', H='Basic', K='Basic',
-                     D='Acidic', E='Acidic',
-                     G='Glycine',
-                     P='Proline')
+AA_REDUCED_CLASSES <- list(Aliphatic=c('A', 'I', 'L', 'M', 'V'),
+                           Aromatic=c('F', 'W', 'Y'),
+                           Polar=c('N', 'C', 'Q', 'S', 'T'),
+                           Basic=c('R', 'H', 'K'),
+                           Acidic=c('D', 'E'),
+                           Glycine='G',
+                           Proline='P')
+AA_REDUCED_HASH <- structure(rep(names(AA_REDUCED_CLASSES), times=sapply(AA_REDUCED_CLASSES, length)),
+                             names=unlist(AA_REDUCED_CLASSES))
 
 # Manual deleterious thresholds per dms study
 MANUAL_THRESHOLDS <- c(araya_2012_yap1=-2, ashenberg_2016_nucleoprotein=-1, brenan_2016_erk2=-0.5, findlay_2018_brca1=-1,
