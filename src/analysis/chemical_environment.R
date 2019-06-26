@@ -21,7 +21,7 @@ chem_env_pca <- function(tbl, var='nearest_10'){
     set_colnames(sort(Biostrings::AA_STANDARD)) %>%
     prcomp()
   
-  out_tbl <- bind_cols(select(tbl, -!!var), as_tibble(pca$x))
+  out_tbl <- bind_cols(tbl, as_tibble(pca$x))
   return(list(profiles=out_tbl, pca=pca))
 }
 
@@ -46,4 +46,20 @@ plot_avg_factor_pca_profile <- function(pca, variable='aa'){
            theme(axis.ticks = element_blank(), panel.background = element_blank()))
 }
 
+########
+
+#### tSNE ####
+chem_env_tsne <- function(tbl, var='nearest_10', ...){
+  mat <- pull(tbl, !!var) %>%
+    do.call(rbind, .) %>%
+    set_colnames(sort(Biostrings::AA_STANDARD))
+  
+  mat_dupe_rows <- enumerate_unique_rows(mat)
+  mat_deduped <- mat[!mat_dupe_rows$duplicate,]
+  
+  tsne <- Rtsne(mat_deduped, ...)
+  
+  out_tbl <- bind_cols(tbl, as_tibble(set_colnames(tsne$Y[mat_dupe_rows$indeces,], c('tSNE1', 'tSNE2'))))
+  return(list(profiles=out_tbl, tsne=tsne, dupe_rows=mat_dupe_rows$duplicate, unique_row_indeces=mat_dupe_rows$indeces))
+}
 ########

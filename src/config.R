@@ -10,6 +10,7 @@ library(readxl)
 library(ggpubr)
 library(pdist)
 library(caret)
+library(Rtsne)
 
 # Source custom functions
 source('src/util/misc_util.R')
