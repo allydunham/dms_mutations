@@ -17,6 +17,10 @@ smart_save.ggplot <- function(p, filename, override=FALSE, ...){
   ggsave(filename, plot = p, ...)
 }
 
+smart_save.ggmatrix <- function(p, filename, override=FALSE, ...){
+  ggsave(filename, plot = p, ...)
+}
+
 smart_save.labeled_ggplot <- function(p, filename, override=FALSE, ...){
   if (override){
     params <- c(list(...), p, formals(ggsave))

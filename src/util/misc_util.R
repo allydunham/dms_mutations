@@ -24,12 +24,6 @@ enumerate_unique_rows <- function(mat){
   }
   return(list(indeces=unique_inds, duplicate=dupe_rows))
 }
-
-# Given a matrix return ind
-find_matching_rows <- function(target, mat){
-  apply(mat, 1, identical, y=target)
-}
-
 ########
 
 #### Tibbles ####

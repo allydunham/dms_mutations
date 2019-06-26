@@ -1,24 +1,104 @@
 #!/usr/bin/env Rscript 
 # Functions to analyse chemical environments with respect to deep mutational scanning data
 
+#### Utility ####
+# generate a reduced AA profile (with similar AAs grouped) from a 20 long AA count vector
+sorted_aa_1_code <- sort(Biostrings::AA_STANDARD)
+reduce_aa_profile <- function(x){
+  names(x) <- sorted_aa_1_code
+  return(sapply(AA_REDUCED_CLASSES, function(aa_group){sum(x[aa_group])}))
+}
+
+# Expand a profile column into columns with given names
+expand_profile_column <- function(tbl, col, names=NULL){
+  col <- enquo(col)
+  
+  if (is.null(names)){
+    names <- names(pull(tbl, !!col)[[1]])
+    if (is.null(names)){
+      stop('Profile vectors have no names and none are supplied')
+    }
+  }
+  
+  prof <- pull(tbl, !!col) %>%
+    do.call(rbind, .) %>%
+    set_colnames(names) %>%
+    as_tibble()
+  
+  return(bind_cols(select(tbl, -!!col), prof))
+}
+########
+
+#### Direct Profile analysis ####
+plot_basic_profile_analysis <- function(tbl, prof_col, names=NULL){
+  prof_col <- enquo(prof_col)
+
+  if (is.null(names)){
+    names <- names(pull(tbl, !!prof_col)[[1]])
+    if (is.null(names)){
+      stop('Profile vectors have no names and none are supplied')
+    }
+  }
+  
+  tbl <- expand_profile_column(tbl, !!prof_col, names=names)
+  num_cats <- length(names)
+  p_paired = labeled_ggplot(
+    ggpairs(tbl, columns = names,
+            lower = list(continuous=function(d, m, ...){ggplot(d, m, ...) + geom_count()})),
+    height = num_cats * 2, width = num_cats * 2, limitsize=FALSE)
+  
+  cor_mat <- tibble_to_matrix(tbl, columns = !!names) %>%
+    cor()
+  
+  group_order <- rownames(cor_mat)[hclust(dist(cor_mat))$order]
+  
+  cors <- as_tibble(cor_mat, rownames = 'cat1') %>%
+    gather(key = 'cat2', value = 'cor', -cat1) %>%
+    mutate(cat1 = factor(cat1, levels = group_order),
+           cat2 = factor(cat2, levels = group_order))
+  
+  p_cor <- ggplot(cors, aes(x=cat1, y=cat2, fill=cor)) +
+      geom_tile() +
+      xlab('') +
+      ylab('') +
+      scale_fill_gradient2() +
+      theme(axis.ticks = element_blank(), panel.background = element_blank())
+  
+  return(list(scatter_pairs = p_paired,
+              cor_heatmap = p_cor))
+}
+########
+
 #### PCA of profiles ####
 # Plot basic analyses of PCA components
 plot_chem_env_basic_pca_plots <- function(pca, discrete_factors=c('aa', 'ss'),
-                                          cont_factors=c('all_atom_rel', 'relative_position')){
-  scatter_plots <- sapply(c(discrete_factors, cont_factors), function(x){plot_all_pcs(pca$profiles, colour_var = x)}, simplify = FALSE) %>%
+                                          cont_factors=c('all_atom_rel', 'relative_position'),
+                                          ...){
+  scatter_plots <- sapply(c(discrete_factors, cont_factors),
+                          function(x){plot_all_pcs(pca$profiles, colour_var = x, ...)},
+                          simplify = FALSE) %>%
     set_names(str_c(names(.), '_pca'))
   
-  avg_profile_heatmaps <- sapply(discrete_factors, function(x){plot_avg_factor_pca_profile(pca, variable = x)}, simplify = FALSE) %>%
+  avg_profile_heatmaps <- sapply(discrete_factors,
+                                 function(x){plot_avg_factor_pca_profile(pca, variable = x)},
+                                 simplify = FALSE) %>%
     set_names(str_c(names(.), '_pca_avg_heatmap'))
   
   return(c(scatter_plots, avg_profile_heatmaps))
 }
 
 # Calc PCA
-chem_env_pca <- function(tbl, var='nearest_10'){
+chem_env_pca <- function(tbl, var='nearest_10', names=NULL){
+  if (is.null(names)){
+    names <- names(pull(tbl, !!var)[[1]])
+    if (is.null(names)){
+      stop('Profile vectors have no names and none are supplied')
+    }
+  }
+  
   pca <- pull(tbl, !!var) %>%
     do.call(rbind, .) %>%
-    set_colnames(sort(Biostrings::AA_STANDARD)) %>%
+    set_colnames(names) %>%
     prcomp()
   
   out_tbl <- bind_cols(tbl, as_tibble(pca$x))
@@ -32,7 +112,7 @@ plot_avg_factor_pca_profile <- function(pca, variable='aa'){
     group_by(!!variable_sym) %>%
     summarise_at(.vars = vars(starts_with('PC')), .funs = list(~ mean(.)))
   
-  clust <- hclust(dist(tibble_to_matrix(avg_prof, PC1:PC20, row_names = avg_prof[[variable]])))
+  clust <- hclust(dist(tibble_to_matrix(avg_prof, starts_with('PC'), row_names = avg_prof[[variable]])))
   variable_order <- clust$labels[clust$order]
   pc_order <- str_c('PC', 1:(ncol(avg_prof)-1))
     
@@ -49,10 +129,17 @@ plot_avg_factor_pca_profile <- function(pca, variable='aa'){
 ########
 
 #### tSNE ####
-chem_env_tsne <- function(tbl, var='nearest_10', ...){
+chem_env_tsne <- function(tbl, var='nearest_10', names=NULL, ...){
+  if (is.null(names)){
+    names <- names(pull(tbl, !!var)[[1]])
+    if (is.null(names)){
+      stop('Profile vectors have no names and none are supplied')
+    }
+  }
+  
   mat <- pull(tbl, !!var) %>%
     do.call(rbind, .) %>%
-    set_colnames(sort(Biostrings::AA_STANDARD))
+    set_colnames(names)
   
   mat_dupe_rows <- enumerate_unique_rows(mat)
   mat_deduped <- mat[!mat_dupe_rows$duplicate,]
