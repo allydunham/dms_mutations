@@ -7,7 +7,7 @@ source('src/analysis/position_profile_clustering.R')
 
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 chemical_environments <- readRDS('data/rdata/position_chemical_environments.RDS') %>%
-  left_join(., select(variant_matrices$all_variants, study, position=pos, aa=wt, sig_count), by = c("study", "position", "aa"))
+  left_join(., select(variant_matrices$norm_all_variants, study, position=pos, aa=wt, sig_count, A:Y), by = c("study", "position", "aa"))
 chem_env_deduped <- distinct(chemical_environments, pdb_id, chain, position, aa, .keep_all = TRUE)
 
 chem_env_metric_names <- c('nearest_10', 'within_10.0')
@@ -16,9 +16,33 @@ plots <- list()
 
 #### Basic profile analysis ####
 plots <- list_modify(plots, !!!sapply(chem_env_metric_names, function(x){
-  plot_basic_profile_analysis(chem_env_deduped, !!x, names = sorted_aa_1_code) %>%
+  plot_basic_profile_analysis(chem_env_deduped, !!x, names = str_c('prof_', sorted_aa_1_code)) %>%
     set_names(str_c('aa_profile_', names(.)))
 }, simplify = FALSE))
+
+## Linear model from profiles (currently just with within_10.0 profile, should rework whole script to better cope with multiples)
+chem_env_raw_prof_lm <- calc_all_profile_lms(chemical_environments, within_10.0, A:Y, prof_col_names = str_c('prof_', sorted_aa_1_code))
+plots$within_10.0$lm_summary <- labeled_ggplot(
+  ggplot(chem_env_raw_prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+    facet_wrap(~study) + 
+    geom_col() + 
+    geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
+  width=15, height=10)
+
+tmp <- filter(chem_env_raw_prof_lm, study=='ALL', mut_aa=='P') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_example1 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Proline, ALL')
+
+tmp <- filter(chem_env_raw_prof_lm, study=='weile_2017_ube2i', mut_aa=='K') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_example2 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Lysine, Weile 2017 ube2i')
+
+tmp <- filter(chem_env_raw_prof_lm, study=='brenan_2016_erk2', mut_aa=='H') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_example3 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Histadine, Brenan 2016 Erk2')
 
 ## PCA on profiles
 chem_env_pcas <- sapply(chem_env_metric_names, function(x){chem_env_pca(chem_env_deduped, var=x, names=sort(Biostrings::AA_STANDARD))},
@@ -57,6 +81,9 @@ p <- ggplot(chem_env_tsnes$within_10.0$profiles, aes(x=tSNE1, y=tSNE2, colour=ge
 chem_env_reduced <- mutate_at(chem_env_deduped, .vars = vars(one_of(chem_env_metric_names)),
                               .funs = ~sapply(., reduce_aa_profile, simplify = FALSE))
 
+chem_env_reduced_full <- mutate_at(chemical_environments, .vars = vars(one_of(chem_env_metric_names)),
+                                   .funs = ~sapply(., reduce_aa_profile, simplify = FALSE))
+
 # Basic profiles
 plots <- list_modify(plots, !!!sapply(chem_env_metric_names, function(x){
   plot_basic_profile_analysis(chem_env_reduced, !!x) %>%
@@ -64,6 +91,31 @@ plots <- list_modify(plots, !!!sapply(chem_env_metric_names, function(x){
 }, simplify = FALSE))
 
 ch <- expand_profile_column(chem_env_reduced, within_10.0)
+
+# LM of ER vs profile
+chem_env_reduced_prof_lm <- calc_all_profile_lms(chem_env_reduced_full, within_10.0, A:Y, prof_col_names = NULL)
+plots$within_10.0$lm_reduced_summary <- labeled_ggplot(
+  ggplot(chem_env_reduced_prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+    facet_wrap(~study) + 
+    geom_col() + 
+    geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
+  width=15, height=10)
+
+tmp <- filter(chem_env_reduced_prof_lm, study=='ALL', mut_aa=='P') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_reduced_example1 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Proline, ALL')
+
+tmp <- filter(chem_env_reduced_prof_lm, study=='weile_2017_ube2i', mut_aa=='K') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_reduced_example2 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Lysine, Weile 2017 ube2i')
+
+tmp <- filter(chem_env_reduced_prof_lm, study=='brenan_2016_erk2', mut_aa=='H') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_reduced_example3 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Histadine, Brenan 2016 Erk2')
+
 
 # PCA
 chem_env_reduced_pcas <- sapply(chem_env_metric_names, function(x){chem_env_pca(chem_env_reduced, var=x)}, simplify = FALSE)

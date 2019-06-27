@@ -9,16 +9,23 @@ reduce_aa_profile <- function(x){
   return(sapply(AA_REDUCED_CLASSES, function(aa_group){sum(x[aa_group])}))
 }
 
+# Retrieve column names for a chem env profile column
+get_profile_names <- function(tbl, col){
+  col <- enquo(col)
+  
+  first_profile <- pull(tbl, !!col)[[1]]
+  names <- names(first_profile)
+  if (is.null(names)){
+    names <- str_c(rlang::quo_text(col), '_', 1:length(first_profile))
+  }
+  return(names)
+}
+
 # Expand a profile column into columns with given names
 expand_profile_column <- function(tbl, col, names=NULL){
   col <- enquo(col)
   
-  if (is.null(names)){
-    names <- names(pull(tbl, !!col)[[1]])
-    if (is.null(names)){
-      stop('Profile vectors have no names and none are supplied')
-    }
-  }
+  names <- if(is.null(names)) get_profile_names(tbl, !!col) else names
   
   prof <- pull(tbl, !!col) %>%
     do.call(rbind, .) %>%
@@ -32,13 +39,8 @@ expand_profile_column <- function(tbl, col, names=NULL){
 #### Direct Profile analysis ####
 plot_basic_profile_analysis <- function(tbl, prof_col, names=NULL){
   prof_col <- enquo(prof_col)
-
-  if (is.null(names)){
-    names <- names(pull(tbl, !!prof_col)[[1]])
-    if (is.null(names)){
-      stop('Profile vectors have no names and none are supplied')
-    }
-  }
+    
+  names <- if(is.null(names)) get_profile_names(tbl, !!prof_col) else names
   
   tbl <- expand_profile_column(tbl, !!prof_col, names=names)
   num_cats <- length(names)
@@ -66,6 +68,43 @@ plot_basic_profile_analysis <- function(tbl, prof_col, names=NULL){
   
   return(list(scatter_pairs = p_paired,
               cor_heatmap = p_cor))
+}
+
+# Linear model(s) of ER ~ profile
+calc_profile_lm <- function(tbl, target_col, ...){
+  target_col <- enquo(target_col)
+  prof_cols <- enquos(...)
+
+  return(
+    select(tbl, !!target_col, !!! prof_cols) %>%
+      drop_na(!!target_col) %>%
+      lm(as.formula(str_c(rlang::quo_text(target_col), '~ .')), data = .)
+  )
+}
+
+calc_all_profile_lms <- function(tbl, prof_col, target_cols, prof_col_names=NULL){
+  prof_col <- enquo(prof_col)
+  target_cols <- enquo(target_cols)
+  
+  prof_col_names <- if(is.null(prof_col_names)) get_profile_names(tbl, !!prof_col) else prof_col_names
+  tbl <- expand_profile_column(tbl, !!prof_col, names=prof_col_names)
+  all_study_lms <- gather(tbl, key = 'mut_aa', value = 'er', !!target_cols) %>%
+    group_by(mut_aa) %>%
+    do(model=calc_profile_lm(., er, !!!syms(prof_col_names)),
+       n=sum(!is.na(.$er))) %>%
+    mutate(study = 'ALL')
+  
+  per_study_lms <- gather(tbl, key = 'mut_aa', value = 'er', !!target_cols) %>%
+    group_by(mut_aa, study) %>%
+    do(model=calc_profile_lm(., er, !!!syms(prof_col_names)),
+       n=sum(!is.na(.$er)))
+
+  return(
+    bind_rows(all_study_lms, per_study_lms) %>%
+      unnest(n) %>%
+      mutate(summary = lapply(model, glance)) %>%
+      unnest(summary)
+  )
 }
 ########
 
