@@ -71,18 +71,26 @@ plot_basic_profile_analysis <- function(tbl, prof_col, names=NULL){
 }
 
 # Linear model(s) of ER ~ profile
-calc_profile_lm <- function(tbl, target_col, ...){
+calc_profile_lm <- function(tbl, target_col, ..., include_sig_count=FALSE){
   target_col <- enquo(target_col)
   prof_cols <- enquos(...)
-
-  return(
-    select(tbl, !!target_col, !!! prof_cols) %>%
-      drop_na(!!target_col) %>%
-      lm(as.formula(str_c(rlang::quo_text(target_col), '~ .')), data = .)
-  )
+  
+  if (include_sig_count){
+    return(
+      select(tbl, !!target_col, sig_count, !!! prof_cols) %>%
+        drop_na(!!target_col) %>%
+        lm(as.formula(str_c(rlang::quo_text(target_col), '~ . + 0')), data = .)
+    )
+  } else {
+    return(
+      select(tbl, !!target_col, !!! prof_cols) %>%
+        drop_na(!!target_col) %>%
+        lm(as.formula(str_c(rlang::quo_text(target_col), '~ .')), data = .)
+    )
+  }
 }
 
-calc_all_profile_lms <- function(tbl, prof_col, target_cols, prof_col_names=NULL){
+calc_all_profile_lms <- function(tbl, prof_col, target_cols, prof_col_names=NULL, include_sig_count=FALSE){
   prof_col <- enquo(prof_col)
   target_cols <- enquo(target_cols)
   
@@ -90,15 +98,15 @@ calc_all_profile_lms <- function(tbl, prof_col, target_cols, prof_col_names=NULL
   tbl <- expand_profile_column(tbl, !!prof_col, names=prof_col_names)
   all_study_lms <- gather(tbl, key = 'mut_aa', value = 'er', !!target_cols) %>%
     group_by(mut_aa) %>%
-    do(model=calc_profile_lm(., er, !!!syms(prof_col_names)),
+    do(model=calc_profile_lm(., er, !!!syms(prof_col_names), include_sig_count = include_sig_count),
        n=sum(!is.na(.$er))) %>%
     mutate(study = 'ALL')
   
   per_study_lms <- gather(tbl, key = 'mut_aa', value = 'er', !!target_cols) %>%
     group_by(mut_aa, study) %>%
-    do(model=calc_profile_lm(., er, !!!syms(prof_col_names)),
+    do(model=calc_profile_lm(., er, !!!syms(prof_col_names), include_sig_count = include_sig_count),
        n=sum(!is.na(.$er)))
-
+  
   return(
     bind_rows(all_study_lms, per_study_lms) %>%
       unnest(n) %>%

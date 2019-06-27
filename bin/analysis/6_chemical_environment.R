@@ -22,6 +22,7 @@ plots <- list_modify(plots, !!!sapply(chem_env_metric_names, function(x){
 
 ## Linear model from profiles (currently just with within_10.0 profile, should rework whole script to better cope with multiples)
 chem_env_raw_prof_lm <- calc_all_profile_lms(chemical_environments, within_10.0, A:Y, prof_col_names = str_c('prof_', sorted_aa_1_code))
+
 plots$within_10.0$lm_summary <- labeled_ggplot(
   ggplot(chem_env_raw_prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
     facet_wrap(~study) + 
@@ -43,6 +44,49 @@ tmp <- filter(chem_env_raw_prof_lm, study=='brenan_2016_erk2', mut_aa=='H') %>%
   pull(model)
 tmp <- augment(tmp[[1]])
 plots$within_10.0$lm_example3 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Histadine, Brenan 2016 Erk2')
+
+# Linear model with significance of position included
+chem_env_prof_sig_count_lm <- calc_all_profile_lms(chemical_environments, within_10.0, A:Y,
+                                                   prof_col_names = str_c('prof_', sorted_aa_1_code), include_sig_count = TRUE)
+
+plots$within_10.0$lm_sig_count_summary <- labeled_ggplot(
+  ggplot(chem_env_prof_sig_count_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+    facet_wrap(~study) + 
+    geom_col() + 
+    geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
+  width=15, height=10)
+
+tmp <- filter(chem_env_prof_sig_count_lm, study=='ALL', mut_aa=='P') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_sig_count_example1 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Proline, ALL')
+
+tmp <- filter(chem_env_prof_sig_count_lm, study=='weile_2017_ube2i', mut_aa=='K') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_sig_count_example2 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Lysine, Weile 2017 ube2i')
+
+tmp <- filter(chem_env_prof_sig_count_lm, study=='brenan_2016_erk2', mut_aa=='H') %>%
+  pull(model)
+tmp <- augment(tmp[[1]])
+plots$within_10.0$lm_sig_count_example3 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Histadine, Brenan 2016 Erk2')
+
+chem_env_prof_sig_count_lm_loadings <- filter(chem_env_prof_sig_count_lm, study == 'ALL') %>%
+  select(mut_aa, model, n, r.squared) %>%
+  mutate(coef_df = lapply(model, tidy)) %>%
+  unnest(coef_df)
+
+plots$within_10.0$lm_sig_count_loadings <- ggplot(chem_env_prof_sig_count_lm_loadings,
+                                                  aes(x=mut_aa, y=term, fill=estimate)) + 
+  geom_tile() +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank()) +
+  xlab('Substituted AA') +
+  ylab('LM Term') +
+  geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
+  geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
+  geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+  scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
 
 ## PCA on profiles
 chem_env_pcas <- sapply(chem_env_metric_names, function(x){chem_env_pca(chem_env_deduped, var=x, names=sort(Biostrings::AA_STANDARD))},
