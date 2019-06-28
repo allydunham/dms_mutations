@@ -98,6 +98,15 @@ plot_all_pcs <- function(tbl, max_pc=20, colour_var='wt', nrow=2, ncol=5, width 
   )
 }
 
+# Guess a vaguely sensible number of rows and columns for plotting multiple plots
+get_good_rows_cols <- function(n_plots){
+  for (i in 5:1){
+    if (n_plots %% i == 0){
+      return(c(n_plots/i, i))
+    }
+  }
+}
+
 # Plot scatter plots against a list of factors (supplied as symbols)
 plot_factors <- function(tbl, x, y, factors){
   x = enquo(x)
