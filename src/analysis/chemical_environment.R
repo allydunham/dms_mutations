@@ -43,7 +43,7 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
   tsne <- chem_env_tsne(chem_env, !!! prof_col_syms)
   
   chem_env <- bind_cols(chem_env,
-                       as_tibble(set_colnames(tsne$tsne$Y[tsne$unique_row_indeces,], c('tSNE1', 'tSNE2'))))      
+                        as_tibble(set_colnames(tsne$tsne$Y[tsne$unique_row_indeces,], c('tSNE1', 'tSNE2'))))      
                   
   tsne_plots <- plot_factors(filter(chem_env, !duplicate_position),
                              tSNE1, tSNE2, quos(ss_reduced=ss_reduced, aa_reduced=aa_reduced, gene_name=gene_name,
@@ -51,61 +51,79 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
   
   ## LM analysis
   # Just profile
-  prof_lm <- calc_all_profile_lms(chemical_environments, within_10.0, A:Y, prof_col_names = str_c('prof_', sorted_aa_1_code))
+  prof_lm <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms), target_vars = vars(A:Y),
+                                  include_intercept = FALSE)
   
-  plots$within_10.0$lm_summary <- labeled_ggplot(
-    ggplot(chem_env_raw_prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+  lm_plots <- list()
+  lm_plots$lm_summary <- labeled_ggplot(
+    ggplot(prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
       facet_wrap(~study) + 
       geom_col() + 
       geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
     width=15, height=10)
   
-  tmp <- filter(chem_env_raw_prof_lm, study=='ALL', mut_aa=='P') %>%
-    pull(model)
-  tmp <- augment(tmp[[1]])
-  plots$within_10.0$lm_example1 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Proline, ALL')
+  prof_lm_preds <- filter(prof_lm, study=='ALL') %>%
+    pull(model) %>%
+    lapply(augment) %>%
+    set_names(filter(prof_lm, study=='ALL') %>% pull(target)) %>%
+    bind_rows(.id = 'aa')
+    
+  lm_plots$lm_predictions <- ggplot(prof_lm_preds, aes(x=er, y=.fitted, colour=.se.fit)) + 
+    geom_point() + 
+    facet_wrap(~aa) +
+    ylab('Predicted ER') +
+    xlab('ER')
   
   # significance of position added
-  chem_env_prof_sig_count_lm <- calc_all_profile_lms(chemical_environments, within_10.0, A:Y,
-                                                     prof_col_names = str_c('prof_', sorted_aa_1_code), include_sig_count = TRUE)
+  prof_lm_sig_count <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms, sig_count), target_vars = vars(A:Y),
+                                            include_intercept = TRUE)
   
-  plots$within_10.0$lm_sig_count_summary <- labeled_ggplot(
-    ggplot(chem_env_prof_sig_count_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+  lm_plots$lm_sig_count_summary <- labeled_ggplot(
+    ggplot(prof_lm_sig_count, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
       facet_wrap(~study) + 
       geom_col() + 
       geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
     width=15, height=10)
   
-  tmp <- filter(chem_env_prof_sig_count_lm, study=='ALL', mut_aa=='P') %>%
-    pull(model)
-  tmp <- augment(tmp[[1]])
-  plots$within_10.0$lm_sig_count_example1 <- ggplot(tmp, aes(x=er, y=.fitted, colour=.se.fit)) + geom_point() + ggtitle('Proline, ALL')
+  prof_lm_sig_count_preds <- filter(prof_lm_sig_count, study=='ALL') %>%
+    pull(model) %>%
+    lapply(augment) %>%
+    set_names(filter(prof_lm, study=='ALL') %>% pull(target)) %>%
+    bind_rows(.id = 'aa')
   
-  chem_env_prof_sig_count_lm_loadings <- filter(chem_env_prof_sig_count_lm, study == 'ALL') %>%
-    select(mut_aa, model, n, r.squared) %>%
+  lm_plots$lm_sig_count_predictions <- ggplot(prof_lm_sig_count_preds, aes(x=er, y=.fitted, colour=.se.fit)) + 
+    geom_point() + 
+    facet_wrap(~aa) +
+    ylab('Predicted ER') +
+    xlab('ER')
+
+  prof_lm_sig_count_loadings <- filter(prof_lm_sig_count, study == 'ALL') %>%
+    select(target, model, n, r.squared) %>%
     mutate(coef_df = lapply(model, tidy)) %>%
     unnest(coef_df)
   
-  plots$within_10.0$lm_sig_count_loadings <- ggplot(chem_env_prof_sig_count_lm_loadings,
-                                                    aes(x=mut_aa, y=term, fill=estimate)) + 
+  lm_plots$lm_sig_count_loadings <- ggplot(prof_lm_sig_count_loadings, aes(x=mut_aa, y=term, fill=estimate)) + 
     geom_tile() +
     scale_fill_gradient2() +
     theme(axis.ticks = element_blank(), panel.background = element_blank()) +
     xlab('Substituted AA') +
     ylab('LM Term') +
-    geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
-    geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
-    geom_point(data = filter(chem_env_prof_sig_count_lm_loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
+    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
+    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
     scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
-  
   
   return(
     list(tbl=chem_env,
          pca=pca,
          pca_factor_corelation=pca_factor_cors,
+         tsne=tsne,
+         lm=prof_lm,
+         lm_sig_count=prof_lm_sig_count,
          plots=c(basic_plots,
                  pca=pca_plots,
-                 tSNE=tsne_plots)
+                 tSNE=tsne_plots,
+                 lm=lm_plots)
     )
   )
 }
@@ -181,13 +199,13 @@ plot_basic_profile_analysis <- function(tbl, ...){
 
 #### Linear Model ####
 # Linear model(s) of ER ~ profile
-calc_profile_lm <- function(tbl, target_col, ..., include_sig_count=FALSE){
+calc_profile_lm <- function(tbl, target_col, ..., include_intercept=FALSE){
   target_col <- enquo(target_col)
   prof_cols <- enquos(...)
   
-  if (include_sig_count){
+  if (include_intercept){
     return(
-      select(tbl, !!target_col, sig_count, !!! prof_cols) %>%
+      select(tbl, !!target_col, !!! prof_cols) %>%
         drop_na(!!target_col) %>%
         lm(as.formula(str_c(rlang::quo_text(target_col), '~ . + 0')), data = .)
     )
@@ -200,21 +218,19 @@ calc_profile_lm <- function(tbl, target_col, ..., include_sig_count=FALSE){
   }
 }
 
-calc_all_profile_lms <- function(tbl, prof_cols, target_cols, include_sig_count=FALSE){
-  prof_cols <- enquo(prof_cols)
-  target_cols <- enquo(target_cols)
+# Currently must use vars to define multiple targets/profile columns
+calc_all_profile_lms <- function(tbl, prof_vars, target_vars,
+                                 include_intercept=FALSE){
   
-  prof_col_names <- if(is.null(prof_col_names)) get_profile_names(tbl, !!prof_col) else prof_col_names
-  tbl <- expand_profile_column(tbl, !!prof_col, names=prof_col_names)
-  all_study_lms <- gather(tbl, key = 'target', value = 'er', !!target_cols) %>%
+  all_study_lms <- gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
     group_by(target) %>%
-    do(model=calc_profile_lm(., er, !!!syms(prof_col_names), include_sig_count = include_sig_count),
+    do(model=calc_profile_lm(., er, !!! prof_vars, include_intercept = include_intercept),
        n=sum(!is.na(.$er))) %>%
     mutate(study = 'ALL')
   
-  per_study_lms <- gather(tbl, key = 'target', value = 'er', !!target_cols) %>%
+  per_study_lms <- gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
     group_by(target, study) %>%
-    do(model=calc_profile_lm(., er, !!!syms(prof_col_names), include_sig_count = include_sig_count),
+    do(model=calc_profile_lm(., er, !!! prof_vars, include_intercept = include_intercept),
        n=sum(!is.na(.$er)))
   
   return(
