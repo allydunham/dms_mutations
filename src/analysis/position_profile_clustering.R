@@ -3,6 +3,7 @@
 
 #### PCA ####
 # Generate PCA of mutational profiles
+# TODO move to new tibble_pca func in misc_utils.R
 positional_profile_PCA <- function(variant_matrix){
   pca <- prcomp(as.matrix(select(variant_matrix, A:Y)), center = TRUE, scale. = TRUE)
   pca_variants <- bind_cols(select(variant_matrix, -(A:Y)), as_tibble(pca$x))
