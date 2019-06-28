@@ -28,14 +28,16 @@ enumerate_unique_rows <- function(mat){
 
 #### Tibbles ####
 # Convert a subset of a tibble to a matrix with labeled rows
-tibble_to_matrix <- function(tbl, columns, row_names=NULL){
-  columns <- enquo(columns)
+tibble_to_matrix <- function(tbl, ..., row_names=NULL){
+  cols <- enquos(...)
+  
   if (!is.null(row_names)){
     if (length(row_names) == 1 & is.character(row_names)){
       row_names <- tbl[[row_names]]
     }
   }
-  tbl <- select(tbl, !!columns) %>%
+  
+  tbl <- select(tbl, !!! cols) %>%
     as.matrix()
   if (!is.null(row_names)){
     tbl <- set_rownames(tbl, row_names)
@@ -46,6 +48,16 @@ tibble_to_matrix <- function(tbl, columns, row_names=NULL){
 # Count the number of unique values in each column of a tibble
 col_unique_counts <- function(tbl){
   return(apply(tbl, 2, function(x){length(unique(x))}))
+}
+
+# Calc PCA based on selected columns from a tibble
+tibble_pca <- function(tbl, ...){
+  cols <- enquos(...)
+  
+  pca <- tibble_to_matrix(tbl, !!! cols) %>%
+    prcomp()
+  
+  return(pca)
 }
 
 ########
