@@ -25,9 +25,10 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
   
   num_pcs <- length(grep('^PC[0-9]*$', names(chem_env)))
   max_plot_pc <- if(num_pcs %% 2 == 0) num_pcs else num_pcs - 1 # Work around to current rigid PC plotting
+  plot_row_cols <- get_good_rows_cols(max_plot_pc/2)
   pca_plots <- plot_chem_env_basic_pca_plots(chem_env,
                                              max_pc = max_plot_pc,
-                                             nrow = 2, ncol = max_plot_pc/4,
+                                             nrow = plot_row_cols[1], ncol = plot_row_cols[2],
                                              cont_factors=c('all_atom_rel', 'relative_position', 'sig_count'),
                                              discrete_factors=c('ss', 'ss_reduced', 'aa', 'aa_reduced',
                                                                 'pdb_id', 'gene_name', 'species'))
@@ -36,7 +37,7 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
                                     .vars = vars(all_atom_abs:polar_rel, relative_position, sig_count))
                                                                         
   pca_plots <- c(pca_plots,
-                 pca_factor_heatmap(pca_factor_cors))
+                 list(factor_heatmap=pca_factor_heatmap(pca_factor_cors)))
   
   
   ## tSNE analysis of profile
@@ -56,7 +57,7 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
   
   lm_plots <- list()
   lm_plots$lm_summary <- labeled_ggplot(
-    ggplot(prof_lm, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+    ggplot(prof_lm, aes(x=target, y=r.squared, fill=-log10(p.value), label=n)) + 
       facet_wrap(~study) + 
       geom_col() + 
       geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
@@ -79,7 +80,7 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
                                             include_intercept = TRUE)
   
   lm_plots$lm_sig_count_summary <- labeled_ggplot(
-    ggplot(prof_lm_sig_count, aes(x=mut_aa, y=r.squared, fill=-log10(p.value), label=n)) + 
+    ggplot(prof_lm_sig_count, aes(x=target, y=r.squared, fill=-log10(p.value), label=n)) + 
       facet_wrap(~study) + 
       geom_col() + 
       geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
@@ -102,7 +103,7 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
     mutate(coef_df = lapply(model, tidy)) %>%
     unnest(coef_df)
   
-  lm_plots$lm_sig_count_loadings <- ggplot(prof_lm_sig_count_loadings, aes(x=mut_aa, y=term, fill=estimate)) + 
+  lm_plots$lm_sig_count_loadings <- ggplot(prof_lm_sig_count_loadings, aes(x=target, y=term, fill=estimate)) + 
     geom_tile() +
     scale_fill_gradient2() +
     theme(axis.ticks = element_blank(), panel.background = element_blank()) +
@@ -121,9 +122,10 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
          lm=prof_lm,
          lm_sig_count=prof_lm_sig_count,
          plots=c(basic_plots,
-                 pca=pca_plots,
-                 tSNE=tsne_plots,
-                 lm=lm_plots)
+                 list(pca=pca_plots,
+                      tSNE=tsne_plots,
+                      lm=lm_plots)
+         )
     )
   )
 }
