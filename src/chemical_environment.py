@@ -4,8 +4,6 @@ Module containing functions to calculate structural environment profiles of AAs
 """
 
 # TODO Tests to make sure these are producing correct profiles
-# TODO currently keeping hetero atoms doesn't work in profiles
-# (they are included in distancess but not output)
 
 import sys
 from collections import defaultdict
@@ -33,7 +31,7 @@ class ChemicalEnvironment:
         self.k_nearest_profiles = {}
         self.within_distance_profiles = {}
 
-    def select_residues(self, groups='all', drop_hetero=True):
+    def select_residues(self, groups='all'):
         """
         Select groups of residues to profile within. Accepted values for groups:
             - 'all': group all residues from all chains [default]
@@ -60,8 +58,7 @@ class ChemicalEnvironment:
             self.residues = [[r for chain in group for r in self.model[chain].get_residues()] for
                              group in groups]
 
-        if drop_hetero:
-            self.residues = [drop_hetero_atoms(r) for r in self.residues]
+        self.residues = [drop_hetero_atoms(r) for r in self.residues]
 
         self._dist_matrix_generated = False
 
@@ -186,7 +183,7 @@ def k_nearest_residues_profile(res_index, residues, distance_matrix=None, k=10):
 
     return np.array([counts[aa] for aa in protein_alphabet.letters])
 
-# TODO good distance to choose as default?
+# 10A selected as default because used in Bagley & Altman 1995
 def within_distance_profile(res_index, residues, distance_matrix=None, max_dist=10):
     """
     Calculate chemical environment of a residue as the residues within max_dist
@@ -215,7 +212,7 @@ def within_distance_profile(res_index, residues, distance_matrix=None, max_dist=
 
     return np.array([counts[aa] for aa in protein_alphabet.letters])
 
-def get_profiles(residues, profile_func=k_nearest_residues_profile, drop_hetero=True):
+def get_profiles(residues, profile_func=k_nearest_residues_profile):
     """
     Calculate chemical environment profiles for a list of residues
 
@@ -225,8 +222,7 @@ def get_profiles(residues, profile_func=k_nearest_residues_profile, drop_hetero=
 
     returns: profiles (list of np.array)
     """
-    if drop_hetero:
-        residues = drop_hetero_atoms(residues)
+    residues = drop_hetero_atoms(residues)
 
     distance_matrix = residue_distance_matrix(residues)
 
