@@ -65,6 +65,33 @@ get_avg_aa_pca_profile <- function(pca, aa_col='wt'){
   return(list(avg_profile=avg_profile, cor_mat=cor_mat, cor_tbl=cor_tbl, aa_order=aa_order))
 }
 
+plot_aa_pca_profile_average_cor <- function(pca){
+  cors <- tibble_to_matrix(pca$profiles, PC1:PC20,
+                           row_names = str_c(pca$profiles$study, pca$profiles$pos, pca$profiles$wt, sep = '~')) %>%
+    t() %>%
+    cor() %>%
+    as_tibble(rownames = 'pos1') %>%
+    gather(key = 'pos2', value = 'cor', -pos1) %>%
+    mutate(AA1 = str_sub(pos1, start = -1),
+           AA2 = str_sub(pos2, start = -1)) %>%
+    group_by(AA1, AA2) %>%
+    summarise(cor = mean(cor)) %>%
+    ungroup()
+  
+  aa_order <- spread(cors, key = AA2, value = cor) %>%
+    tibble_to_matrix(., A:Y, row_names = .$AA1)
+  aa_order <- rownames(aa_order)[hclust(dist(aa_order))$order]
+  
+  cors <- mutate(cors, AA1 = factor(AA1, levels = aa_order), AA2 = factor(AA2, levels = aa_order))
+  
+  return(
+    ggplot(cors, aes(x=AA1, y=AA2, fill=cor)) +
+      geom_tile(colour='white') + 
+      scale_fill_gradient2() +
+      theme(axis.ticks = element_blank(), panel.background = element_blank())
+  )
+}
+
 pca_factor_cor <- function(pca, .vars){
   profiles <- drop_na(pca$profiles, !!!.vars)
   
