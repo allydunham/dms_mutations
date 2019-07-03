@@ -301,3 +301,37 @@ plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name=
 }
 
 ########
+
+#### ROC Calculations ####
+calc_true_false_over_range <- function(tbl, true_col, var_col, n=100, comparison_func=function(x, y){x > y}){
+  true_col <- enquo(true_col)
+  var_col <- enquo(var_col)
+  
+  if (all(is.na(pull(tbl, !!var_col)))){
+    return(tibble(TP=NA, TN=NA, FP=NA, FN=NA))
+  }
+  
+  r <- range(pull(tbl, !!var_col), na.rm = TRUE)
+  step <- (r[2] - r[1])/n
+  
+  threshs <- seq(r[1], r[2], step)
+  bind_rows(sapply(threshs, function(x){calc_true_false(tbl, !!true_col, !!var_col, x, comparison_func)}, simplify = FALSE)) %>%
+    mutate(threshold = threshs) %>%
+    return()
+}
+
+calc_true_false <- function(tbl, true_col, var_col, threshold, comparison_func=function(x, y){x > y}){
+  true_col <- enquo(true_col)
+  var_col <- enquo(var_col)
+  
+  select(tbl, !!true_col, !!var_col) %>%
+    drop_na() %>%
+    mutate(pred = comparison_func(!!var_col, threshold),
+           TP = pred & !!true_col,
+           TN = !pred & !(!!true_col),
+           FP = pred & !(!!true_col),
+           FN = !pred & !!true_col) %>%
+    summarise_at(.vars = vars(TP, TN, FP, FN), .funs = sum, na.rm=TRUE) %>%
+    return()
+}
+########

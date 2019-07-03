@@ -510,5 +510,36 @@ combined_plots$sift$per_position_profile_cor <- ggplot(drop_na(pairwise_dists, s
   theme(legend.position = 'none')
 ########
 
+#### ROC/PR Curves ####
+study_cols <- c('variants', 'score', 'norm_score', 'evcoup_epistatic', 'evcoup_independent', 'pph2_prob', 'envision_prediction', 'sift_score')
+variants <- bind_rows(lapply(deep_variant_data, function(x){select(x$single_variants, one_of(study_cols), starts_with('foldx_'))}), .id='study') %>%
+  mutate(neutral = exp_mut_class(score, study) == 'neutral') %>%
+  mutate(xfold_ddG = tibble_to_matrix(., starts_with('foldx_')) %>% rowMeans(., na.rm = TRUE)) %>%
+  select(-starts_with('foldx_'), foldx_ddG=xfold_ddG)
+variants$foldx_ddG[is.nan(variants$foldx_ddG)] <- NA
+variants <- group_by(variants, study)
+
+study_roc_vals <- bind_rows(
+  .id = 'tool',
+  EVCouplings=do(variants, calc_true_false_over_range(., neutral, evcoup_epistatic, comparison_func = function(x, y){x > y})),
+  SIFT=do(variants, calc_true_false_over_range(., neutral, sift_score, n = 1000, comparison_func = function(x, y){x > y})),
+  FoldX=do(variants, calc_true_false_over_range(., neutral, foldx_ddG, comparison_func = function(x, y){x < y})),
+  PolyPhen2=do(variants, calc_true_false_over_range(., neutral, pph2_prob, n = 1000, comparison_func = function(x, y){x < y})),
+  Envision=do(variants, calc_true_false_over_range(., neutral, envision_prediction, comparison_func = function(x, y){x > y}))
+) %>%
+  mutate(study_roc_vals,
+         TPR = TP/(TP + FN),
+         FPR = FP/(FP + TN),
+         precision = TP/(TP + FP))
+
+combined_plots$roc_curve <- ggplot(study_roc_vals, aes(x=FPR, y=TPR, colour=study)) +
+  geom_line() +
+  facet_wrap(~tool)
+
+combined_plots$pr_curve <- ggplot(study_roc_vals, aes(x=TPR, y=precision, colour=study)) +
+  geom_line() +
+  facet_wrap(~tool)
+####
+
 # Save all study plots 
 save_plot_list(combined_plots, root='figures/2_tool_prediction_analysis/')
