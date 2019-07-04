@@ -69,9 +69,10 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
     set_names(filter(prof_lm, study=='ALL') %>% pull(target)) %>%
     bind_rows(.id = 'aa')
     
-  lm_plots$lm_predictions <- ggplot(prof_lm_preds, aes(x=er, y=.fitted, colour=.se.fit)) + 
+  lm_plots$lm_predictions <- ggplot(prof_lm_preds, aes(x=er, y=.fitted, colour=.resid)) + 
     geom_point() + 
     facet_wrap(~aa) +
+    guides(colour=guide_colourbar(title='Residual')) +
     ylab('Predicted ER') +
     xlab('ER')
   

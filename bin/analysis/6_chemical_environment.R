@@ -59,5 +59,31 @@ p_avg_profile <- select(top_bot, frac, prof_A:prof_Y) %>%
 
 ########
 
+#### Tidy plots ####
+# Select subset of models using all studies and the best, worst and two intermediate models
+lm_preds_subset <- filter(chem_env_analyses$within_10.0$lm_sig_count, study=='ALL') %>%
+  pull(model) %>%
+  lapply(augment) %>%
+  set_names(filter(chem_env_analyses$within_10.0$lm_sig_count, study=='ALL') %>% pull(target)) %>%
+  bind_rows(.id = 'aa') %>%
+  filter(aa %in% c('E', 'Y', 'N', 'C')) %>%
+  mutate(aa = c(E='Glutamate', Y='Tyrosine', N='Asparagine', C='Cysteine')[aa]) %>%
+  mutate(aa = factor(aa, levels = c('Glutamate', 'Tyrosine', 'Asparagine', 'Cysteine')))
+
+plots$within_10.0$lm$subset_lm_sig_count_predictions <- labeled_ggplot(
+  p = ggplot(lm_preds_subset, aes(x=er, y=.fitted)) + 
+    geom_point(colour='cornflowerblue', shape=20) + 
+    coord_equal() +
+    facet_wrap(~aa, nrow = 2, ncol = 2) +
+    ylab('Predicted ER') +
+    xlab('ER') +
+    theme_pubclean() +
+    theme(strip.background = element_blank(), strip.text = element_text(size=30),
+          axis.title = element_text(size=30), axis.text = element_text(size=20),
+          panel.grid.major = element_line(colour = 'lightgrey', linetype = 'dotted')),
+  width=10, height=10)
+
+#######
+
 # Save plots
 save_plot_list(plots, root='figures/6_chemical_environment/')
