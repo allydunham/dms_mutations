@@ -436,15 +436,14 @@ combined_plots$sift_foldx_correlations <- ggplot(sift_foldx_cor, aes(y=estimate,
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
   geom_hline(yintercept = 0) +
   ggtitle('Correlation between -log10(SIFT) or FoldX ddG score and abs(mutagenesis score)') +
-  #  ylim(0, 0.75) +
   xlab('') +
   ylab('Pearson Correlation Coefficient') +
   scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
-  #  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-#        strip.background = element_rect(linetype = 0),
-#        axis.line.x.bottom = element_line(linetype = 0),
-#        axis.ticks.x = element_blank())
+  theme_pubclean() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 15),
+        legend.position = 'right')
 
 combined_plots$sift_foldx_correlations <- labeled_ggplot(combined_plots$sift_foldx_correlations,
                                                                       width=9, height=7)
@@ -513,7 +512,9 @@ combined_plots$sift$per_position_profile_cor <- ggplot(drop_na(pairwise_dists, s
 #### ROC/PR Curves ####
 study_cols <- c('variants', 'score', 'norm_score', 'evcoup_epistatic', 'evcoup_independent', 'pph2_prob', 'envision_prediction', 'sift_score')
 variants <- bind_rows(lapply(deep_variant_data, function(x){select(x$single_variants, one_of(study_cols), starts_with('foldx_'))}), .id='study') %>%
-  mutate(neutral = exp_mut_class(score, study) == 'neutral') %>%
+  mutate(exp_pred = exp_mut_class(score, study),
+         neutral = exp_pred == 'neutral',
+         deleterious = exp_pred == 'deleterious') %>%
   mutate(xfold_ddG = tibble_to_matrix(., starts_with('foldx_')) %>% rowMeans(., na.rm = TRUE)) %>%
   select(-starts_with('foldx_'), foldx_ddG=xfold_ddG)
 variants$foldx_ddG[is.nan(variants$foldx_ddG)] <- NA
@@ -521,25 +522,47 @@ variants <- group_by(variants, study)
 
 study_roc_vals <- bind_rows(
   .id = 'tool',
-  EVCouplings=do(variants, calc_true_false_over_range(., neutral, evcoup_epistatic, comparison_func = function(x, y){x > y})),
-  SIFT=do(variants, calc_true_false_over_range(., neutral, sift_score, n = 1000, comparison_func = function(x, y){x > y})),
-  FoldX=do(variants, calc_true_false_over_range(., neutral, foldx_ddG, comparison_func = function(x, y){x < y})),
-  PolyPhen2=do(variants, calc_true_false_over_range(., neutral, pph2_prob, n = 1000, comparison_func = function(x, y){x < y})),
-  Envision=do(variants, calc_true_false_over_range(., neutral, envision_prediction, comparison_func = function(x, y){x > y}))
+  EVCouplings=do(variants, calc_true_false_over_range(., deleterious, evcoup_epistatic, comparison_func = function(x, y){x < y})),
+  SIFT=do(variants, calc_true_false_over_range(., deleterious, sift_score, comparison_func = function(x, y){x < y})),
+  FoldX=do(variants, calc_true_false_over_range(., deleterious, foldx_ddG, comparison_func = function(x, y){x > y})),
+  PolyPhen2=do(variants, calc_true_false_over_range(., deleterious, pph2_prob, comparison_func = function(x, y){x > y})),
+  Envision=do(variants, calc_true_false_over_range(., deleterious, envision_prediction, comparison_func = function(x, y){x < y}))
 ) %>%
-  mutate(study_roc_vals,
-         TPR = TP/(TP + FN),
+  mutate(TPR = TP/(TP + FN),
          FPR = FP/(FP + TN),
          precision = TP/(TP + FP))
+study_roc_vals$precision[is.nan(study_roc_vals$precision)] <- 0
 
 combined_plots$roc_curve <- ggplot(study_roc_vals, aes(x=FPR, y=TPR, colour=study)) +
   geom_line() +
-  facet_wrap(~tool)
+  geom_abline(slope = 1) +
+  facet_wrap(~tool) +
+  guides(colour=FALSE)
 
 combined_plots$pr_curve <- ggplot(study_roc_vals, aes(x=TPR, y=precision, colour=study)) +
   geom_line() +
-  facet_wrap(~tool)
-####
+  facet_wrap(~tool) +
+  guides(colour=FALSE) +
+  xlab('Recall') +
+  ylab('Precision')
+
+combined_plots$roc_curve_si_fx <- ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=FPR, y=TPR, colour=study)) +
+  geom_line() +
+  geom_segment(x = 0, y = 0, xend = 1, yend = 1, linetype='dotted', colour='black') +
+  facet_wrap(~tool) +
+  guides(colour=FALSE) +
+  theme_pubclean() +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 15))
+
+combined_plots$pr_curve_si_fx <- ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=TPR, y=precision, colour=study)) +
+  geom_line() +
+  facet_wrap(~tool) +
+  guides(colour=FALSE) +
+  xlab('Recall') +
+  ylab('Precision') +
+  theme_pubclean() +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 15))
+########
 
 # Save all study plots 
 save_plot_list(combined_plots, root='figures/2_tool_prediction_analysis/')

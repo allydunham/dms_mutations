@@ -303,7 +303,7 @@ plot_exp_pred_boxes <- function(tbl, y, x='exp_prediction', y_name=NULL, x_name=
 ########
 
 #### ROC Calculations ####
-calc_true_false_over_range <- function(tbl, true_col, var_col, n=100, comparison_func=function(x, y){x > y}){
+calc_true_false_over_range <- function(tbl, true_col, var_col, n=100, log_range=FALSE, comparison_func=function(x, y){x > y}){
   true_col <- enquo(true_col)
   var_col <- enquo(var_col)
   
@@ -313,8 +313,8 @@ calc_true_false_over_range <- function(tbl, true_col, var_col, n=100, comparison
   
   r <- range(pull(tbl, !!var_col), na.rm = TRUE)
   step <- (r[2] - r[1])/n
-  
   threshs <- seq(r[1], r[2], step)
+  
   bind_rows(sapply(threshs, function(x){calc_true_false(tbl, !!true_col, !!var_col, x, comparison_func)}, simplify = FALSE)) %>%
     mutate(threshold = threshs) %>%
     return()
