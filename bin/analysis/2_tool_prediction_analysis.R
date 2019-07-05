@@ -426,27 +426,37 @@ sift_foldx_cor <- bind_rows(SIFT=filter(si, study %in% fx$study),
   mutate(study_pretty = sapply(study, format_study),
          p_cat = cut(p.value, breaks = c(0, 1e-12, 1e-06, 1e-3, 0.01, 0.05, 1)))
 
-combined_plots$sift_foldx_correlations <- ggplot(sift_foldx_cor, aes(y=estimate,
-                                                                                  x=study_pretty,
-                                                                                  group=pdb_id,
-                                                                                  fill=p_cat)) + 
-  facet_wrap(~tool, ncol = 1) +
-  geom_col(position = position_dodge()) +
-  # To ylim(0,...) elegantly use sapply(conf.low, function(x){max(x, 0)})
-  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
-  geom_hline(yintercept = 0) +
-  ggtitle('Correlation between -log10(SIFT) or FoldX ddG score and abs(mutagenesis score)') +
-  xlab('') +
-  ylab('Pearson Correlation Coefficient') +
-  scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
-  theme_pubclean() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-        strip.background = element_blank(),
-        strip.text = element_text(size = 15),
-        legend.position = 'right')
+laber <- function(df){
+  return(lapply(df[,1], function(x){)[x]}))
+}
+
+combined_plots$sift_foldx_correlations <- labeled_ggplot(
+  p=ggplot(sift_foldx_cor, aes(y=estimate, x=study_pretty, group=pdb_id, fill=p_cat)) + 
+    facet_wrap(~tool, ncol = 1,
+               labeller = labeller(tool=as_labeller(x=c(SIFT="-log[10]~SIFT", FoldX="FoldX~Delta*Delta*G"),
+                                                    default = label_parsed))) +
+    geom_col(position = position_dodge()) +
+    # To ylim(0,...) elegantly use sapply(conf.low, function(x){max(x, 0)})
+    geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
+    geom_hline(yintercept = 0) +
+    ggtitle("Correlation between |ER| and predictions") +
+    xlab('') +
+    ylab('Pearson Correlation') +
+    scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
+    theme_pubclean() +
+    theme(plot.title = element_text(size=30, hjust = 0.3),
+          axis.text = element_text(size=11),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          axis.title.y = element_text(size=20),
+          legend.title = element_text(size=15),
+          legend.text = element_text(size=10),
+          legend.position = 'right',
+          strip.background = element_blank(),
+          strip.text = element_text(size = 20)),
+  width = 20, height = 20, units = 'cm')
 
 combined_plots$sift_foldx_correlations <- labeled_ggplot(combined_plots$sift_foldx_correlations,
-                                                                      width=9, height=7)
+                                                         width=9, height=7)
 
 # All tool correlations
 ev <- select(evcoup_cor_test, study, estimate, statistic, p.value, parameter, conf.low, conf.high, multi)
@@ -546,22 +556,32 @@ combined_plots$pr_curve <- ggplot(study_roc_vals, aes(x=TPR, y=precision, colour
   xlab('Recall') +
   ylab('Precision')
 
-combined_plots$roc_curve_si_fx <- ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=FPR, y=TPR, colour=study)) +
-  geom_line() +
-  geom_segment(x = 0, y = 0, xend = 1, yend = 1, linetype='dotted', colour='black') +
-  facet_wrap(~tool) +
-  guides(colour=FALSE) +
-  theme_pubclean() +
-  theme(strip.background = element_blank(), strip.text = element_text(size = 15))
+combined_plots$roc_curve_si_fx <- labeled_ggplot(
+  p=ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=FPR, y=TPR, colour=study)) +
+    geom_line() +
+    geom_segment(x = 0, y = 0, xend = 1, yend = 1, linetype='dotted', colour='black') +
+    facet_wrap(~tool) +
+    guides(colour=FALSE) +
+    theme_pubclean() +
+    theme(strip.background = element_blank(),
+          strip.text = element_text(size = 25),
+          axis.title = element_text(size = 25),
+          axis.text = element_text(size=13)),
+  height=13.75, width=19.5, units = 'cm')
 
-combined_plots$pr_curve_si_fx <- ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=TPR, y=precision, colour=study)) +
-  geom_line() +
-  facet_wrap(~tool) +
-  guides(colour=FALSE) +
-  xlab('Recall') +
-  ylab('Precision') +
-  theme_pubclean() +
-  theme(strip.background = element_blank(), strip.text = element_text(size = 15))
+combined_plots$pr_curve_si_fx <- labeled_ggplot(
+  p=ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=TPR, y=precision, colour=study)) +
+    geom_line() +
+    facet_wrap(~tool) +
+    guides(colour=FALSE) +
+    xlab('Recall') +
+    ylab('Precision') +
+    theme_pubclean() +
+    theme(strip.background = element_blank(),
+          strip.text = element_text(size = 25),
+          axis.title = element_text(size = 25),
+          axis.text = element_text(size=13)),
+  height=13.75, width=19.5, units = 'cm')
 ########
 
 # Save all study plots 
