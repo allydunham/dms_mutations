@@ -25,14 +25,16 @@ chem_env_analyses <- mapply(function(prof_col, prof_names){analyse_chem_env_prof
 
 # saveRDS(chem_env_analyses, 'data/rdata/chemical_environment_analyses.RDS')
 # 
-# # Uncomment and comment above to switch to cached version
+# # Uncomment and comment above to switch to cached version <- seems to be even slower to load...
 # # chem_env_analyses <- readRDS('data/rdata/chemical_environment_analyses.RDS')
 
 plots <- sapply(chem_env_analyses, function(x){x$plots}, simplify = FALSE)
 
-#### Specific analyses ####
-## Top/bottom environments
-# example workflow using Lysine substitutions
+#### Top/Bottom environments for substitutions ####
+# example workflow using Lysine
+# Can be incorporated in general analysis function and extended to all AAs when ready
+
+## Calc top/bottom environments
 top_5_percent <- group_by(chem_env_analyses$within_10.0$tbl, study, position, aa) %>%
   summarise_all(.funs = first) %>%
   ungroup() %>%
@@ -48,6 +50,7 @@ top_bot <- bind_rows(top_5_percent, bot_5_percent) %>%
   select(study, position, aa, pdb_id, gene_name, ss, ss_reduced, all_atom_rel, aa_reduced, relative_position,
          sig_count, A:Y, prof_A:prof_Y, PC1:PC20, tSNE1, tSNE2, frac)
 
+# Plot profile count distributions
 plots$within_10.0$lm$top_bot_K_sub_profiles <- select(top_bot, frac, prof_A:prof_Y) %>%
   gather('aa', 'count', -frac) %>%
   mutate(aa = str_sub(aa, start = -1)) %>% 
@@ -55,38 +58,7 @@ plots$within_10.0$lm$top_bot_K_sub_profiles <- select(top_bot, frac, prof_A:prof
   geom_count(position = position_dodge(0.75)) +
   scale_fill_manual(values = c(`bottom 5%`='red', `top 5%`='blue'))
 
-top_5_per_cor <- tibble_to_matrix(top_5_percent, prof_A:prof_Y) %>%
-  set_colnames(str_sub(colnames(.), start = -1)) %>%
-  cor() %>%
-  as_tibble(rownames = 'AA1') %>%
-  gather(key = 'AA2', value = 'cor', -AA1)
-
-bot_5_per_cor <- tibble_to_matrix(bot_5_percent, prof_A:prof_Y) %>%
-  set_colnames(str_sub(colnames(.), start = -1)) %>%
-  cor() %>%
-  as_tibble(rownames = 'AA1') %>%
-  gather(key = 'AA2', value = 'cor', -AA1)
-
-top_bot_cors <- bind_rows(`top 5%`=top_5_per_cor, `bottom 5%`=bot_5_per_cor, .id = 'frac')
-p_top_bot_prof_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
-  facet_wrap(~frac, nrow = 1) +
-  geom_tile() +
-  xlab('') +
-  ylab('') +
-  scale_fill_gradient2() +
-  theme(axis.ticks = element_blank(), panel.background = element_blank(),
-        strip.background = element_blank())
-  
-top_bot_rel_cors <- spread(top_bot_cors, )
-p_top_bot_prof_rel_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
-  facet_wrap(~frac, nrow = 1) +
-  geom_tile() +
-  xlab('') +
-  ylab('') +
-  scale_fill_gradient2() +
-  theme(axis.ticks = element_blank(), panel.background = element_blank(),
-        strip.background = element_blank())
-
+## Calc correlation between AA counts in profiles
 top_5_per_cor <- tibble_to_matrix(top_5_percent, prof_A:prof_Y) %>%
   set_colnames(str_sub(colnames(.), start = -1)) %>%
   cor() %>%
@@ -133,6 +105,22 @@ plots$within_10.0$lm$top_bot_k_profs_rel_cors <- ggplot(top_bot_rel_cors, aes(x=
   theme(axis.ticks = element_blank(), panel.background = element_blank(),
         strip.background = element_blank()) +
   ggtitle('Correlation in top 5% K substitutions - correlation in bottom 5%')
+
+########
+
+#### Examine best and worst predicted environments from LMs ####
+lm_preds_tbl <- filter(chem_env_analyses$within_10.0$lm_sig_count, study=='ALL') %>%
+  pull(model) %>%
+  sapply(function(x){predict(x, newdata=chem_env_analyses$within_10.0$tbl)}) %>%
+  set_colnames(str_c('sig_lm_pred_',
+                     filter(chem_env_analyses$within_10.0$lm_sig_count, study=='ALL')$target)) %>%
+  as_tibble() %>%
+  bind_cols(chem_env_analyses$within_10.0$tbl, .)
+
+# get top/bot for K sub pred
+
+# analyse
+
 ########
 
 #### Tidy plots ####

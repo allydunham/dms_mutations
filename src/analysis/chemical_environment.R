@@ -50,7 +50,8 @@ analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
                              tSNE1, tSNE2, quos(ss_reduced=ss_reduced, aa_reduced=aa_reduced, gene_name=gene_name,
                                                 sig_count=sig_count, sqrt_suf_acc=sqrt(all_atom_rel)))
   
-  ## LM analysis
+  # TODO Tidy this LM analysis into its own functions
+  ## LM analysis 
   # Just profile
   prof_lm <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms), target_vars = vars(A:Y),
                                   include_intercept = FALSE)
