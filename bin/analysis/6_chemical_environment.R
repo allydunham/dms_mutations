@@ -48,15 +48,59 @@ top_bot <- bind_rows(top_5_percent, bot_5_percent) %>%
   select(study, position, aa, pdb_id, gene_name, ss, ss_reduced, all_atom_rel, aa_reduced, relative_position,
          sig_count, A:Y, prof_A:prof_Y, PC1:PC20, tSNE1, tSNE2, frac)
 
-p_avg_profile <- select(top_bot, frac, prof_A:prof_Y) %>%
+plots$within_10.0$lm$top_bot_K_sub_profiles <- select(top_bot, frac, prof_A:prof_Y) %>%
   gather('aa', 'count', -frac) %>%
   mutate(aa = str_sub(aa, start = -1)) %>% 
-  group_by(frac, aa) %>%
-  summarise(mean=mean(count), sd=sd(count)) %>%
-  ggplot(., aes(x=aa, fill=frac, y=mean)) + 
-  geom_col(position = 'dodge') + 
-  geom_errorbar(aes(ymin = pmax(mean - sd, 0), ymax = mean + sd), position = 'dodge')
+  ggplot(., aes(x=aa, y=count, colour=frac)) + 
+  geom_count(position = position_dodge(0.75)) +
+  scale_fill_manual(values = c(`bottom 5%`='red', `top 5%`='blue'))
 
+top_5_per_cor <- tibble_to_matrix(top_5_percent, prof_A:prof_Y) %>%
+  set_colnames(str_sub(colnames(.), start = -1)) %>%
+  cor() %>%
+  as_tibble(rownames = 'AA1') %>%
+  gather(key = 'AA2', value = 'cor', -AA1)
+
+bot_5_per_cor <- tibble_to_matrix(bot_5_percent, prof_A:prof_Y) %>%
+  set_colnames(str_sub(colnames(.), start = -1)) %>%
+  cor() %>%
+  as_tibble(rownames = 'AA1') %>%
+  gather(key = 'AA2', value = 'cor', -AA1)
+
+# Correlation between AA pairs in profiles for top/bot K subs
+top_bot_cors <- bind_rows(`top 5%`=top_5_per_cor, `bottom 5%`=bot_5_per_cor, .id = 'frac')
+p_top_bot_prof_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
+  facet_wrap(~frac, nrow = 1) +
+  geom_tile() +
+  xlab('') +
+  ylab('') +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank(),
+        strip.background = element_blank()) +
+  ggtitle('Correlation between AAs in profiles for top and bottom 5% of K substitutions')
+
+# Relative correlation change top - bot
+top_bot_rel_cors <- spread(top_bot_cors, frac, cor) %>%
+  mutate(rel_cor = `top 5%` - `bottom 5%`)
+
+top_bot_rel_cor_mat <- select(top_bot_rel_cors, AA1, AA2, rel_cor) %>%
+  spread(key = AA2, value = rel_cor, ) %>%
+  tibble_to_matrix(A:Y, row_names = .$AA1)
+
+aa_order <- rownames(top_bot_rel_cor_mat)[hclust(dist(top_bot_rel_cor_mat))$order]
+
+top_bot_rel_cors <- mutate(top_bot_rel_cors,
+                              AA1 = factor(AA1, levels = aa_order),
+                              AA2 = factor(AA2, levels = aa_order))
+
+plots$within_10.0$lm$top_bot_k_profs_rel_cors <- ggplot(top_bot_rel_cors, aes(x=AA1, y=AA2, fill=rel_cor)) +
+  geom_tile() +
+  xlab('') +
+  ylab('') +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank(),
+        strip.background = element_blank()) +
+  ggtitle('Correlation in top 5% K substitutions - correlation in bottom 5%')
 ########
 
 #### Tidy plots ####
