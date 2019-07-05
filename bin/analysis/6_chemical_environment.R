@@ -67,6 +67,38 @@ bot_5_per_cor <- tibble_to_matrix(bot_5_percent, prof_A:prof_Y) %>%
   as_tibble(rownames = 'AA1') %>%
   gather(key = 'AA2', value = 'cor', -AA1)
 
+top_bot_cors <- bind_rows(`top 5%`=top_5_per_cor, `bottom 5%`=bot_5_per_cor, .id = 'frac')
+p_top_bot_prof_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
+  facet_wrap(~frac, nrow = 1) +
+  geom_tile() +
+  xlab('') +
+  ylab('') +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank(),
+        strip.background = element_blank())
+  
+top_bot_rel_cors <- spread(top_bot_cors, )
+p_top_bot_prof_rel_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
+  facet_wrap(~frac, nrow = 1) +
+  geom_tile() +
+  xlab('') +
+  ylab('') +
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank(),
+        strip.background = element_blank())
+
+top_5_per_cor <- tibble_to_matrix(top_5_percent, prof_A:prof_Y) %>%
+  set_colnames(str_sub(colnames(.), start = -1)) %>%
+  cor() %>%
+  as_tibble(rownames = 'AA1') %>%
+  gather(key = 'AA2', value = 'cor', -AA1)
+
+bot_5_per_cor <- tibble_to_matrix(bot_5_percent, prof_A:prof_Y) %>%
+  set_colnames(str_sub(colnames(.), start = -1)) %>%
+  cor() %>%
+  as_tibble(rownames = 'AA1') %>%
+  gather(key = 'AA2', value = 'cor', -AA1)
+
 # Correlation between AA pairs in profiles for top/bot K subs
 top_bot_cors <- bind_rows(`top 5%`=top_5_per_cor, `bottom 5%`=bot_5_per_cor, .id = 'frac')
 p_top_bot_prof_cors <- ggplot(top_bot_cors, aes(x=AA1, y=AA2, fill=cor)) +
