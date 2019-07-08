@@ -60,6 +60,52 @@ tibble_pca <- function(tbl, ...){
   return(pca)
 }
 
+# Calculate correlation of tibble columns
+tibble_correlation <- function(tbl, ..., filter_diag=FALSE){
+  prof_cols <- enquos(...)
+  
+  cor_mat <- tibble_to_matrix(tbl, !!! prof_cols) %>%
+    cor()
+  
+  group_order <- rownames(cor_mat)[hclust(dist(cor_mat))$order]
+  
+  cors <- as_tibble(cor_mat, rownames = 'cat1') %>%
+    gather(key = 'cat2', value = 'cor', -cat1) %>%
+    mutate(cat1 = factor(cat1, levels = group_order),
+           cat2 = factor(cat2, levels = group_order))
+  
+  if (filter_diag){
+    cors[cors$cat1 == cors$cat2, 'cor'] <- NA
+  }
+  
+  return(cors)
+}
+
+# Determine order of long factor cols based on a third col (i.e. assume it is a gathered version of a relationship matrix)
+add_factor_order <- function(tbl, col1, col2, value, sym=TRUE){
+  col1 <- enquo(col1)
+  col2 <- enquo(col2)
+  value <- enquo(value)
+  
+  mat <- select(tbl, !!col1, !!col2, !!value) %>%
+    spread(key = !!col2, value = !!value) %>%
+    tibble_to_matrix(-!!col1, row_names = pull(., !!col1))
+  
+  if (sym){
+    order1 <- rownames(mat)[hclust(dist(mat))$order]
+    order2 <- order1
+  } else {
+    mat2 <- t(mat)
+    
+    order1 <- rownames(mat)[hclust(dist(mat))$order]
+    order2 <- rownames(mat2)[hclust(dist(mat2))$order]
+  }
+  
+  return(mutate(tbl,
+                !!col1 := factor(!!col1, levels=order1),
+                !!col2 := factor(!!col2, levels=order2))
+  )
+}
 ########
 
 #### Proteins ####
