@@ -3,135 +3,6 @@
 
 SORTED_AA_1_CODE <- sort(Biostrings::AA_STANDARD)
 
-## Overall analysis of a chemical environment profile
-analyse_chem_env_profile <- function(chem_env, prof_col, prof_col_names=NULL){
-  prof_col <- enquo(prof_col)
-
-  # Fetch profile column names if none given
-  prof_col_names <- if(is.null(prof_col_names)) get_profile_names(tbl, !!prof_col) else prof_col_names
-  prof_col_syms <- syms(prof_col_names)
-  
-  chem_env <- expand_profile_column(chem_env, !!prof_col, names=prof_col_names) %>%
-    mutate(duplicate_position = duplicated(select(chem_env, pdb_id, chain, position, aa)))
-  
-  ## Basic analysis plots
-  basic_plots <- plot_basic_profile_analysis(filter(chem_env, !duplicate_position), !!! prof_col_syms) %>%
-      set_names(str_c('profile_', names(.)))
-  
-  ## PCA analysis of profile
-  pca <- tibble_pca(filter(chem_env, !duplicate_position), !!! prof_col_syms)
-  chem_env <- bind_cols(chem_env,
-                        as_tibble(scale(select(chem_env, !!! prof_col_syms), pca$center, pca$scale) %*% pca$rotation))
-  
-  num_pcs <- length(grep('^PC[0-9]*$', names(chem_env)))
-  max_plot_pc <- if(num_pcs %% 2 == 0) num_pcs else num_pcs - 1 # Work around to current rigid PC plotting
-  plot_row_cols <- get_good_rows_cols(max_plot_pc/2)
-  pca_plots <- plot_chem_env_basic_pca_plots(chem_env,
-                                             max_pc = max_plot_pc,
-                                             nrow = plot_row_cols[1], ncol = plot_row_cols[2],
-                                             cont_factors=c('all_atom_rel', 'relative_position', 'sig_count'),
-                                             discrete_factors=c('ss', 'ss_reduced', 'aa', 'aa_reduced',
-                                                                'pdb_id', 'gene_name', 'species'))
-  
-  pca_factor_cors <- pca_factor_cor(list(pca=pca, profiles=chem_env),
-                                    .vars = vars(all_atom_abs:polar_rel, relative_position, sig_count))
-                                                                        
-  pca_plots <- c(pca_plots,
-                 list(factor_heatmap=pca_factor_heatmap(pca_factor_cors)))
-  
-  
-  ## tSNE analysis of profile
-  tsne <- chem_env_tsne(chem_env, !!! prof_col_syms)
-  
-  chem_env <- bind_cols(chem_env,
-                        as_tibble(set_colnames(tsne$tsne$Y[tsne$unique_row_indeces,], c('tSNE1', 'tSNE2'))))      
-                  
-  tsne_plots <- plot_factors(filter(chem_env, !duplicate_position),
-                             tSNE1, tSNE2, quos(ss_reduced=ss_reduced, aa_reduced=aa_reduced, gene_name=gene_name,
-                                                sig_count=sig_count, sqrt_suf_acc=sqrt(all_atom_rel)))
-  
-  # TODO Tidy this LM analysis into its own functions
-  ## LM analysis 
-  # Just profile
-  prof_lm <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms), target_vars = vars(A:Y),
-                                  include_intercept = FALSE)
-  
-  lm_plots <- list()
-  lm_plots$lm_summary <- labeled_ggplot(
-    ggplot(prof_lm, aes(x=target, y=r.squared, fill=-log10(p.value), label=n)) + 
-      facet_wrap(~study) + 
-      geom_col() + 
-      geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
-    width=15, height=10)
-  
-  prof_lm_preds <- filter(prof_lm, study=='ALL') %>%
-    pull(model) %>%
-    lapply(augment) %>%
-    set_names(filter(prof_lm, study=='ALL') %>% pull(target)) %>%
-    bind_rows(.id = 'aa')
-    
-  lm_plots$lm_predictions <- ggplot(prof_lm_preds, aes(x=er, y=.fitted, colour=.resid)) + 
-    geom_point() + 
-    facet_wrap(~aa) +
-    guides(colour=guide_colourbar(title='Residual')) +
-    ylab('Predicted ER') +
-    xlab('ER')
-  
-  # significance of position added
-  prof_lm_sig_count <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms, sig_count), target_vars = vars(A:Y),
-                                            include_intercept = TRUE)
-  
-  lm_plots$lm_sig_count_summary <- labeled_ggplot(
-    ggplot(prof_lm_sig_count, aes(x=target, y=r.squared, fill=-log10(p.value), label=n)) + 
-      facet_wrap(~study) + 
-      geom_col() + 
-      geom_text(colour='red', check_overlap = FALSE, angle=90, hjust=0, vjust=0.5, nudge_y = 0.05),
-    width=15, height=10)
-  
-  prof_lm_sig_count_preds <- filter(prof_lm_sig_count, study=='ALL') %>%
-    pull(model) %>%
-    lapply(augment) %>%
-    set_names(filter(prof_lm, study=='ALL') %>% pull(target)) %>%
-    bind_rows(.id = 'aa')
-  
-  lm_plots$lm_sig_count_predictions <- ggplot(prof_lm_sig_count_preds, aes(x=er, y=.fitted, colour=.se.fit)) + 
-    geom_point() + 
-    facet_wrap(~aa) +
-    ylab('Predicted ER') +
-    xlab('ER')
-
-  prof_lm_sig_count_loadings <- filter(prof_lm_sig_count, study == 'ALL') %>%
-    select(target, model, n, r.squared) %>%
-    mutate(coef_df = lapply(model, tidy)) %>%
-    unnest(coef_df)
-  
-  lm_plots$lm_sig_count_loadings <- ggplot(prof_lm_sig_count_loadings, aes(x=target, y=term, fill=estimate)) + 
-    geom_tile() +
-    scale_fill_gradient2() +
-    theme(axis.ticks = element_blank(), panel.background = element_blank()) +
-    xlab('Substituted AA') +
-    ylab('LM Term') +
-    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
-    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
-    geom_point(data = filter(prof_lm_sig_count_loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
-    scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
-  
-  return(
-    list(tbl=chem_env,
-         pca=pca,
-         pca_factor_corelation=pca_factor_cors,
-         tsne=tsne,
-         lm=prof_lm,
-         lm_sig_count=prof_lm_sig_count,
-         plots=c(basic_plots,
-                 list(pca=pca_plots,
-                      tSNE=tsne_plots,
-                      lm=lm_plots)
-         )
-    )
-  )
-}
-
 #### Utility ####
 # generate a reduced AA profile (with similar AAs grouped) from a 20 long AA count vector
 reduce_aa_profile <- function(x){
@@ -169,36 +40,6 @@ get_profile_names <- function(tbl, col, prof_name=FALSE){
 ########
 
 #### Direct Profile analysis ####
-# ... comprises the tibble columns to make up the profile
-plot_basic_profile_analysis <- function(tbl, ...){
-  prof_cols <- enquos(...)
-    
-  num_cats <- length(prof_cols)
-  p_paired = labeled_ggplot(
-    ggpairs(tbl, columns = sapply(prof_cols, rlang::as_name),
-            lower = list(continuous=function(d, m, ...){ggplot(d, m, ...) + geom_count()})),
-    height = num_cats * 2, width = num_cats * 2, limitsize=FALSE)
-  
-  cor_mat <- tibble_to_matrix(tbl, !!! prof_cols) %>%
-    cor()
-  
-  group_order <- rownames(cor_mat)[hclust(dist(cor_mat))$order]
-  
-  cors <- as_tibble(cor_mat, rownames = 'cat1') %>%
-    gather(key = 'cat2', value = 'cor', -cat1) %>%
-    mutate(cat1 = factor(cat1, levels = group_order),
-           cat2 = factor(cat2, levels = group_order))
-  
-  p_cor <- ggplot(cors, aes(x=cat1, y=cat2, fill=cor)) +
-      geom_tile() +
-      xlab('') +
-      ylab('') +
-      scale_fill_gradient2() +
-      theme(axis.ticks = element_blank(), panel.background = element_blank())
-  
-  return(list(scatter_pairs = p_paired,
-              cor_heatmap = p_cor))
-}
 ########
 
 #### Linear Model ####
@@ -207,7 +48,7 @@ calc_profile_lm <- function(tbl, target_col, ..., include_intercept=FALSE){
   target_col <- enquo(target_col)
   prof_cols <- enquos(...)
   
-  if (include_intercept){
+  if (!include_intercept){
     return(
       select(tbl, !!target_col, !!! prof_cols) %>%
         drop_na(!!target_col) %>%
@@ -224,25 +65,68 @@ calc_profile_lm <- function(tbl, target_col, ..., include_intercept=FALSE){
 
 # Currently must use vars to define multiple targets/profile columns
 calc_all_profile_lms <- function(tbl, prof_vars, target_vars,
-                                 include_intercept=FALSE){
+                                 include_intercept=FALSE, per_study=FALSE){
   
-  all_study_lms <- gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
+  lms <- gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
     group_by(target) %>%
-    do(model=calc_profile_lm(., er, !!! prof_vars, include_intercept = include_intercept),
-       n=sum(!is.na(.$er))) %>%
-    mutate(study = 'ALL')
-  
-  per_study_lms <- gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
-    group_by(target, study) %>%
     do(model=calc_profile_lm(., er, !!! prof_vars, include_intercept = include_intercept),
        n=sum(!is.na(.$er)))
   
+  if (per_study){
+    lms <- mutate(lms, study == 'ALL') %>%
+      bind_rows(.,
+                gather(tbl, key = 'target', value = 'er', !!! target_vars) %>%
+                  group_by(target, study) %>%
+                  do(model=calc_profile_lm(., er, !!! prof_vars, include_intercept = include_intercept),
+                     n=sum(!is.na(.$er)))
+    )
+  }
+  
   return(
-    bind_rows(all_study_lms, per_study_lms) %>%
-      unnest(n) %>%
+      unnest(lms, n) %>%
       mutate(summary = lapply(model, glance)) %>%
       unnest(summary)
   )
+}
+
+# Plot basic LM analysis
+basic_prof_lm_plots <- function(lm_tbl){
+  p_summary <- labeled_ggplot(
+    ggplot(lm_tbl, aes(x=target, y=r.squared, fill=-log10(p.value), label=str_c('n = ', n))) + 
+      geom_col() + 
+      geom_text(colour='white', y = 0 + max(lm_tbl$r.squared)/100, check_overlap = FALSE, angle=90, hjust=0, vjust=0.5),
+    width=15, height=10)
+  
+  preds <- pull(lm_tbl, model) %>%
+    lapply(augment) %>%
+    set_names(lm_tbl$target) %>%
+    bind_rows(.id = 'aa')
+  
+  p_predictions <- ggplot(preds, aes(x=er, y=.fitted, colour=.resid)) + 
+    geom_point() + 
+    facet_wrap(~aa) +
+    guides(colour=guide_colourbar(title='Residual')) +
+    ylab('Predicted ER') +
+    xlab('ER')
+  
+  loadings <- select(lm_tbl, target, model, n, r.squared) %>%
+    mutate(coef_df = lapply(model, tidy)) %>%
+    unnest(coef_df)
+  
+  p_loadings <- ggplot(loadings, aes(x=target, y=term, fill=estimate)) + 
+    geom_tile() +
+    scale_fill_gradient2() +
+    theme(axis.ticks = element_blank(), panel.background = element_blank()) +
+    xlab('Substituted AA') +
+    ylab('LM Term') +
+    geom_point(data = filter(loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
+    geom_point(data = filter(loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
+    geom_point(data = filter(loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+    scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
+
+  return(list(fit_summary=p_summary,
+              predictions=p_predictions,
+              loadings=p_loadings))
 }
 ########
 
