@@ -42,6 +42,17 @@ secondary_structure <- sapply(dms_data, function(x){if(!identical(NA, x$secondar
   mutate(ss_reduced = SS_REDUCED_HASH[ss])
 saveRDS(secondary_structure, 'data/rdata/position_secondary_structure.RDS')
 
+# Parse FoldX data for all structures
+foldx_preds <- sapply(dms_data, function(x){if (!identical(x$foldx, NA)) bind_rows(x$foldx, .id='pdb_id') else NULL}, simplify = FALSE) %>%
+  bind_rows(.id = 'study') %>%
+  filter(sapply(variants, str_count, pattern=',') == 0) %>%
+  mutate(wt = str_sub(variants, end = 1),
+         mut = str_sub(variants, start = -1),
+         position = str_sub(variants, start = 2, end = -2)) %>% 
+  select(-variants) %>%
+  select(study, pdb_id, position, wt, mut, everything())
+saveRDS(foldx_preds, 'data/rdata/all_foldx.RDS')
+
 # Chemical environment profiles
 chemical_environments <- sapply(dms_data,
                                 function(x){if(!identical(NA, x$chem_env)){if(!identical(NA, x$chem_env$combine_long)){x$chem_env$combine_long}}},
