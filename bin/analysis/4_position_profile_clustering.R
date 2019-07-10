@@ -41,6 +41,71 @@ plots <- list_modify(plots, pca=sapply(pca_surf_cor, function(x){list(pca_surf_a
 # }, simplify = FALSE))
 ########
 
+#### K means clustering ####
+n <- 3
+kmean_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
+  do(kmean = make_kmeans_clusters(., A:Y, n=n))
+
+kmean_tbl <- map_dfr(kmean_clusters$kmean, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+kmean_cluster_summaries <- group_by(kmean_tbl, cluster) %>%
+  summarise_at(., .vars = vars(A:Y), .funs = mean)
+
+kmean_cluster_cors <- transpose_tibble(kmean_cluster_summaries, cluster, name_col = 'aa') %>%
+  tibble_correlation(-aa) %>%
+  rename(cluster1 = cat1, cluster2 = cat2) %>%
+  mutate(wt1 = str_sub(cluster1, end = 1),
+         wt2 = str_sub(cluster2, end = 1))
+
+plots$kmeans$kmeans_centre_cor <- labeled_ggplot(
+  p = ggplot(kmean_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    ggtitle(str_c('Correlation of Kmeans cluster centroids (n = ', n, ') for clusters of AA position based on ER')) + 
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_cors$cluster1), end = 1)],
+                                     angle = 90, vjust = 0.5),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_cors$cluster2), end = 1)])),
+  width = 10, height = 10)
+########
+
+#### hclust ####
+h <- 18
+hclust_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
+  do(hclust = make_hclust_clusters(., A:Y, h = h))
+
+hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+hclust_cluster_summaries <- group_by(hclust_tbl, cluster) %>%
+  summarise_at(., .vars = vars(A:Y), .funs = mean)
+
+hclust_cluster_cors <- transpose_tibble(hclust_cluster_summaries, cluster, name_col = 'aa') %>%
+  tibble_correlation(-aa) %>%
+  rename(cluster1 = cat1, cluster2 = cat2) %>%
+  mutate(wt1 = str_sub(cluster1, end = 1),
+         wt2 = str_sub(cluster2, end = 1))
+
+plots$kmeans$hclust_centre_cor <- labeled_ggplot(
+  p = ggplot(hclust_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    ggtitle(str_c('Correlation of hclust cluster centroids (h = ', h, ') for clusters of AA position based on ER')) + 
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster1), end = 1)],
+                                     angle = 90, vjust = 0.5),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster2), end = 1)])),
+  width = 10, height = 10)
+
+########
+
 #### Tidy plots ####
 plots$pca$sig_positions$poster_surf_acc <- labeled_ggplot(
   p=ggplot(drop_na(variant_pcas$sig_positions$profiles, all_atom_abs),

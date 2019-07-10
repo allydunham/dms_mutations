@@ -139,3 +139,29 @@ per_aa_pcas <- function(aa, variant_matrix){
   return(c(basic_plots, pc_surface_acc_heatmap=surface_heatmap))
 }
 ########
+
+#### kmeans ####
+make_kmeans_clusters <- function(tbl, cols, n=5, ...){
+  cols <- enquo(cols)
+  
+  mat <- tibble_to_matrix(tbl, !!cols)
+  
+  km <- kmeans(mat, centers = n, ...)
+  
+  return(list(tbl=mutate(tbl, cluster = km$cluster),
+              kmeans=km))
+}
+########
+
+#### hclust ####
+make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL, k = NULL, ...){
+  cols <- enquo(cols)
+  
+  mat <- tibble_to_matrix(tbl, !!cols)
+  
+  hc <- hclust(dist(mat, method = dist_method), ...)
+  
+  return(list(tbl = mutate(tbl, cluster = cutree(hc, k = k, h = h)),
+              hclust = hc))
+}
+########
