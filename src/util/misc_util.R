@@ -45,6 +45,16 @@ tibble_to_matrix <- function(tbl, ..., row_names=NULL){
   return(tbl)
 }
 
+# Transpose tibble
+transpose_tibble <- function(tbl, col, name_col = 'rows'){
+  col <- enquo(col)
+  
+  tibble_to_matrix(tbl, -!!col, row_names = pull(tbl, !!col)) %>%
+    t() %>%
+    as_tibble(rownames = name_col) %>%
+    return()
+}
+
 # Count the number of unique values in each column of a tibble
 col_unique_counts <- function(tbl){
   return(apply(tbl, 2, function(x){length(unique(x))}))
