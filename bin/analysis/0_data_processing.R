@@ -48,7 +48,7 @@ foldx_preds <- sapply(dms_data, function(x){if (!identical(x$foldx, NA)) bind_ro
   filter(sapply(variants, str_count, pattern=',') == 0) %>%
   mutate(wt = str_sub(variants, end = 1),
          mut = str_sub(variants, start = -1),
-         position = str_sub(variants, start = 2, end = -2)) %>% 
+         position = as.integer(str_sub(variants, start = 2, end = -2))) %>% 
   select(-variants) %>%
   select(study, pdb_id, position, wt, mut, everything())
 saveRDS(foldx_preds, 'data/rdata/all_foldx.RDS')
