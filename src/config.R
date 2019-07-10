@@ -40,6 +40,15 @@ AA_REDUCED_CLASSES <- list(Aliphatic=c('A', 'I', 'L', 'M', 'V'),
 AA_REDUCED_HASH <- structure(rep(names(AA_REDUCED_CLASSES), times=sapply(AA_REDUCED_CLASSES, length)),
                              names=unlist(AA_REDUCED_CLASSES))
 
+## AA colours, based roughly on groups
+AA_COLOURS <- c(A='red', I='salmon', L='firebrick', M='orange', V='tomato',
+             F='gold', W='yellow', Y='khaki',
+             N='cadetblue1', C='cornflowerblue', Q='cyan', S='blue', T='darkslateblue',
+             R='green', H='green4', K='seagreen1',
+             D='purple', E='pink',
+             G='antiquewhite2', P='black')
+
+
 # Manual deleterious thresholds per dms study
 MANUAL_THRESHOLDS <- c(araya_2012_yap1=-2, ashenberg_2016_nucleoprotein=-1, brenan_2016_erk2=-0.5, findlay_2018_brca1=-1,
                        firnberg_2014_tem1=-1.5, giacomelli_2018_tp53.p53_null_etoposide=-1, giacomelli_2018_tp53.p53_null_nutlin3=-0.75,
