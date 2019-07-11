@@ -42,7 +42,7 @@ AA_REDUCED_HASH <- structure(rep(names(AA_REDUCED_CLASSES), times=sapply(AA_REDU
 
 ## AA colours, based roughly on groups
 AA_COLOURS <- c(A='red', I='salmon', L='firebrick', M='orange', V='tomato',
-             F='gold', W='yellow', Y='khaki',
+             F='gold', W='yellow3', Y='khaki3',
              N='cadetblue1', C='cornflowerblue', Q='cyan', S='blue', T='darkslateblue',
              R='green', H='green4', K='seagreen1',
              D='purple', E='pink',
