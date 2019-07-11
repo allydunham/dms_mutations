@@ -90,7 +90,7 @@ hclust_cluster_cors <- transpose_tibble(hclust_cluster_summaries, cluster, name_
   mutate(wt1 = str_sub(cluster1, end = 1),
          wt2 = str_sub(cluster2, end = 1))
 
-plots$hclust$hclust_centre_cor <- labeled_ggplot(
+plots$kmeans$hclust_centre_cor <- labeled_ggplot(
   p = ggplot(hclust_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
     geom_tile() +
     scale_fill_gradient2() +
