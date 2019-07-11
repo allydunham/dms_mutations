@@ -14,13 +14,13 @@ chemical_environments <- readRDS('data/rdata/position_chemical_environments.RDS'
   mutate_at(.vars = vars(one_of(c('nearest_10', 'within_10.0'))),
             .funs = list(reduced=~sapply(., reduce_aa_profile, simplify = FALSE)))
 
-# chem_env_profiles <- c('nearest_10', 'nearest_10_reduced', 'within_10.0', 'within_10.0_reduced')
-# chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE),
-#                                    str_c('prof_', names(AA_REDUCED_CLASSES)),
-#                                    str_c('prof_', SORTED_AA_1_CODE),
-#                                    str_c('prof_', names(AA_REDUCED_CLASSES)))
-chem_env_profiles <- 'within_10.0'
-chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE))
+chem_env_profiles <- c('nearest_10', 'nearest_10_reduced', 'within_10.0', 'within_10.0_reduced')
+chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE),
+                                   str_c('prof_', names(AA_REDUCED_CLASSES)),
+                                   str_c('prof_', SORTED_AA_1_CODE),
+                                   str_c('prof_', names(AA_REDUCED_CLASSES)))
+# chem_env_profiles <- 'within_10.0'
+# chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE))
 
 chem_env_analyses <- list()
 plots <- list()
@@ -98,27 +98,41 @@ for (i in 1:length(chem_env_profiles)){
   prof_plots$lm[['er_profile_sig_count']] <- basic_prof_lm_plots(prof_lm_sig)
   
   # Predict sig count from profile
-  sig_count_lm <- calc_profile_lm(chem_env, target_col = sig_count, prof_A:prof_Y, include_intercept = TRUE)
+  sig_count_lm <- calc_profile_lm(chem_env, target_col=sig_count, !!!prof_col_syms, include_intercept = FALSE)
+  summ <- summary(sig_count_lm)
   
   prof_plots$lm[['sig_count']] <- list()
-  prof_plots$lm$sig_count$preds <- ggplot(augment(sig_count_lm), aes(x=sig_count, y=.fitted, colout=.resid)) +
+  prof_plots$lm$sig_count$preds <- ggplot(augment(sig_count_lm), aes(x=sig_count, y=.fitted, colour=.resid)) +
     geom_point() + 
+    geom_smooth(method = 'lm') +
     guides(colour=guide_colourbar(title='Residual')) +
     ylab('Predicted # Significant Substitutions') +
-    xlab('# Significant Substitutions')
+    xlab('# Significant Substitutions') +
+    geom_text(label = str_c('r^2 = ', signif(summ$r.squared, 4)), x=15, y=1, hjust = 0)
   
-  prof_plots$lm$sig_count$loadings <- ggplot(tidy(sig_count_lm), aes(x=target, y=term, fill=estimate)) + 
+  loadings <- tidy(sig_count_lm) %>% mutate(x=1)
+  prof_plots$lm$sig_count$loadings <- ggplot(loadings, aes(x=x, y=term, fill=estimate)) + 
     geom_tile() +
     scale_fill_gradient2() +
     theme(axis.ticks = element_blank(), panel.background = element_blank()) +
-    xlab('Substituted AA') +
-    ylab('LM Term') +
-    geom_point(data = filter(loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
-    geom_point(data = filter(loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
-    geom_point(data = filter(loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+    xlab('') +
+    ylab('LM Term') + 
     scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
-  
-  # Save results and plots for specific analysis
+    
+  if (any(loadings$p.value < 0.0001)){
+    prof_plots$lm$sig_count$loadings <- prof_plots$lm$sig_count$loadings +
+      geom_point(data = filter(loadings, p.value < 0.0001), aes(shape='p < 0.0001'))
+  }
+  if (any(loadings$p.value < 0.001 & loadings$p.value > 0.0001)){
+    prof_plots$lm$sig_count$loadings <- prof_plots$lm$sig_count$loadings +
+      geom_point(data = filter(loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001'))
+  }
+  if (any(loadings$p.value < 0.01 & loadings$p.value > 0.001)){
+    prof_plots$lm$sig_count$loadings <- prof_plots$lm$sig_count$loadings +
+      geom_point(data = filter(loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01'))
+  }
+    
+  ## Save results and plots for specific analysis
   plots[[prof_col]] <- prof_plots
   chem_env_analyses[[prof_col]] <- list(tbl=chem_env,
                                         pca=pca,
@@ -188,9 +202,9 @@ plots$within_10.0$lm$top_bot_k_profs_rel_cors <- ggplot(top_bot_rel_cors, aes(x=
 ########
 
 #### Examine best and worst predicted environments from LMs ####
-lm_preds_tbl <- pull(chem_env_analyses$within_10.0$lm,model) %>%
+lm_preds_tbl <- pull(chem_env_analyses$within_10.0$lm_er,model) %>%
   sapply(function(x){predict(x, newdata=chem_env_analyses$within_10.0$tbl)}) %>%
-  set_colnames(str_c('pred_', chem_env_analyses$within_10.0$lm$target)) %>%
+  set_colnames(str_c('pred_', chem_env_analyses$within_10.0$lm_er$target)) %>%
   as_tibble() %>%
   bind_cols(chem_env_analyses$within_10.0$tbl, .)
 
@@ -210,13 +224,13 @@ pred_top_bot <- bind_rows(pred_top_5_percent, pred_bot_5_percent) %>%
   select(frac, study, position, aa, pdb_id, gene_name, ss, ss_reduced, all_atom_rel, aa_reduced, relative_position,
          sig_count, A:Y, prof_A:prof_Y, PC1:PC20, tSNE1, tSNE2, pred_A:pred_Y)
 
-plots$within_10.0$lm$profile_only$top_bot_pred_K_sub_profiles <- select(pred_top_bot, frac, prof_A:prof_Y) %>%
+plots$within_10.0$lm$er_profile_only$top_bot_pred_K_sub_profiles <- select(pred_top_bot, frac, prof_A:prof_Y) %>%
   gather('aa', 'count', -frac) %>%
   mutate(aa = str_sub(aa, start = -1)) %>% 
   ggplot(., aes(x=aa, y=count, colour=frac)) + 
   geom_count(position = position_dodge(0.75)) +
   scale_fill_manual(values = c(`bottom 5%`='red', `top 5%`='blue'))
-plots$within_10.0$lm$profile_only$top_bot_pred_K_sig_count <- ggplot(pred_top_bot, aes(x=frac, y=sig_count, colour=frac)) + 
+plots$within_10.0$lm$er_profile_only$top_bot_pred_K_sig_count <- ggplot(pred_top_bot, aes(x=frac, y=sig_count, colour=frac)) + 
   geom_boxplot() +
   scale_fill_manual(values = c(`bottom 5%`='red', `top 5%`='blue'))
 
@@ -237,7 +251,7 @@ chem_env_foldx_top_bot <- bind_rows(
                     simplify = FALSE) %>% bind_rows(),
   .id = 'frac')
 
-plots$within_10.0$lm$profile_only$fx_top_bot_dist <- labeled_ggplot(
+plots$within_10.0$lm$er_profile_only$fx_top_bot_dist <- labeled_ggplot(
   p = ggplot(gather(chem_env_foldx_top_bot, key = 'term', value = 'energy', total_energy:entropy_complex),
                             aes(x=mut, y=energy, colour=frac)) +
   geom_boxplot() +
@@ -260,7 +274,7 @@ chem_env_foldx_top_bot_rel_summary <- gather(chem_env_foldx_top_bot_summary, key
 #  mutate(top_bot_ratio = sapply(top_bot_ratio, function(x){if (is.finite(x)) x else NA})) %>%
 #  spread(key = sum, value = top_bot_ratio)
 
-plots$within_10.0$lm$profile_only$fx_top_bot_means <- labeled_ggplot(
+plots$within_10.0$lm$er_profile_only$fx_top_bot_means <- labeled_ggplot(
   p=ggplot(filter(chem_env_foldx_top_bot_rel_summary, sum=='mean'),
                                                              aes(x=`bottom 5%`, y=`top 5%`, label=mut)) +
   geom_text() +
@@ -269,7 +283,7 @@ plots$within_10.0$lm$profile_only$fx_top_bot_means <- labeled_ggplot(
   ggtitle('Mean FoldX energy of terms in the top/bottom 5% of predicted substitutions for each AA (LM without sig_count)'),
 width=12, height=12)
 
-plots$within_10.0$lm$profile_only$fx_top_bot_medians <- labeled_ggplot(
+plots$within_10.0$lm$er_profile_only$fx_top_bot_medians <- labeled_ggplot(
   p=ggplot(filter(chem_env_foldx_top_bot_rel_summary, sum=='median'),
            aes(x=`bottom 5%`, y=`top 5%`, label=mut)) +
     geom_text() +
@@ -302,9 +316,9 @@ p <- gather(tbl, key = 'mut', value = 'er', A:Y) %>%
 
 #### Tidy plots ####
 # Select subset of models using all studies and the best, worst and two intermediate models
-plots$within_10.0$lm$sig_count$poster_subset_predictions <- pull(chem_env_analyses$within_10.0$lm_sig, model) %>%
+plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions <- pull(chem_env_analyses$within_10.0$lm_er_sig, model) %>%
   lapply(augment) %>%
-  set_names(pull(chem_env_analyses$within_10.0$lm_sig,target)) %>%
+  set_names(pull(chem_env_analyses$within_10.0$lm_er_sig,target)) %>%
   bind_rows(.id = 'aa') %>%
   filter(aa %in% c('E', 'Y', 'N', 'C')) %>%
   mutate(aa = c(E='Glutamate', Y='Tyrosine', N='Asparagine', C='Cysteine')[aa]) %>%
@@ -319,7 +333,7 @@ plots$within_10.0$lm$sig_count$poster_subset_predictions <- pull(chem_env_analys
       theme(strip.background = element_blank(), strip.text = element_text(size=30),
             axis.title = element_text(size=30), axis.text = element_text(size=20),
             panel.grid.major = element_line(colour = 'lightgrey', linetype = 'dotted'))
-plots$within_10.0$lm$sig_count$poster_subset_predictions <- labeled_ggplot(p = plots$within_10.0$lm$sig_count$poster_subset_predictions,
+plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions <- labeled_ggplot(p = plots$within_10.0$lm$sig_count$poster_subset_predictions,
                                                                            units='in', width=10, height=10)
 #######
 
