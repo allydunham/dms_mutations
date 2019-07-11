@@ -89,21 +89,43 @@ for (i in 1:length(chem_env_profiles)){
   prof_lm <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms), target_vars = vars(A:Y),
                                   include_intercept = TRUE, per_study = FALSE)
   
-  prof_plots$lm[['profile_only']] <- basic_prof_lm_plots(prof_lm)
+  prof_plots$lm[['er_profile_only']] <- basic_prof_lm_plots(prof_lm)
   
   # Add significance of position
   prof_lm_sig <- calc_all_profile_lms(chem_env, prof_vars = vars(!!! prof_col_syms, sig_count), target_vars = vars(A:Y),
                                       include_intercept = FALSE, per_study = FALSE)
   
-  prof_plots$lm[['sig_count']] <- basic_prof_lm_plots(prof_lm_sig)
+  prof_plots$lm[['er_profile_sig_count']] <- basic_prof_lm_plots(prof_lm_sig)
+  
+  # Predict sig count from profile
+  sig_count_lm <- calc_profile_lm(chem_env, target_col = sig_count, prof_A:prof_Y, include_intercept = TRUE)
+  
+  prof_plots$lm[['sig_count']] <- list()
+  prof_plots$lm$sig_count$preds <- ggplot(augment(sig_count_lm), aes(x=sig_count, y=.fitted, colout=.resid)) +
+    geom_point() + 
+    guides(colour=guide_colourbar(title='Residual')) +
+    ylab('Predicted # Significant Substitutions') +
+    xlab('# Significant Substitutions')
+  
+  prof_plots$lm$sig_count$loadings <- ggplot(tidy(sig_count_lm), aes(x=target, y=term, fill=estimate)) + 
+    geom_tile() +
+    scale_fill_gradient2() +
+    theme(axis.ticks = element_blank(), panel.background = element_blank()) +
+    xlab('Substituted AA') +
+    ylab('LM Term') +
+    geom_point(data = filter(loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
+    geom_point(data = filter(loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
+    geom_point(data = filter(loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+    scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20))
   
   # Save results and plots for specific analysis
   plots[[prof_col]] <- prof_plots
   chem_env_analyses[[prof_col]] <- list(tbl=chem_env,
                                         pca=pca,
                                         tsne=tsne,
-                                        lm=prof_lm,
-                                        lm_sig=prof_lm_sig)
+                                        lm_er=prof_lm,
+                                        lm_er_sig=prof_lm_sig,
+                                        lm_sig=sig_count_lm)
 }
 
 #### Top/Bottom environments for substitutions ####
