@@ -9,6 +9,7 @@ import pandas as pd
 from smart_open import smart_open
 
 # TODO enforce expected types of fields
+# TODO move meta data to general class properties?
 
 DM_FILE_VERSION = '2.1.0'
 RE_NUMERIC = re.compile(r'^-?[0-9]+(\.[0-9]+)?$')
@@ -41,6 +42,22 @@ class DeepMut:
         for key, value in self.required_metadata.items():
             if not key in self.meta_data.keys():
                 self.meta_data[key] = value
+
+    def generate_study_id(self):
+        """
+        Generate a standardised id to refer to the dataset
+        """
+        authour = self.meta_data['authour'].split()[0]
+        year = self.meta_data['year']
+        gene = self.meta_data['gene_name']
+
+        study_id = f'{authour}_{year}_{gene}'
+
+        if 'group' in self.meta_data.keys() and self.meta_data['group'] is not None:
+            study_id = f"{study_id}_{self.meta_data['group']}"
+
+        study_id = study_id.replace('-', '_').lower()
+        return study_id
 
     def print_head(self, num=5):
         """Print meta_data and the head of variant_data in a readable format"""
