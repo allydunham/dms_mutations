@@ -53,6 +53,11 @@ foldx_preds <- sapply(dms_data, function(x){if (!identical(x$foldx, NA)) bind_ro
   select(study, pdb_id, position, wt, mut, everything())
 saveRDS(foldx_preds, 'data/rdata/all_foldx.RDS')
 
+# Backbone angles for all structures
+backbone_angles <- sapply(dms_data, function(x){if(!identical(NA, x$backbone_angles)){x$backbone_angles}}, simplify = FALSE) %>%
+  bind_rows(.id = 'study')
+saveRDS(backbone_angles, 'data/rdata/backbone_angles.RDS')
+
 # Chemical environment profiles
 chemical_environments <- sapply(dms_data,
                                 function(x){if(!identical(NA, x$chem_env)){if(!identical(NA, x$chem_env$combine_long)){x$chem_env$combine_long}}},

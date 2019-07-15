@@ -45,6 +45,8 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
   
   chem_env <- read_all_chemical_environment(dm$pdb_id, root_dir)
   
+  phi_psi <- read_all_phi_psi(dm$pdb_id, root_dir)
+  
   # If dataset is given per codon take mean per codon
   if (per_codon){
     dm <- adjust_dm_per_codon(dm, norm_factor)
@@ -66,6 +68,7 @@ import_dm_predictions_dataset <- function(dm_file, per_codon=FALSE){
                       surface_accesibility=naccess,
                       secondary_structure=secondary_structure,
                       chem_env=chem_env,
+                      backbone_angles=phi_psi,
                       norm_factor=norm_factor,
                       manual_threshold=unname(MANUAL_THRESHOLDS[dataset_name]))
   
@@ -183,10 +186,14 @@ combine_dms_predictions.multi_variant <- function(x){
   return(x)
 }
 
+########
+
 #### SIFT ####
 read_sift_predictions <- function(filepath){
   return(read_tsv(filepath, col_names = c('variant', 'sift_prediction', 'sift_score', 'sift_median', 'num_seq', 'align_count')))
 }
+
+########
 
 #### FoldX ####
 
@@ -250,6 +257,8 @@ adjust_foldx_per_codon <- function(x){
   )
 }
 
+########
+
 #### Envision ####
 ENVISION_COLS <- cols(.default = col_double(), id2 = col_character(), AA1 = col_character(),
                       AA2 = col_character(), position = col_integer(), Uniprot = col_character(),
@@ -286,6 +295,8 @@ read_envision_predictions <- function(filepath, variant_filter=NULL){
   return(env)
 }
 
+########
+
 #### Polyphen2 ####
 PPH_COLS = cols(o_pos=col_integer(),pos=col_integer(),pph2_prob=col_double(),pph2_FPR=col_double(),
                 pph2_TPR=col_double(),pph2_FDR=col_double(),dScore=col_double(),Score1=col_double(),Score2=col_double(),
@@ -303,6 +314,8 @@ read_polyphen2_predictions <- function(filepath){
   return(pph)
 }
 
+########
+
 #### EVCouplings ####
 read_evcouplings_predictions <- function(filepath){
   return(read_csv(filepath, col_types = cols(mutant = col_character(), .default = col_double())))
@@ -317,6 +330,8 @@ adjust_evcouplings_per_codon <- function(x){
       select(-position)
   )
 }
+
+########
 
 #### naccess ####
 read_all_accesibility <- function(pdb_ids, root){
@@ -387,6 +402,8 @@ read_naccess_rsa <- function(filepath, pdb_chain=NULL){
 }
 
 
+########
+
 #### Secondary Structure ####
 read_secondary_structure <- function(root, dm){
   seq_preds <- read_ss8(str_c(root, '/', dm$gene_name, '.fa.ss8'))
@@ -417,6 +434,8 @@ read_ss8 <- function(path){
       rename_all(.funs = str_to_lower)
   )
 }
+
+########
 
 #### Chemical environment ####
 read_all_chemical_environment <- function(pdb_ids, root_dir, ext='.chem_env'){
@@ -452,3 +471,18 @@ read_chemical_environment <- function(path){
     mutate_at(.vars = vars(-pdb_id, -chain, -group, -position, -aa), .funs = ~ lapply(., as.integer)) %>%
     return()
 }
+
+########
+
+#### Backbone angles ####
+read_all_phi_psi <- function(pdb_ids, root_dir, ext='.bb_angles'){
+  if (identical(pdb_ids, NA)){
+    return(NA)
+  }
+  
+  pdb_ids <- str_split(pdb_ids, ':', simplify = TRUE)[,1]
+  sapply(pdb_ids, function(x){read_tsv(str_c(root_dir, '/', x, '/', x, ext))}, simplify = FALSE) %>%
+    bind_rows() %>%
+    return()
+}
+########
