@@ -6,7 +6,7 @@ source('src/analysis/position_profile_clustering.R')
 
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS')
-
+backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
 plots <- list()
 
 #### PCA Analysis ####
@@ -49,6 +49,16 @@ kmean_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
 kmean_tbl <- map_dfr(kmean_clusters$kmean, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
+kmean_angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
+                          select(kmean_tbl, study, pos, wt, cluster),
+                          by = c('study', 'pos', 'wt')) %>%
+  drop_na(cluster) %>%
+  mutate(cluster_num = str_sub(cluster, start=-1))
+
+plots$kmeans$ramachandran <- ggplot(kmean_angles, aes(x=phi, y=psi, colour=cluster_num)) +
+  geom_point() +
+  facet_wrap(~wt)
+
 kmean_cluster_summaries <- group_by(kmean_tbl, cluster) %>%
   summarise_at(., .vars = vars(A:Y), .funs = mean)
 
@@ -80,6 +90,16 @@ hclust_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
 
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
+
+hclust_angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
+                          select(hclust_tbl, study, pos, wt, cluster),
+                          by = c('study', 'pos', 'wt')) %>%
+  drop_na(cluster) %>%
+  mutate(cluster_num = str_sub(cluster, start=-1))
+
+plots$hclust$ramachandran <- ggplot(hclust_angles, aes(x=phi, y=psi, colour=cluster_num)) +
+  geom_point() +
+  facet_wrap(~wt)
 
 hclust_cluster_summaries <- group_by(hclust_tbl, cluster) %>%
   summarise_at(., .vars = vars(A:Y), .funs = mean)
