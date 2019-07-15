@@ -48,16 +48,6 @@ def make_ss_vector(ss_target, key=None):
 
     return [1 if x == ss_target else 0 for x in key]
 
-def unpack_pdb_id(pdb_id_str):
-    """Unpack a coded PDB string from the dm file format"""
-    spl = pdb_id_str.split(':')
-
-    pdb_id, chain = spl[0:2]
-    offset = int(spl[2]) if len(spl) > 2 else 0
-
-    return pdb_id, chain, offset
-
-
 def main(args):
     """Main script"""
     if args.dm:
@@ -71,7 +61,7 @@ def main(args):
                     pdbs_ids = [pdbs_ids]
 
                 for pdb_id in pdbs_ids:
-                    pdb_id, chain, offset = unpack_pdb_id(pdb_id)
+                    pdb_id, chain, offset = dmt.unpack_pdb_id(pdb_id)
                     pdb_file = f'{dirname(dm_path)}/{pdb_id}/{pdb_id}.pdb'
 
                     print(f'-- {pdb_id} chain {chain}... ', file=sys.stderr)
@@ -104,9 +94,6 @@ def main(args):
                 outfile = f"{dirname(path)}/{basename(path).replace('.pdb', '.ss8')}"
                 with open(outfile, 'w') as outfile:
                     write_ss8(path, chain, outfile=outfile)
-
-
-
 
 def parse_args():
     """Process input arguments"""

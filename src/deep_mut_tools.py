@@ -202,7 +202,14 @@ def weak_numeric_conversion(var):
 
     return var
 
+def unpack_pdb_id(pdb_id_str):
+    """Unpack a coded PDB string from the dm file format"""
+    spl = pdb_id_str.split(':')
 
+    pdb_id, chain = spl[0:2]
+    offset = int(spl[2]) if len(spl) > 2 else 0
+
+    return pdb_id, chain, offset
 
 if __name__ == "__main__":
     TEST = read_deep_mut('/Users/ally/Projects/mutations/data/standardised/'
