@@ -14,13 +14,13 @@ chemical_environments <- readRDS('data/rdata/position_chemical_environments.RDS'
   mutate_at(.vars = vars(one_of(c('nearest_10', 'within_10.0'))),
             .funs = list(reduced=~sapply(., reduce_aa_profile, simplify = FALSE)))
 
-chem_env_profiles <- c('nearest_10', 'nearest_10_reduced', 'within_10.0', 'within_10.0_reduced')
-chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE),
-                                   str_c('prof_', names(AA_REDUCED_CLASSES)),
-                                   str_c('prof_', SORTED_AA_1_CODE),
-                                   str_c('prof_', names(AA_REDUCED_CLASSES)))
-# chem_env_profiles <- 'within_10.0'
-# chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE))
+# chem_env_profiles <- c('nearest_10', 'nearest_10_reduced', 'within_10.0', 'within_10.0_reduced')
+# chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE),
+#                                    str_c('prof_', names(AA_REDUCED_CLASSES)),
+#                                    str_c('prof_', SORTED_AA_1_CODE),
+#                                    str_c('prof_', names(AA_REDUCED_CLASSES)))
+chem_env_profiles <- 'within_10.0'
+chem_env_profile_col_names <- list(str_c('prof_', SORTED_AA_1_CODE))
 
 chem_env_analyses <- list()
 plots <- list()
