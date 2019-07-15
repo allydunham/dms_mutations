@@ -173,6 +173,9 @@ def read_deep_mut_header(path):
 
                 meta[key] = weak_numeric_conversion(meta[key])
 
+                if meta[key] == 'NA':
+                    meta[key] = None
+
             elif line[0] == '?':
                 break
 
