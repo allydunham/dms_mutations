@@ -27,7 +27,7 @@ syncr () {
 
 if [ $# -eq 0 ]
    then
-   folders=( "data" "meta" "figures" )
+   folders=( "data" "meta" "figures" "test" )
 else
    folders=( "$@" )
 fi
