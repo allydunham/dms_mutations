@@ -90,6 +90,11 @@ variant_matrices$all_variants <- bind_rows(lapply(dms_data, make_var_matrix, sco
   left_join(., rename(secondary_structure, wt=aa) %>%
                rename_at(vars(-study, -pos, -wt, -ss, -ss_reduced), .funs= ~ str_c('ss_prob_', .)),
             by=c('study', 'wt', 'pos')) %>%
+  left_join(., drop_na(backbone_angles, phi, psi) %>%
+              group_by(study, aa, position) %>% 
+              summarise(phi = first(phi), psi = first(psi)) %>%
+              rename(pos = position, wt = aa),
+            by = c("study", "pos", "wt")) %>%
   select(-factor, -norm_thresh) %>%
   mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
            select(A:Y) %>%
@@ -103,6 +108,11 @@ variant_matrices$norm_all_variants <- bind_rows(lapply(dms_data, make_var_matrix
   left_join(., rename(secondary_structure, wt=aa) %>%
                rename_at(vars(-study, -pos, -wt, -ss, -ss_reduced), .funs= ~ str_c('ss_prob_', .)),
             by=c('study', 'wt', 'pos')) %>%
+  left_join(., drop_na(backbone_angles, phi, psi) %>%
+              group_by(study, aa, position) %>% 
+              summarise(phi = first(phi), psi = first(psi)) %>%
+              rename(pos = position, wt = aa),
+            by = c("study", "pos", "wt")) %>%
   select(-factor, -thresh, thresh = norm_thresh) %>%
   mutate(sig_count = mutate_at(., .vars = vars(A:Y), .funs = list(~ . < thresh)) %>%
            select(A:Y) %>%
