@@ -93,15 +93,13 @@ plot_aa_pca_profile_average_cor <- function(pca){
 }
 
 pca_factor_cor <- function(pca, .vars){
-  profiles <- drop_na(pca$profiles, !!!.vars)
-  
-  pcas_mat <- select(profiles, starts_with('PC')) %>% 
+  pcas_mat <- select(pca$profiles, starts_with('PC')) %>% 
     as.matrix()
   
-  factor_mat <- select(profiles, !!!.vars) %>% 
+  factor_mat <- select(pca$profiles, !!!.vars) %>% 
     as.matrix()
   
-  cor_mat <- cor(pcas_mat, factor_mat)
+  cor_mat <- cor(pcas_mat, factor_mat, use = 'pairwise.complete.obs')
   
   cor_tbl <- cor_mat %>%
     as_tibble(rownames = 'PC') %>%
