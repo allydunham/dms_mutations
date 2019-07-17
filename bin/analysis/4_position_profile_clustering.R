@@ -30,9 +30,9 @@ plots <- list_modify(plots, pca=sapply(avg_AA_pca_profiles, aa_profile_heatmap, 
 #                                       simplify = FALSE))
 
 # Corelation between PCs and surface accesibility
-pca_surf_cor <- sapply(variant_pcas, pca_factor_cor, simplify = FALSE, .vars = vars(all_atom_abs:polar_rel))
+pca_factor_cors <- sapply(variant_pcas, pca_factor_cor, simplify = FALSE, .vars = vars(all_atom_abs:polar_rel, psi, phi))
 
-plots <- list_modify(plots, pca=sapply(pca_surf_cor, function(x){list(pca_surf_acc_cor_heatmap=pca_factor_heatmap(x))}, simplify = FALSE))
+plots <- list_modify(plots, pca=sapply(pca_factor_cors, function(x){list(pca_factor_cor_heatmap=pca_factor_heatmap(x))}, simplify = FALSE))
 
 # # Per AA PCAs #
 # AAs <- sort(unique(variant_matrices$all_variants$wt))
