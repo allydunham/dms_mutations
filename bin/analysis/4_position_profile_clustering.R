@@ -6,7 +6,10 @@ source('src/analysis/position_profile_clustering.R')
 
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS')
+foldx <- readRDS('data/rdata/all_foldx.RDS')
 backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
+data("BLOSUM62")
+
 plots <- list()
 
 #### PCA Analysis ####
@@ -81,6 +84,52 @@ plots$kmeans$kmeans_centre_cor <- labeled_ggplot(
                                      angle = 90, vjust = 0.5),
           axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_cors$cluster2), end = 1)])),
   width = 10, height = 10)
+
+# Hclust Fx params
+kmean_foldx <- group_by(foldx, study, position, wt) %>%
+  summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
+  rename(pos=position) %>%
+  inner_join(kmean_tbl, ., by=c('study', 'pos', 'wt')) %>%
+  select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
+
+plots$kmeans$cluster_foldx_boxes <- labeled_ggplot(
+  p=ggplot(gather(kmean_foldx, key = 'term', value = 'ddG', total_energy:entropy_complex),
+                                           aes(x=cluster, y=ddG, colour=wt)) +
+  scale_colour_manual(values = AA_COLOURS) +
+  geom_boxplot() +
+  facet_wrap(~term, scales = 'free', ncol = 2) +
+  guides(colour=FALSE) +
+  theme(panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(kmean_foldx$cluster), end = 1)],
+                                   angle = 90, vjust = 0.5)),
+  units = 'cm', width = 30, height = 80)
+
+kmean_foldx_cluster_mean_energy <- gather(kmean_foldx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
+  select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
+  group_by(cluster, foldx_term) %>%
+  summarise(ddG = mean(ddG)) %>%
+  group_by(foldx_term) %>%
+  mutate(max_ddG = max(abs(ddG))) %>%
+  filter(max_ddG != 0) %>% # Filter any terms that are all 0
+  ungroup() %>%
+  mutate(rel_ddG = ddG/max_ddG) %>%
+  add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE)
+
+plots$kmeans$cluster_avg_foldx_profile <- labeled_ggplot(
+  p=ggplot(kmean_foldx_cluster_mean_energy,
+                                                 aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  ggtitle('Mean FoldX energy terms for each Kmeans dms profile cluster') + 
+  coord_fixed() +
+  theme(plot.title = element_text(hjust = 0.5, size=8),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_foldx_cluster_mean_energy$cluster), end = 1)])),
+  units = 'cm', width = 10, height = 20)
 ########
 
 #### hclust ####
@@ -110,7 +159,7 @@ hclust_cluster_cors <- transpose_tibble(hclust_cluster_summaries, cluster, name_
   mutate(wt1 = str_sub(cluster1, end = 1),
          wt2 = str_sub(cluster2, end = 1))
 
-plots$kmeans$hclust_centre_cor <- labeled_ggplot(
+plots$hclust$hclust_centre_cor <- labeled_ggplot(
   p = ggplot(hclust_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
     geom_tile() +
     scale_fill_gradient2() +
@@ -123,6 +172,63 @@ plots$kmeans$hclust_centre_cor <- labeled_ggplot(
                                      angle = 90, vjust = 0.5),
           axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster2), end = 1)])),
   width = 10, height = 10)
+
+# Hclust vs Blosum
+hclust_cluster_cors <- left_join(hclust_cluster_cors,
+                                 as_tibble(BLOSUM62, rownames='wt1') %>%
+                                   gather(key = 'wt2', value = 'BLOSUM62', -wt1) %>%
+                                   filter(wt1 %in% Biostrings::AA_STANDARD, wt2 %in% Biostrings::AA_STANDARD),
+                                 by=c('wt1', 'wt2'))
+
+plots$hclust$avg_profile_vs_blosum <- ggplot(filter(hclust_cluster_cors, cor < 1), aes(x=cor, y=BLOSUM62)) +
+  geom_point() +
+  geom_smooth(method = 'lm')
+
+# Hclust Fx params
+hclust_foldx <- group_by(foldx, study, position, wt) %>%
+  summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
+  rename(pos=position) %>%
+  inner_join(hclust_tbl, ., by=c('study', 'pos', 'wt')) %>%
+  select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
+
+plots$hclust$cluster_foldx_boxes <- labeled_ggplot(
+  p=ggplot(gather(hclust_foldx, key = 'term', value = 'ddG', total_energy:entropy_complex),
+                                           aes(x=cluster, y=ddG, colour=wt)) +
+  scale_colour_manual(values = AA_COLOURS) +
+  geom_boxplot() +
+  facet_wrap(~term, scales = 'free', ncol = 2) +
+  guides(colour=FALSE) +
+  theme(panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(hclust_foldx$cluster), end = 1)],
+                                   angle = 90, vjust = 0.5)),
+  units = 'cm', width = 30, height = 80)
+
+hclust_foldx_cluster_mean_energy <- gather(hclust_foldx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
+  select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
+  group_by(cluster, foldx_term) %>%
+  summarise(ddG = mean(ddG)) %>%
+  group_by(foldx_term) %>%
+  mutate(max_ddG = max(abs(ddG))) %>%
+  filter(max_ddG != 0) %>% # Filter any terms that are all 0
+  ungroup() %>%
+  mutate(rel_ddG = ddG/max_ddG) %>%
+  add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE)
+
+plots$hclust$cluster_avg_foldx_profile <- labeled_ggplot(
+  p=ggplot(hclust_foldx_cluster_mean_energy,
+                                                 aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  ggtitle('Mean FoldX energy terms for each Hclust dms profile cluster') + 
+  coord_fixed() +
+  theme(plot.title = element_text(hjust = 0.5, size=8),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_foldx_cluster_mean_energy$cluster), end = 1)])),
+  units='cm', height=20, width=10)
 
 ########
 
@@ -173,12 +279,11 @@ plots$pca$sig_positions$poster_aa_profile_heatmap <- labeled_ggplot(
   width = 8, height = 6)
 
 # Comparison between avg AA PCA profile and blosum62
-data("BLOSUM62")
-
 aa_prof_blosum <- as_tibble(BLOSUM62, rownames='AA1') %>%
   gather(key = 'AA2', value = 'BLOSUM62', -AA1) %>%
   filter(AA1 %in% Biostrings::AA_STANDARD, AA2 %in% Biostrings::AA_STANDARD) %>%
-  left_join(., avg_AA_pca_profiles$sig_positions$cor_tbl, by=c('AA1', 'AA2'))
+  left_join(., mutate(avg_AA_pca_profiles$sig_positions$cor_tbl, AA1 = as.character(AA1), AA2 = as.character(AA2)),
+            by=c('AA1', 'AA2'))
 
 plots$pca$sig_positions$avg_aa_profile_blosum_cor <- ggplot(aa_prof_blosum, aes(x=cor, y=BLOSUM62)) +
   geom_point()
