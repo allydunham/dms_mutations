@@ -129,7 +129,10 @@ variant_matrices$sig_single_variants <- filter(variant_matrices$sig_positions, s
 variant_matrices$norm_single_variants <- filter(variant_matrices$norm_all_variants, single)
 variant_matrices$norm_sig_single_variants <- filter(variant_matrices$norm_sig_positions, single)
 
-imputed_matrices <- sapply(variant_matrices, impute_variant_profiles, background_matrix=variant_matrices$all_variants, simplify=FALSE)
+imputed_matrices <- mapply(impute_variant_profiles, variant_matrices,
+                           list(variant_matrices$all_variants, variant_matrices$norm_all_variants, variant_matrices$all_variants,
+                                variant_matrices$norm_all_variants, variant_matrices$all_variants, variant_matrices$all_variants,
+                                variant_matrices$norm_all_variants, variant_matrices$norm_all_variants), SIMPLIFY = FALSE)
 
 saveRDS(variant_matrices, 'data/rdata/all_study_position_matrices.RDS')
 saveRDS(imputed_matrices, 'data/rdata/all_study_imputed_position_matrices.RDS')
