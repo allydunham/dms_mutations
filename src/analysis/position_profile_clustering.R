@@ -1,6 +1,8 @@
 #!/usr/bin/env Rscript 
 # Functions to perform clustering analysis on per position mutational profiles from deep mutagenesis studies
 
+data("BLOSUM62")
+
 #### PCA ####
 # Generate PCA of mutational profiles
 # TODO move to new tibble_pca func in misc_utils.R
@@ -162,4 +164,165 @@ make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL,
   return(list(tbl = mutate(tbl, cluster = cutree(hc, k = k, h = h)),
               hclust = hc))
 }
+########
+
+#### Cluster analysis ####
+# Expects a tbl with a columns:
+# study - deep mut study
+# pos - position in protein
+# wt - wt AA at that position
+# cluster - cluster assignment of the position
+
+# backbone_angles = tbl giving psi/phi for each study/pdb_id/chain/aa/position combo
+# foldx = tbl giving FoldX derived energy terms for deep mut positions
+
+cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str='<UNKNOWN>', er_str='<UNKNOWN>'){
+  # Ramachandran Plot
+  if (!is.null(backbone_angles)){
+    angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
+                        select(tbl, study, pos, wt, cluster),
+                        by = c('study', 'pos', 'wt')) %>%
+      drop_na(cluster) %>%
+    mutate(cluster_num = str_sub(cluster, start=-1))
+
+    p_ramachandran <- ggplot(angles, aes(x=phi, y=psi, colour=cluster_num)) +
+      geom_point() +
+      facet_wrap(~wt)
+  } else {
+    angles <- NULL
+    p_ramachandran <- NULL
+  }
+  
+  # Cluster mean profiles
+  mean_profiles <- group_by(tbl, cluster) %>%
+    summarise_at(.vars = vars(A:Y), .funs = mean)
+
+  mean_prof_long <- gather(mean_profiles, key='mut', value = 'norm_er', -cluster) %>%
+    add_factor_order(cluster, mut, norm_er, sym=FALSE)
+
+  p_mean_prof <- labeled_ggplot(
+    p=ggplot(mean_prof_long, aes(x=mut, y=cluster, fill=norm_er)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    coord_fixed() +
+    ggtitle(str_c('Cluster centroid', er_str, 'for', cluster_str, 'clusters', sep = ' ')) +
+    guides(fill=guide_colourbar(title = er_str)) +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[levels(mean_prof_long$mut)]),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(mean_prof_long$cluster), end = 1)])),
+    units = 'cm', width = 0.5*length(unique(mean_prof_long$mut)) + 4,
+    height = 0.5*length(unique(mean_prof_long$cluster)) + 2, limitsize=FALSE)
+
+  # Cluster mean profile correlation
+  cluster_cors <- transpose_tibble(mean_profiles, cluster, name_col = 'aa') %>%
+    tibble_correlation(-aa) %>%
+    rename(cluster1 = cat1, cluster2 = cat2) %>%
+    mutate(wt1 = str_sub(cluster1, end = 1),
+           wt2 = str_sub(cluster2, end = 1)) %>%
+    left_join(as_tibble(BLOSUM62, rownames='wt1') %>%
+                              gather(key = 'wt2', value = 'BLOSUM62', -wt1) %>%
+                              filter(wt1 %in% Biostrings::AA_STANDARD, wt2 %in% Biostrings::AA_STANDARD),
+                            by=c('wt1', 'wt2')) %>%
+    mutate(pair = mapply(function(x, y){str_c(str_sort(c(x, y)), collapse = '')}, wt1, wt2))
+  
+  p_centre_cor <- labeled_ggplot(
+    p = ggplot(cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
+      geom_tile() +
+      scale_fill_gradient2() +
+      ggtitle(str_c('Correlation of', cluster_str, 'centroids for clusters based on', er_str, sep = ' ')) +
+      coord_fixed() +
+      theme(axis.ticks = element_blank(),
+            panel.background = element_blank(),
+            axis.title = element_blank(),
+            axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(cluster_cors$cluster1), end = 1)], angle = 90, vjust = 0.5),
+            axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(cluster_cors$cluster2), end = 1)])),
+    units = 'cm', width = 0.5*length(levels(cluster_cors$cluster1)) + 2,
+    height = 0.5*length(levels(cluster_cors$cluster2)) + 2, limitsize=FALSE)
+
+  # Vs Blosum
+  p_vs_blosum <- plot_cluster_profile_cor_blosum(cluster_cors, 'DE')
+
+  # FoldX params
+  if (!is.null(foldx)){
+    tbl_fx <- group_by(foldx, study, position, wt) %>%
+      summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
+      rename(pos=position) %>%
+      inner_join(tbl, ., by=c('study', 'pos', 'wt')) %>%
+      select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
+    
+    p_foldx_boxes <- labeled_ggplot(
+    p=ggplot(gather(tbl_fx, key = 'term', value = 'ddG', total_energy:entropy_complex),
+             aes(x=cluster, y=ddG, colour=wt)) +
+      scale_colour_manual(values = AA_COLOURS) +
+      geom_boxplot() +
+      facet_wrap(~term, scales = 'free', ncol = 2) +
+      guides(colour=FALSE) +
+      ggtitle(str_c('FoldX energy term distribution for ', cluster_str, 'clusters (', er_str, ')')) +
+      theme(panel.background = element_blank(),
+            axis.title = element_blank(),
+            axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(tbl_fx$cluster), end = 1)],
+                                       angle = 90, vjust = 0.5)),
+    units = 'cm', width = length(unique(tbl_fx$cluster)) + 5, height = 80)
+    
+    foldx_cluster_mean_energy <- gather(tbl_fx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
+      select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
+      group_by(cluster, foldx_term) %>%
+      summarise(ddG = mean(ddG)) %>%
+      group_by(foldx_term) %>%
+      mutate(max_ddG = max(abs(ddG))) %>%
+      filter(max_ddG != 0) %>% # Filter any terms that are all 0
+      ungroup() %>%
+      mutate(rel_ddG = ddG/max_ddG) %>%
+      add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE)
+
+  p_cluster_avg_foldx_profile <- labeled_ggplot(
+    p=ggplot(foldx_cluster_mean_energy,
+             aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
+      geom_tile() +
+      scale_fill_gradient2() +
+      ggtitle(str_c('Mean FoldX energy terms for each ', cluster_str, ' cluster (', er_str, ')')) +
+      coord_fixed() +
+      theme(plot.title = element_text(hjust = 0.5, size=8),
+            axis.ticks = element_blank(),
+            panel.background = element_blank(),
+            axis.title = element_blank(),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+            axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(foldx_cluster_mean_energy$cluster), end = 1)])),
+    units='cm', height=0.4 * length(unique(tbl_fx$cluster)) + 5, width=13, limitsize=FALSE)
+  } else {
+    tbl_fx <- NULL
+    foldx_cluster_mean_energy <- NULL
+    p_foldx_boxes <- NULL
+    p_cluster_avg_foldx_profile <- NULL
+  }
+  
+  return(list(angles=angles,
+              mean_profiles=mean_profiles,
+              foldx=tbl_fx,
+              foldx_cluster_mean_energy=foldx_cluster_mean_energy,
+              plots=list(ramachandran=p_ramachandran,
+                         mean_profiles=p_mean_prof,
+                         mean_profile_vs_blosum=p_vs_blosum,
+                         mean_profile_cor=p_centre_cor,
+                         foldx_term_distribution=p_foldx_boxes,
+                         foldx_cluster_mean_profile=p_cluster_avg_foldx_profile)))
+
+
+  
+
+}
+
+plot_cluster_profile_cor_blosum <- function(cluster_cors, aa_pair='DE'){
+  return(
+    ggplot(filter(cluster_cors, cor < 1), aes(x=cor, y=BLOSUM62)) +
+      geom_point(aes(colour='All')) +
+      geom_point(aes(colour=aa_pair), filter(cluster_cors, cor < 1, pair == aa_pair)) +
+      geom_smooth(method = 'lm') +
+      scale_colour_manual(values = structure(c('red', 'black'), names=c(aa_pair, 'All'))) +
+      guides(colour = guide_legend(title = 'AA Pair'))
+  )
+}
+
 ########

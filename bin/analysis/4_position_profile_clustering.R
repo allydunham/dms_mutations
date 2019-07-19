@@ -52,184 +52,22 @@ kmean_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
 kmean_tbl <- map_dfr(kmean_clusters$kmean, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-kmean_angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
-                          select(kmean_tbl, study, pos, wt, cluster),
-                          by = c('study', 'pos', 'wt')) %>%
-  drop_na(cluster) %>%
-  mutate(cluster_num = str_sub(cluster, start=-1))
-
-plots$kmeans$ramachandran <- ggplot(kmean_angles, aes(x=phi, y=psi, colour=cluster_num)) +
-  geom_point() +
-  facet_wrap(~wt)
-
-kmean_cluster_summaries <- group_by(kmean_tbl, cluster) %>%
-  summarise_at(., .vars = vars(A:Y), .funs = mean)
-
-kmean_cluster_cors <- transpose_tibble(kmean_cluster_summaries, cluster, name_col = 'aa') %>%
-  tibble_correlation(-aa) %>%
-  rename(cluster1 = cat1, cluster2 = cat2) %>%
-  mutate(wt1 = str_sub(cluster1, end = 1),
-         wt2 = str_sub(cluster2, end = 1))
-
-plots$kmeans$kmeans_centre_cor <- labeled_ggplot(
-  p = ggplot(kmean_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    ggtitle(str_c('Correlation of Kmeans cluster centroids (n = ', n, ') for clusters of AA position based on ER')) + 
-    coord_fixed() +
-    theme(axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          axis.title = element_blank(),
-          axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_cors$cluster1), end = 1)],
-                                     angle = 90, vjust = 0.5),
-          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_cors$cluster2), end = 1)])),
-  width = 10, height = 10)
-
-# Hclust Fx params
-kmean_foldx <- group_by(foldx, study, position, wt) %>%
-  summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
-  rename(pos=position) %>%
-  inner_join(kmean_tbl, ., by=c('study', 'pos', 'wt')) %>%
-  select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
-
-plots$kmeans$cluster_foldx_boxes <- labeled_ggplot(
-  p=ggplot(gather(kmean_foldx, key = 'term', value = 'ddG', total_energy:entropy_complex),
-                                           aes(x=cluster, y=ddG, colour=wt)) +
-  scale_colour_manual(values = AA_COLOURS) +
-  geom_boxplot() +
-  facet_wrap(~term, scales = 'free', ncol = 2) +
-  guides(colour=FALSE) +
-  theme(panel.background = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(kmean_foldx$cluster), end = 1)],
-                                   angle = 90, vjust = 0.5)),
-  units = 'cm', width = 30, height = 80)
-
-kmean_foldx_cluster_mean_energy <- gather(kmean_foldx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
-  select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
-  group_by(cluster, foldx_term) %>%
-  summarise(ddG = mean(ddG)) %>%
-  group_by(foldx_term) %>%
-  mutate(max_ddG = max(abs(ddG))) %>%
-  filter(max_ddG != 0) %>% # Filter any terms that are all 0
-  ungroup() %>%
-  mutate(rel_ddG = ddG/max_ddG) %>%
-  add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE)
-
-plots$kmeans$cluster_avg_foldx_profile <- labeled_ggplot(
-  p=ggplot(kmean_foldx_cluster_mean_energy,
-                                                 aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
-  geom_tile() +
-  scale_fill_gradient2() +
-  ggtitle('Mean FoldX energy terms for each Kmeans dms profile cluster') + 
-  coord_fixed() +
-  theme(plot.title = element_text(hjust = 0.5, size=8),
-        axis.ticks = element_blank(),
-        panel.background = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_foldx_cluster_mean_energy$cluster), end = 1)])),
-  units = 'cm', width = 10, height = 20)
+kmean_analysis <- cluster_analysis(kmean_tbl, backbone_angles = backbone_angles, foldx = foldx, er_str = 'Norm ER',
+                                    cluster_str = str_c('Kmean, n = ', n))
+plots$kmean <- kmean_analysis$plots
 ########
 
 #### hclust ####
-h <- 18
+h <- 8
 hclust_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
   do(hclust = make_hclust_clusters(., A:Y, h = h))
 
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-hclust_angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
-                          select(hclust_tbl, study, pos, wt, cluster),
-                          by = c('study', 'pos', 'wt')) %>%
-  drop_na(cluster) %>%
-  mutate(cluster_num = str_sub(cluster, start=-1))
-
-plots$hclust$ramachandran <- ggplot(hclust_angles, aes(x=phi, y=psi, colour=cluster_num)) +
-  geom_point() +
-  facet_wrap(~wt)
-
-hclust_cluster_summaries <- group_by(hclust_tbl, cluster) %>%
-  summarise_at(., .vars = vars(A:Y), .funs = mean)
-
-hclust_cluster_cors <- transpose_tibble(hclust_cluster_summaries, cluster, name_col = 'aa') %>%
-  tibble_correlation(-aa) %>%
-  rename(cluster1 = cat1, cluster2 = cat2) %>%
-  mutate(wt1 = str_sub(cluster1, end = 1),
-         wt2 = str_sub(cluster2, end = 1))
-
-plots$hclust$hclust_centre_cor <- labeled_ggplot(
-  p = ggplot(hclust_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    ggtitle(str_c('Correlation of hclust cluster centroids (h = ', h, ') for clusters of AA position based on ER')) + 
-    coord_fixed() +
-    theme(axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          axis.title = element_blank(),
-          axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster1), end = 1)],
-                                     angle = 90, vjust = 0.5),
-          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster2), end = 1)])),
-  width = 10, height = 10)
-
-# Hclust vs Blosum
-hclust_cluster_cors <- left_join(hclust_cluster_cors,
-                                 as_tibble(BLOSUM62, rownames='wt1') %>%
-                                   gather(key = 'wt2', value = 'BLOSUM62', -wt1) %>%
-                                   filter(wt1 %in% Biostrings::AA_STANDARD, wt2 %in% Biostrings::AA_STANDARD),
-                                 by=c('wt1', 'wt2'))
-
-plots$hclust$avg_profile_vs_blosum <- ggplot(filter(hclust_cluster_cors, cor < 1), aes(x=cor, y=BLOSUM62)) +
-  geom_point() +
-  geom_smooth(method = 'lm')
-
-# Hclust Fx params
-hclust_foldx <- group_by(foldx, study, position, wt) %>%
-  summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
-  rename(pos=position) %>%
-  inner_join(hclust_tbl, ., by=c('study', 'pos', 'wt')) %>%
-  select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
-
-plots$hclust$cluster_foldx_boxes <- labeled_ggplot(
-  p=ggplot(gather(hclust_foldx, key = 'term', value = 'ddG', total_energy:entropy_complex),
-                                           aes(x=cluster, y=ddG, colour=wt)) +
-  scale_colour_manual(values = AA_COLOURS) +
-  geom_boxplot() +
-  facet_wrap(~term, scales = 'free', ncol = 2) +
-  guides(colour=FALSE) +
-  theme(panel.background = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(hclust_foldx$cluster), end = 1)],
-                                   angle = 90, vjust = 0.5)),
-  units = 'cm', width = 30, height = 80)
-
-hclust_foldx_cluster_mean_energy <- gather(hclust_foldx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
-  select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
-  group_by(cluster, foldx_term) %>%
-  summarise(ddG = mean(ddG)) %>%
-  group_by(foldx_term) %>%
-  mutate(max_ddG = max(abs(ddG))) %>%
-  filter(max_ddG != 0) %>% # Filter any terms that are all 0
-  ungroup() %>%
-  mutate(rel_ddG = ddG/max_ddG) %>%
-  add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE)
-
-plots$hclust$cluster_avg_foldx_profile <- labeled_ggplot(
-  p=ggplot(hclust_foldx_cluster_mean_energy,
-                                                 aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
-  geom_tile() +
-  scale_fill_gradient2() +
-  ggtitle('Mean FoldX energy terms for each Hclust dms profile cluster') + 
-  coord_fixed() +
-  theme(plot.title = element_text(hjust = 0.5, size=8),
-        axis.ticks = element_blank(),
-        panel.background = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_foldx_cluster_mean_energy$cluster), end = 1)])),
-  units='cm', height=20, width=10)
-
+hclust_analysis <- cluster_analysis(hclust_tbl, backbone_angles = backbone_angles, foldx = foldx, er_str = 'Norm ER',
+                                    cluster_str = str_c('Hclust, h = ', h))
+plots$hclust <- hclust_analysis$plots
 ########
 
 #### Tidy plots ####
