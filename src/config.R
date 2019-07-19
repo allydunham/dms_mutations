@@ -46,7 +46,7 @@ AA_COLOURS <- c(A='red', I='salmon', L='firebrick', M='orange', V='tomato',
              N='cadetblue1', C='cornflowerblue', Q='cyan', S='blue', T='darkslateblue',
              R='green', H='green4', K='seagreen1',
              D='purple', E='pink',
-             G='antiquewhite2', P='black')
+             G='antiquewhite2', P='black', X='grey')
 
 
 # Manual deleterious thresholds per dms study
