@@ -165,10 +165,10 @@ plot_sec_struct_pca <- function(tbl){
     positional_profile_PCA()
   
   plots <- list()
-  plots$ah_pcs <- plot_all_pcs(ah_pca$variants, colour_var = 'sig_count')
-  plots$bs_pcs <- plot_all_pcs(bs_pca$variants, colour_var = 'sig_count')
-  plots$bs_orientation <- plot_beta_sheet_orientation(bs_pca$variants, cols=quo(PC1:PC20))
-  plots <- c(plots, plot_alpha_helix_dist_plots(ah_pca$variants, cols=quo(PC1:PC20)))
+  plots$ah_pcs <- plot_all_pcs(ah_pca$profiles, colour_var = 'sig_count')
+  plots$bs_pcs <- plot_all_pcs(bs_pca$profiles, colour_var = 'sig_count')
+  plots$bs_orientation <- plot_beta_sheet_orientation(bs_pca$profiles, cols=quo(PC1:PC20))
+  plots <- c(plots, plot_alpha_helix_dist_plots(ah_pca$profiles, cols=quo(PC1:PC20)))
   
   return(plots)
 }

@@ -100,6 +100,7 @@ plots <- list_modify(plots, !!!sapply(variant_matrices,
 
 plots <- list_modify(plots, sapply(variant_matrices, plot_secondary_structure_profile,
                                    a_helix_propensity=a_helix_propensity, simplify = FALSE))
+
 plots$alpha_helix_lengths <- ggplot(variant_matrices$all_variants %>%
                                       group_by(alpha_helix) %>%
                                       summarise(length = max(alpha_helix_position)),
