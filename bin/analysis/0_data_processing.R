@@ -136,3 +136,17 @@ imputed_matrices <- mapply(impute_variant_profiles, variant_matrices,
 
 saveRDS(variant_matrices, 'data/rdata/all_study_position_matrices.RDS')
 saveRDS(imputed_matrices, 'data/rdata/all_study_imputed_position_matrices.RDS')
+
+# Load SIFT scores
+sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_5.tab') %>%
+  rename(wt=ref, mut=alt) %>%
+  spread(key = mut, value = score)
+saveRDS(sift, 'data/rdata/human_sift.RDS')
+
+sift_reduced <- read_tsv('data/mutfunc/human/conservation/sift_parsed_5.tab') %>%
+  rename(wt=ref, mut=alt) %>%
+  filter(acc %in% sample(.$acc, 100)) %>%
+  spread(key = mut, value = score)
+
+saveRDS(sift_reduced, 'data/rdata/human_sift_reduced.RDS')
+
