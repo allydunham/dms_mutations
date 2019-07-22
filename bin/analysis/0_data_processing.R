@@ -140,13 +140,24 @@ saveRDS(imputed_matrices, 'data/rdata/all_study_imputed_position_matrices.RDS')
 # Load SIFT scores
 sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_5.tab') %>%
   rename(wt=ref, mut=alt) %>%
+  spread(key = mut, value = score) %>%
+  gather(key = 'mut', value = 'score', A:Y) %>% # Set all X -> X substitutions to score 1
+  mutate(score = ifelse(wt == mut & is.na(score), 1, score)) %>%
   spread(key = mut, value = score)
 saveRDS(sift, 'data/rdata/human_sift.RDS')
 
-sift_reduced <- read_tsv('data/mutfunc/human/conservation/sift_parsed_5.tab') %>%
-  rename(wt=ref, mut=alt) %>%
-  filter(acc %in% sample(.$acc, 100)) %>%
-  spread(key = mut, value = score)
-
+sift_reduced <- filter(sift, acc %in% sample(sift$acc, 100))
 saveRDS(sift_reduced, 'data/rdata/human_sift_reduced.RDS')
 
+sift_no_missing <- drop_na(sift, A:Y)
+saveRDS(sift_no_missing, 'data/rdata/human_sift_no_missing.RDS')
+
+sift_no_missing_reduced <- filter(sift_no_missing, acc %in% sample(sift_no_missing$acc, 1000))
+saveRDS(sift_no_missing_reduced, 'data/rdata/human_sift_no_missing_reduced.RDS')
+
+# Load FoldX Scores
+foldx_all <- read_tsv('data/mutfunc/human/structure/exp_ddg1.tab') %>%
+  distinct(aa_wt, aa_mt, uniprot_pos, uniprot_id, .keep_all = TRUE) %>%
+  select(acc=uniprot_id, pdb_id, wt=aa_wt, mut=aa_mt, uniprot_pos, ddG, ddG_sd) %>%
+  filter(uniprot_pos > 0)
+saveRDS(foldx_all, 'data/rdata/human_foldx.RDS')
