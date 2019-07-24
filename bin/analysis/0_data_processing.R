@@ -146,14 +146,31 @@ sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_5.tab') %>%
   spread(key = mut, value = score)
 saveRDS(sift, 'data/rdata/human_sift.RDS')
 
+min_non_zero_sift <- tibble_to_matrix(sift, A:Y)
+min_non_zero_sift <- min(min_non_zero_sift[min_non_zero_sift > 0], na.rm = TRUE)
+
+sift_log10 <- mutate_at(sift, .vars = vars(A:Y), .funs = ~ log10(. + min_non_zero_sift))
+saveRDS(sift, 'data/rdata/human_sift_log10.RDS')
+
 sift_reduced <- filter(sift, acc %in% sample(sift$acc, 100))
 saveRDS(sift_reduced, 'data/rdata/human_sift_reduced.RDS')
+
+sift_reduced_log10 <- mutate_at(sift_reduced, .vars = vars(A:Y), .funs = ~ log10(. + min_non_zero_sift))
+saveRDS(sift_reduced_log10, 'data/rdata/human_sift_reduced_log10.RDS')
 
 sift_no_missing <- drop_na(sift, A:Y)
 saveRDS(sift_no_missing, 'data/rdata/human_sift_no_missing.RDS')
 
+sift_no_missing_log10 <- drop_na(sift_log10, A:Y)
+saveRDS(sift_no_missing_log10, 'data/rdata/human_sift_no_missing_log10.RDS')
+
 sift_no_missing_reduced <- filter(sift_no_missing, acc %in% sample(sift_no_missing$acc, 1000))
 saveRDS(sift_no_missing_reduced, 'data/rdata/human_sift_no_missing_reduced.RDS')
+
+sift_no_missing_reduced_log10 <- mutate_at(sift_no_missing_reduced, .vars = vars(A:Y), .funs = ~ log10(. + min_non_zero_sift))
+saveRDS(sift_no_missing_reduced_log10, 'data/rdata/human_sift_no_missing_reduced_log10.RDS')
+
+
 
 # Load FoldX Scores
 foldx_all <- read_tsv('data/mutfunc/human/structure/exp_ddg1.tab') %>%
