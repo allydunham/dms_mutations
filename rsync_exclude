@@ -1,6 +1,7 @@
 */ev/align/*
 */ev/compare/*
 */ev/couplings/*
+ev.tar.gz
 *.md
 sift_mat_all.Rdata
 sift_parsed_all.tab
