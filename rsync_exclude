@@ -2,3 +2,5 @@
 */ev/compare/*
 */ev/couplings/*
 *.md
+sift_mat_all.Rdata
+sift_parsed_all.tab
