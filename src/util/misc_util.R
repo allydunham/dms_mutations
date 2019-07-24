@@ -173,3 +173,22 @@ plot_factors <- function(tbl, x, y, factors){
   return(plist)
 }
 ########
+
+#### Misc ####
+# Convert log values into axis labels
+# force arg forces labels to be in 'std' (..., 0.1, 1, 10, ...) or 'exp' (..., 10^-1, 1, 10^1, ...) rather than choosen 'inteligently'
+# If force != 'std'/'exp' exponents below exp_notation threshold are displayed in full
+# Scientific switches between 10^x and 1E0 format
+make_log_labeler <- function(base=10, force='none', exp_notation_threshold=3, scientific=FALSE){
+  f <- function(x){
+    if ((!force == 'exp' & max(abs(x)) < 3) | force == 'std'){
+      return(sapply(base^x, format, scientific=FALSE, trim=TRUE))
+    } else if (scientific) {
+      return(format(base^x, scientific = TRUE, trim = TRUE))
+    } else {
+      return(sapply(x, function(n){if (n == 0) {1} else {bquote(.(base)^.(n))}}))
+    }
+  }
+  return(f)
+}
+########
