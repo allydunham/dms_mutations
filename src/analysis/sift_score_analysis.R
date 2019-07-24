@@ -11,6 +11,18 @@ plot_sift_score_summary <- function(tbl){
     scale_x_continuous(labels = make_log_labeler(base=10, force = 'exp')) +
     scale_y_log10()
   
+  plots$per_sub_type_score_distribution <- labeled_ggplot(
+    p = ggplot(gather(tbl, key = 'mut', value = 'score', A:Y), aes(x=score)) +
+      geom_histogram() +
+      facet_grid(rows = vars(mut), cols = vars(wt)) + 
+      ggtitle(expression('Distribution of log'[10]*'(SIFT +'~epsilon*') for each substitution (wt: cols, mut: rows)')) +
+      scale_x_continuous(labels = make_log_labeler(base = 10, force = 'exp')) +
+      scale_y_log10() +
+      theme_pubclean() +
+      theme(strip.background = element_blank(),
+            legend.position = 'right'),
+    units = 'cm', height = 44, width = 44)
+  
   plots$protein_length <- group_by(tbl, acc) %>%
     summarise(length = max(pos)) %>%
     ggplot(aes(x=length)) +
@@ -25,11 +37,6 @@ plot_sift_score_summary <- function(tbl){
     geom_bar() +
     scale_fill_manual(values = AA_COLOURS) +
     facet_wrap(~type)
-  
-  plots$aa_wt_distribution <- mutate(tbl, wt = factor(wt, levels = names(AA_COLOURS))) %>%
-    ggplot(aes(x=wt, fill=wt)) +
-    geom_bar() +  
-    scale_fill_manual(values = AA_COLOURS)
   
   plots$metric_distribution <- ggpairs(tbl, columns = c('median_ic', 'n_aa', 'n_seq'))
   
