@@ -54,10 +54,10 @@ plots$kmeans$cluster_metrics <- labeled_ggplot(
   units = 'cm', height = 30, width = length(unique(kmeans_cluster_metrics$cluster)) * 0.5 + 2)
   
 # Hclust
-h <- 18
+h <- 30
 hclust_clusters <- group_by(sift, wt) %>%
   do(hclust = make_hclust_clusters(., A:Y, h = h))
-sapply(hclust_clusters$hclust, function(x){plot(x$hclust); abline(h = h)})
+# sapply(hclust_clusters$hclust, function(x){plot(x$hclust); abline(h = h)})
 
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
