@@ -32,6 +32,10 @@ smart_save.labeled_ggplot <- function(p, filename, override=FALSE, ...){
          width = params$width, height = params$height, units = params$units, dpi = params$dpi, limitsize = params$limitsize)
 }
 
+smart_save.NULL <- function(p, filename, ...){
+  warning(str_c('Passed plot object of class "NULL" , attempted to save to path ', filename))
+}
+
 # Save named nested lists of plots
 save_plot_list <- function(plotlist, root, listname='', overwrite=FALSE, level=0, report_level=1){
   if (str_sub(root, -1) == '/'){
