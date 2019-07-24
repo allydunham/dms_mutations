@@ -8,10 +8,8 @@ plot_sift_score_summary <- function(tbl){
                                              aes(x=score + min(score[score > 0], na.rm = TRUE))) +
     facet_wrap(~aa) +
     geom_histogram() +
-    scale_x_continuous(trans = scales::pseudo_log_trans(sigma=10^-6, base=10),
-                       breaks = c(0, 10^-4, 10^-2, 1),
-                       labels = c('0', expr(10^-4), expr(10^-2), '1')) +
-    scale_x_log10()
+    scale_x_continuous(labels = make_log_labeler(base=10, force = 'exp')) +
+    scale_y_log10()
   
   plots$protein_length <- group_by(tbl, acc) %>%
     summarise(length = max(pos)) %>%

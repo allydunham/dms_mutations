@@ -5,8 +5,8 @@ source('src/config.R')
 source('src/analysis/sift_score_analysis.R')
 source('src/analysis/position_profile_clustering.R')
 
-sift <- readRDS('data/rdata/human_sift_reduced.RDS')
-sift_no_missing <- readRDS('data/rdata/human_sift_no_missing_reduced.RDS')
+sift <- readRDS('data/rdata/human_sift_reduced_log10.RDS')
+sift_no_missing <- readRDS('data/rdata/human_sift_no_missing_reduced_log10.RDS')
 
 sum_missing <- tibble_to_matrix(sift, A:Y) %>% is.na() %>% sum()
 total_scores <- dim(sift)[1] * 20
@@ -33,7 +33,7 @@ plots$summary$missing_comparison$per_sub_type_score_distribution <- labeled_ggpl
     geom_histogram(alpha = 0.5) +
     facet_grid(rows = vars(mut), cols = vars(wt)) + 
     scale_fill_manual(values = c(yes='red', no='black')) +
-    scale_x_continuous(trans = 'pseudo_log') +
+    scale_x_continuous(labels = make_log_labeler(base = 10, force = 'exp')) +
     scale_y_log10() +
     theme_pubclean() +
     theme(strip.background = element_blank(),
@@ -46,9 +46,7 @@ plots$summary$missing_comparison$score_distribution <- labeled_ggplot(
     geom_histogram(alpha = 0.5) +
     facet_grid(rows = vars(type), cols = vars(aa)) + 
     scale_fill_manual(values = c(yes='red', no='black')) +
-    scale_x_continuous(trans = scales::pseudo_log_trans(sigma=10^-6, base=10),
-                       breaks = c(0, 10^-4, 10^-2, 1),
-                       labels = c('0', expr(10^-4), expr(10^-2), '1')) +
+    scale_x_continuous(labels = make_log_labeler(base = 10, force = 'exp')) +
     scale_y_log10() +
     theme_pubclean() +
     theme(strip.background = element_blank(),
@@ -83,12 +81,68 @@ plots$summary$missing_comparison$aa_freq_distribution <- labeled_ggplot(
 ########
 
 #### Cluster AA profiles ####
-h <- 8
+# kmeans
+n <- 4
+kmeans_clusters <- group_by(sift_no_missing, wt) %>%
+  do(hclust = make_kmeans_clusters(., A:Y, n = n))
+
+kmeans_tbl <- map_dfr(kmeans_clusters$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+kmeans_analysis <- cluster_analysis(kmeans_tbl, cluster_str = str_c('kmeans (n = ', n, ')'), er_str = 'log10(SIFT + e)')
+
+plots$kmeans <- kmeans_analysis$plots
+plots$kmeans <- plots$kmeans[!is.null(plots$kmeans)]
+
+# TODO move this to func
+# Plot clusters againsts statistics
+kmeans_cluster_metrics <- mutate(kmeans_tbl, cluster = factor(cluster, levels = kmeans_analysis$cluster_mean_order)) %>%
+  gather('metric', 'value', median_ic, n_aa, n_seq)
+
+plots$kmeans$cluster_metrics <- labeled_ggplot(
+  p = ggplot(kmeans_cluster_metrics, aes(x=cluster, y=value, fill=wt)) +
+    facet_wrap(~metric, ncol = 1, scales = 'free_y', strip.position = 'left') +
+    ylab(NULL) +
+    geom_boxplot() +
+    scale_fill_manual(values = AA_COLOURS) +
+    guides(fill=FALSE) +
+    theme_pubclean() +
+    theme(axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(kmeans_cluster_metrics$cluster), end = 1)],
+                                     angle = 90, hjust = 1, vjust = 0.5),
+          strip.background = element_blank(),
+          strip.placement = 'outside'),
+  units = 'cm', height = 30, width = length(unique(kmeans_cluster_metrics$cluster)) * 0.5 + 2)
+  
+# Hclust
+h <- 18
 hclust_clusters <- group_by(sift_no_missing, wt) %>%
   do(hclust = make_hclust_clusters(., A:Y, h = h))
 
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
+
+hclust_analysis <- cluster_analysis(hclust_tbl, cluster_str = str_c('hclust (h = ', h, ')'), er_str = 'log10(SIFT + e)')
+
+plots$hclust <- hclust_analysis$plots
+plots$hclust <- plots$hclust[!is.null(plots$hclust)]
+
+# Plot clusters againsts statistics
+hclust_cluster_metrics <- mutate(hclust_tbl, cluster = factor(cluster, levels = hclust_analysis$cluster_mean_order)) %>%
+  gather('metric', 'value', median_ic, n_aa, n_seq)
+
+plots$hclust$cluster_metrics <- labeled_ggplot(
+  p = ggplot(hclust_cluster_metrics, aes(x=cluster, y=value, fill=wt)) +
+    facet_wrap(~metric, ncol = 1, scales = 'free_y', strip.position = 'left') +
+    ylab(NULL) +
+    geom_boxplot() +
+    scale_fill_manual(values = AA_COLOURS) +
+    guides(fill=FALSE) +
+    theme_pubclean() +
+    theme(axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_metrics$cluster), end = 1)],
+                                     angle = 90, hjust = 1, vjust = 0.5),
+          strip.background = element_blank(),
+          strip.placement = 'outside'),
+  units = 'cm', height = 30, width = length(unique(hclust_cluster_metrics$cluster)) * 0.5 + 2)
 
 ########
 

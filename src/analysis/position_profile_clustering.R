@@ -199,13 +199,15 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
 
   mean_prof_long <- gather(mean_profiles, key='mut', value = 'norm_er', -cluster) %>%
     add_factor_order(cluster, mut, norm_er, sym=FALSE)
-
+  
+  cluster_mean_order <- levels(mean_prof_long$cluster)
+  
   p_mean_prof <- labeled_ggplot(
     p=ggplot(mean_prof_long, aes(x=mut, y=cluster, fill=norm_er)) +
     geom_tile() +
     scale_fill_gradient2() +
     coord_fixed() +
-    ggtitle(str_c('Cluster centroid', er_str, 'for', cluster_str, 'clusters', sep = ' ')) +
+    ggtitle(str_c('Cluster centroid', er_str, 'for', cluster_str, 'clusters', sep=' ')) +
     guides(fill=guide_colourbar(title = er_str)) +
     theme(axis.ticks = element_blank(),
           panel.background = element_blank(),
@@ -215,6 +217,25 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     units = 'cm', width = 0.5*length(unique(mean_prof_long$mut)) + 4,
     height = 0.5*length(unique(mean_prof_long$cluster)) + 2, limitsize=FALSE)
 
+  # Cluster Sizes
+  cluster_sizes <- group_by(tbl, cluster) %>%
+    summarise(n = n()) %>%
+    mutate(aa = str_sub(cluster, end = 1),
+           cluster = factor(cluster, levels = levels(mean_prof_long$cluster)))
+  
+  p_cluster_size <- labeled_ggplot(
+    p = ggplot(cluster_sizes, aes(x=cluster, y=n, fill=aa)) +
+    geom_col() +
+    xlab('Cluster') +
+    ylab('Size') +
+    scale_fill_manual(values = AA_COLOURS) +
+    scale_y_log10() +
+    theme_pubclean() +
+    guides(fill=FALSE) +
+    theme(axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(cluster_sizes$cluster), end = 1)],
+                                     angle = 90, hjust = 1, vjust = 0.5)),
+    units = 'cm', height = 15, width = nrow(cluster_sizes) * 0.5 + 2)
+  
   # Cluster mean profile correlation
   cluster_cors <- transpose_tibble(mean_profiles, cluster, name_col = 'aa') %>%
     tibble_correlation(-aa) %>%
@@ -299,10 +320,13 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
   }
   
   return(list(angles=angles,
+              cluster_sizes=cluster_sizes,
               mean_profiles=mean_profiles,
+              cluster_mean_order=cluster_mean_order, 
               foldx=tbl_fx,
               foldx_cluster_mean_energy=foldx_cluster_mean_energy,
-              plots=list(ramachandran=p_ramachandran,
+              plots=list(cluster_sizes=p_cluster_size,
+                         ramachandran=p_ramachandran,
                          mean_profiles=p_mean_prof,
                          mean_profile_vs_blosum=p_vs_blosum,
                          mean_profile_cor=p_centre_cor,
@@ -324,5 +348,7 @@ plot_cluster_profile_cor_blosum <- function(cluster_cors, aa_pair='DE'){
       guides(colour = guide_legend(title = 'AA Pair'))
   )
 }
+
+
 
 ########
