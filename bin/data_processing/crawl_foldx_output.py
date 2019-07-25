@@ -40,9 +40,18 @@ def main(args):
             energy['pos'] = energy.mut.str.slice(2, -3).astype(int)
             energy['mut'] = energy.mut.str.slice(-3, -2)
 
-            # Reorder columns
+            energy = energy[['uniprot_id', 'pdb_id', 'chain', 'pos', 'wt', 'mut',
+                             'sd', 'total energy', 'backbone hbond', 'sidechain hbond',
+                             'van der waals', 'electrostatics', 'solvation polar',
+                             'solvation hydrophobic', 'van der waals clashes',
+                             'entropy sidechain', 'entropy mainchain', 'sloop_entropy',
+                             'mloop_entropy', 'cis_bond', 'torsional clash',
+                             'backbone clash', 'helix dipole', 'water bridge',
+                             'disulfide', 'electrostatic kon', 'partial covalent bonds',
+                             'energy ionisation', 'entropy complex']]
 
-            energy.to_csv(sep='\t', header=write_header)
+            energy.to_csv(sys.stdout, sep='\t', header=write_header, na_rep='NA',
+                          index=False)
             write_header = False
 
 
