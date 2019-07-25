@@ -30,18 +30,20 @@ def main(args):
                 with open(f'{path}/individual_list_0_PSSM.txt', 'r') as mut_file:
                     muts = mut_file.readlines()
             except FileNotFoundError as err:
-                print(('FoldX output or mutation list not found in FoldX directory '
+                print(('WARNING: FoldX output or mutation list not found in FoldX directory '
                        '(contains .fxout files). Skipping'), file=sys.stderr)
                 print(err, file=sys.stderr)
                 continue
+
+            if not len(energy) == len(muts):
+                print(("WARNING: Number of mutations != number of predictions, suggesting
+                       "FoldX didn't complete correctly. Skipping"), file=sys.stderr)
 
             energy.columns = map(str.lower, energy.columns)
             energy = energy.drop('pdb', 1)
             energy['uniprot_id'] = uniprot_id
             energy['pdb_id'] = pdb_id
             energy['chain'] = chain
-
-
 
             energy['mut'] = muts
             energy['wt'] = energy.mut.str.get(0)
