@@ -38,6 +38,7 @@ def main(args):
             if not len(energy) == len(muts):
                 print(("WARNING: Number of mutations != number of predictions, suggesting "
                        "FoldX didn't complete correctly. Skipping"), file=sys.stderr)
+                continue
 
             energy.columns = map(str.lower, energy.columns)
             energy = energy.drop('pdb', 1)
