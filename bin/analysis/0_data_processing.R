@@ -157,8 +157,12 @@ sift_reduced_log10 <- mutate_at(sift_reduced, .vars = vars(A:Y), .funs = ~ log10
 saveRDS(sift_reduced_log10, 'data/rdata/human_sift_reduced_log10.RDS')
 
 # Load FoldX Scores
-foldx_all <- read_tsv('data/mutfunc/human/structure/exp_ddg1.tab') %>%
-  distinct(aa_wt, aa_mt, uniprot_pos, uniprot_id, .keep_all = TRUE) %>%
-  select(acc=uniprot_id, pdb_id, wt=aa_wt, mut=aa_mt, uniprot_pos, ddG, ddG_sd) %>%
-  filter(uniprot_pos > 0)
+foldx_all <- read_tsv('data/mutfunc/human/structure/exp_full.tab') %>%
+  rename_all(.funs = ~str_replace(., ' ', '_')) %>%
+  arrange(sd) %>%
+  distinct(wt, mut, pos, uniprot_id, .keep_all = TRUE) %>% # Choose one pdb_id per substitution based on lowest sd
+  arrange(uniprot_id, pos, wt, mut)
 saveRDS(foldx_all, 'data/rdata/human_foldx.RDS')
+
+foldx_reduced <- filter(foldx_all, uniprot_id %in% sift_reduced$acc)
+saveRDS(foldx_reduced, 'data/rdata/human_foldx_reduced.RDS')
