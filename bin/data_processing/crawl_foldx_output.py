@@ -22,15 +22,16 @@ def main(args):
             uniprot_id, pdb_chain = path.split('/')[-2:]
             pdb_id, chain = pdb_chain.split('_')
 
+            fx_output_file = f'{path}/Average_{pdb_chain}_repaired_BM.fxout'
+            print(f'Processing file {fx_output_file}', file=sys.stderr)
             try:
-                energy = pd.read_csv(f'{path}/Average_{pdb_chain}_repaired_BM.fxout',
-                                     sep='\t', index_col=False, skiprows=8)
+                energy = pd.read_csv(fx_output_file, sep='\t', index_col=False, skiprows=8)
 
                 with open(f'{path}/individual_list_0_PSSM.txt', 'r') as mut_file:
                     muts = mut_file.readlines()
             except FileNotFoundError as err:
                 print(('FoldX output or mutation list not found in FoldX directory '
-                       '(contains .fxout files). Skipping directory'))
+                       '(contains .fxout files). Skipping'), file=sys.stderr)
                 print(err, file=sys.stderr)
                 continue
 
