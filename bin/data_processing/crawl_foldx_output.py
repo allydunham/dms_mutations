@@ -21,10 +21,18 @@ def main(args):
 
             uniprot_id, pdb_chain = path.split('/')[-2:]
             pdb_id, chain = pdb_chain.split('_')
-            print()
-            print()
-            energy = pd.read_csv(f'{path}/Average_{pdb_chain}_repaired_BM.fxout', sep='\t',
-                                 index_col=False, skiprows=8)
+
+            try:
+                energy = pd.read_csv(f'{path}/Average_{pdb_chain}_repaired_BM.fxout',
+                                     sep='\t', index_col=False, skiprows=8)
+
+                with open(f'{path}/individual_list_0_PSSM.txt', 'r') as mut_file:
+                    muts = mut_file.readlines()
+            except FileNotFoundError as err:
+                print(('FoldX output or mutation list not found in FoldX directory '
+                       '(contains .fxout files). Skipping directory'))
+                print(err, file=sys.stderr)
+                continue
 
             energy.columns = map(str.lower, energy.columns)
             energy = energy.drop('pdb', 1)
@@ -32,8 +40,7 @@ def main(args):
             energy['pdb_id'] = pdb_id
             energy['chain'] = chain
 
-            with open(f'{path}/individual_list_0_PSSM.txt', 'r') as mut_file:
-                muts = mut_file.readlines()
+
 
             energy['mut'] = muts
             energy['wt'] = energy.mut.str.get(0)
