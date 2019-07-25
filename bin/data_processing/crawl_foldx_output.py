@@ -65,10 +65,6 @@ def main(args):
                           index=False)
             write_header = False
 
-
-
-
-
 def parse_args():
     """Process input arguments"""
     parser = argparse.ArgumentParser(description=__doc__,
