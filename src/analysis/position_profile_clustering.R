@@ -176,7 +176,15 @@ make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL,
 # backbone_angles = tbl giving psi/phi for each study/pdb_id/chain/aa/position combo
 # foldx = tbl giving FoldX derived energy terms for deep mut positions
 
-cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str='<UNKNOWN>', er_str='<UNKNOWN>'){
+cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str='<UNKNOWN>', er_str='<UNKNOWN>', id_col=NULL){
+  id_col <- enquo(id_col)
+  if (rlang::quo_is_null(id_col)){
+    id_col <- quo(study)
+    id_col_str <- 'study'
+  } else {
+    id_col_str <- rlang::as_name(id_col)
+  }
+  
   # Ramachandran Plot
   if (!is.null(backbone_angles)){
     angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
@@ -200,7 +208,22 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
   mean_prof_long <- gather(mean_profiles, key='mut', value = 'norm_er', -cluster) %>%
     add_factor_order(cluster, mut, norm_er, sym=FALSE)
   
+  # Cluster mean profile correlation
+  cluster_cors <- transpose_tibble(mean_profiles, cluster, name_col = 'aa') %>%
+    tibble_correlation(-aa) %>%
+    rename(cluster1 = cat1, cluster2 = cat2) %>%
+    mutate(wt1 = str_sub(cluster1, end = 1),
+           wt2 = str_sub(cluster2, end = 1)) %>%
+    left_join(as_tibble(BLOSUM62, rownames='wt1') %>%
+                gather(key = 'wt2', value = 'BLOSUM62', -wt1) %>%
+                filter(wt1 %in% Biostrings::AA_STANDARD, wt2 %in% Biostrings::AA_STANDARD),
+              by=c('wt1', 'wt2')) %>%
+    mutate(pair = mapply(function(x, y){str_c(str_sort(c(x, y)), collapse = '')}, wt1, wt2))
+  
   cluster_mean_order <- levels(mean_prof_long$cluster)
+  cluster_cor_order <- levels(cluster_cors$cluster1)
+  
+  mean_prof_long <- mutate(mean_prof_long, cluster = factor(cluster, levels = cluster_cor_order))
   
   p_mean_prof <- labeled_ggplot(
     p=ggplot(mean_prof_long, aes(x=mut, y=cluster, fill=norm_er)) +
@@ -236,18 +259,6 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
                                      angle = 90, hjust = 1, vjust = 0.5)),
     units = 'cm', height = 15, width = nrow(cluster_sizes) * 0.5 + 2)
   
-  # Cluster mean profile correlation
-  cluster_cors <- transpose_tibble(mean_profiles, cluster, name_col = 'aa') %>%
-    tibble_correlation(-aa) %>%
-    rename(cluster1 = cat1, cluster2 = cat2) %>%
-    mutate(wt1 = str_sub(cluster1, end = 1),
-           wt2 = str_sub(cluster2, end = 1)) %>%
-    left_join(as_tibble(BLOSUM62, rownames='wt1') %>%
-                              gather(key = 'wt2', value = 'BLOSUM62', -wt1) %>%
-                              filter(wt1 %in% Biostrings::AA_STANDARD, wt2 %in% Biostrings::AA_STANDARD),
-                            by=c('wt1', 'wt2')) %>%
-    mutate(pair = mapply(function(x, y){str_c(str_sort(c(x, y)), collapse = '')}, wt1, wt2))
-  
   p_centre_cor <- labeled_ggplot(
     p = ggplot(cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
       geom_tile() +
@@ -267,11 +278,11 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
 
   # FoldX params
   if (!is.null(foldx)){
-    tbl_fx <- group_by(foldx, study, position, wt) %>%
-      summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean) %>%
+    tbl_fx <- group_by(foldx, !!id_col, position, wt) %>%
+      summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean, na.rm=TRUE) %>%
       rename(pos=position) %>%
-      inner_join(tbl, ., by=c('study', 'pos', 'wt')) %>%
-      select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
+      inner_join(tbl, ., by=c(id_col_str, 'pos', 'wt')) %>%
+      select(cluster, !!id_col, pos, wt, total_energy:entropy_complex, everything())
     
     p_foldx_boxes <- labeled_ggplot(
     p=ggplot(gather(tbl_fx, key = 'term', value = 'ddG', total_energy:entropy_complex),
@@ -288,7 +299,7 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     units = 'cm', width = length(unique(tbl_fx$cluster)) + 5, height = 80)
     
     foldx_cluster_mean_energy <- gather(tbl_fx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
-      select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
+      select(cluster, !!id_col, pos, wt, foldx_term, ddG, everything()) %>%
       group_by(cluster, foldx_term) %>%
       summarise(ddG = mean(ddG)) %>%
       group_by(foldx_term) %>%
@@ -322,6 +333,7 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
   return(list(angles=angles,
               cluster_sizes=cluster_sizes,
               mean_profiles=mean_profiles,
+              cluster_cor_order=cluster_cor_order,
               cluster_mean_order=cluster_mean_order, 
               foldx=tbl_fx,
               foldx_cluster_mean_energy=foldx_cluster_mean_energy,

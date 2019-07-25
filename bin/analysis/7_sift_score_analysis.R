@@ -5,7 +5,10 @@ source('src/config.R')
 source('src/analysis/sift_score_analysis.R')
 source('src/analysis/position_profile_clustering.R')
 
-sift <- readRDS('data/rdata/human_sift_reduced_log10.RDS')
+sift <- readRDS('data/rdata/human_sift_reduced_log10.RDS') %>%
+  rename(uniprot_id = acc)
+foldx <- readRDS('data/rdata/human_foldx_reduced.RDS') %>%
+  rename(position = pos)
 
 sum_missing <- tibble_to_matrix(sift, A:Y) %>% is.na() %>% sum()
 total_scores <- dim(sift)[1] * 20
@@ -29,14 +32,15 @@ kmeans_clusters <- group_by(sift, wt) %>%
 kmeans_tbl <- map_dfr(kmeans_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-kmeans_analysis <- cluster_analysis(kmeans_tbl, cluster_str = str_c('kmeans (n = ', n, ')'), er_str = 'log10(SIFT + e)')
+kmeans_analysis <- cluster_analysis(kmeans_tbl, cluster_str = str_c('kmeans (n = ', n, ')'), er_str = 'log10(SIFT + e)',
+                                    foldx = select(foldx, -chain), id_col = uniprot_id)
 
 plots$kmeans <- kmeans_analysis$plots
 plots$kmeans <- plots$kmeans[!sapply(plots$kmeans, is.null)]
 
 # TODO move this to func
 # Plot clusters againsts statistics
-kmeans_cluster_metrics <- mutate(kmeans_tbl, cluster = factor(cluster, levels = kmeans_analysis$cluster_mean_order)) %>%
+kmeans_cluster_metrics <- mutate(kmeans_tbl, cluster = factor(cluster, levels = kmeans_analysis$cluster_cor_order)) %>%
   gather('metric', 'value', median_ic, n_aa, n_seq)
 
 plots$kmeans$cluster_metrics <- labeled_ggplot(
@@ -62,13 +66,14 @@ hclust_clusters <- group_by(sift, wt) %>%
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-hclust_analysis <- cluster_analysis(hclust_tbl, cluster_str = str_c('hclust (h = ', h, ')'), er_str = 'log10(SIFT + e)')
+hclust_analysis <- cluster_analysis(hclust_tbl, cluster_str = str_c('hclust (h = ', h, ')'), er_str = 'log10(SIFT + e)',
+                                    foldx = select(foldx, -chain), id_col = uniprot_id)
 
 plots$hclust <- hclust_analysis$plots
 plots$hclust <- plots$hclust[!sapply(plots$hclust, is.null)]
 
 # Plot clusters againsts statistics
-hclust_cluster_metrics <- mutate(hclust_tbl, cluster = factor(cluster, levels = hclust_analysis$cluster_mean_order)) %>%
+hclust_cluster_metrics <- mutate(hclust_tbl, cluster = factor(cluster, levels = hclust_analysis$cluster_cor_order)) %>%
   gather('metric', 'value', median_ic, n_aa, n_seq)
 
 plots$hclust$cluster_metrics <- labeled_ggplot(
