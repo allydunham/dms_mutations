@@ -1,0 +1,3 @@
+[submodule "src/siftr"]
+	path = src/siftr
+	url = https://github.com/omarwagih/siftr.git
