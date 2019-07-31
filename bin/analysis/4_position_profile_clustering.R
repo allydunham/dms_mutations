@@ -128,4 +128,8 @@ plots$pca$sig_positions$avg_aa_profile_blosum_cor <- ggplot(aa_prof_blosum, aes(
 
 ########
 
+# Save plots
 save_plot_list(plots, root='figures/4_position_profile_clustering/')
+
+# Save analyses
+saveRDS(hclust_analysis, str_c('data/rdata/deep_mut_hclust_clusters.RDS'))
