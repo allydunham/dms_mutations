@@ -280,9 +280,8 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
   if (!is.null(foldx)){
     tbl_fx <- group_by(foldx, !!id_col, position, wt) %>%
       summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean, na.rm=TRUE) %>%
-      rename(pos=position) %>%
-      inner_join(tbl, ., by=c(id_col_str, 'pos', 'wt')) %>%
-      select(cluster, !!id_col, pos, wt, total_energy:entropy_complex, everything())
+      inner_join(tbl, ., by=c(id_col_str, 'position', 'wt')) %>%
+      select(cluster, !!id_col, position, wt, total_energy:entropy_complex, everything())
     
     p_foldx_boxes <- labeled_ggplot(
     p=ggplot(gather(tbl_fx, key = 'term', value = 'ddG', total_energy:entropy_complex),
@@ -299,7 +298,7 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     units = 'cm', width = length(unique(tbl_fx$cluster)) + 5, height = 80)
     
     foldx_cluster_mean_energy <- gather(tbl_fx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
-      select(cluster, !!id_col, pos, wt, foldx_term, ddG, everything()) %>%
+      select(cluster, !!id_col, position, wt, foldx_term, ddG, everything()) %>%
       group_by(cluster, foldx_term) %>%
       summarise(ddG = mean(ddG)) %>%
       group_by(foldx_term) %>%
