@@ -143,6 +143,7 @@ ptms <- readRDS('data/mutfunc/human/ptm/psp_ptms_parsed.rds') %>%
   transmute(modification = str_to_lower(modification), uniprot_id = entry, position) %>%
   bind_rows(., read_tsv('meta/human_phosphosites_ochoa_et_al.tsv') %>%
               transmute(modification = 'phosphorylation', uniprot_id = uniprot, position))
+writeRDS('data/rdata/human_ptms.RDS')
 
 # Load SIFT scores
 # sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_all.tab') %>%

@@ -59,7 +59,7 @@ if (FALSE){
 }
 
 # Save plots and analyses
-saveRDS(analyses, str_c('data/rdata/sift_cluster_analysis.RDS'))
+write_rds(analyses, 'data/rdata/sift_cluster_analysis.RDS')
 for (n in names(analyses)){
   save_plot_list(analyses[[n]]$plots, root=str_c('figures/7_sift_score_analysis/', n))
 }
