@@ -137,32 +137,37 @@ imputed_matrices <- mapply(impute_variant_profiles, variant_matrices,
 saveRDS(variant_matrices, 'data/rdata/all_study_position_matrices.RDS')
 saveRDS(imputed_matrices, 'data/rdata/all_study_imputed_position_matrices.RDS')
 
+# Read PTMs
+ptms <- readRDS('data/mutfunc/human/ptm/psp_ptms_parsed.rds') %>%
+  as_tibble() %>%
+  transmute(modification = str_to_lower(modification), uniprot_id = entry, position) %>%
+  bind_rows(., read_tsv('meta/human_phosphosites_ochoa_et_al.tsv') %>%
+              transmute(modification = 'phosphorylation', uniprot_id = uniprot, position))
+
 # Load SIFT scores
 # sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_all.tab') %>%
-#   rename(wt=ref, mut=alt) %>%
-#   spread(key = mut, value = score)
+#   rename(wt=ref, mut=alt, uniprot_id = acc, position = pos) %>%
+#   filter(wt %in% Biostrings::AA_STANDARD) %>%
+#   spread(key = mut, value = score) %>%
+#   left_join(ptms, by = c('uniprot_id', 'position'))
 # saveRDS(sift, 'data/rdata/human_sift.RDS')
 sift <- readRDS('data/rdata/human_sift.RDS') # Only store cached file locally normally to save disk space
-  
-min_non_zero_sift <- tibble_to_matrix(sift, A:Y)
-min_non_zero_sift <- min(min_non_zero_sift[min_non_zero_sift > 0], na.rm = TRUE)
 
-sift_log10 <- mutate_at(sift, .vars = vars(A:Y), .funs = ~ log10(. + min_non_zero_sift))
-saveRDS(sift, 'data/rdata/human_sift_log10.RDS')
-
-sift_reduced <- filter(sift, acc %in% sample(sift$acc, 100))
+sift_reduced <- filter(sift, uniprot_id %in% sample(sift$uniprot_id, 100))
 saveRDS(sift_reduced, 'data/rdata/human_sift_reduced.RDS')
 
-sift_reduced_log10 <- mutate_at(sift_reduced, .vars = vars(A:Y), .funs = ~ log10(. + min_non_zero_sift))
-saveRDS(sift_reduced_log10, 'data/rdata/human_sift_reduced_log10.RDS')
+sift_ptms <- bind_rows(sample_n(filter(sift, is.na(modification)), 50000),
+                       sample_n(filter(sift, !is.na(modification)), 50000))
+saveRDS(sift_ptms, 'data/rdata/human_sift_ptms.RDS')
 
 # Load FoldX Scores
 foldx_all <- read_tsv('data/mutfunc/human/structure/exp_full.tab') %>%
   rename_all(.funs = ~str_replace(., ' ', '_')) %>%
   arrange(sd) %>%
   distinct(wt, mut, pos, uniprot_id, .keep_all = TRUE) %>% # Choose one pdb_id per substitution based on lowest sd
-  arrange(uniprot_id, pos, wt, mut)
+  arrange(uniprot_id, pos, wt, mut) %>%
+  rename(position = pos)
 saveRDS(foldx_all, 'data/rdata/human_foldx.RDS')
 
-foldx_reduced <- filter(foldx_all, uniprot_id %in% sift_reduced$acc)
+foldx_reduced <- filter(foldx_all, uniprot_id %in% sift_reduced$uniprot_id)
 saveRDS(foldx_reduced, 'data/rdata/human_foldx_reduced.RDS')
