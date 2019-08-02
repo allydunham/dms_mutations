@@ -4,11 +4,18 @@
 source('src/config.R')
 source('src/analysis/position_profile_clustering.R')
 
+meta <- readRDS('data/rdata/study_meta_data.RDS')
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS')
 foldx <- readRDS('data/rdata/all_foldx.RDS')
+sift <- readRDS('data/rdata/human_sift.RDS')
 backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
 data("BLOSUM62")
+
+sift_long <- select(sift, uniprot_id, pos=position, wt, A:Y) %>%
+  filter(uniprot_id %in% unique(variant_matrices$all_variants$uniprot_id)) %>%
+  gather(key = 'mut', value = 'sift', A:Y) %>%
+  mutate(sift = log10(sift + min(sift[sift > 0], na.rm=TRUE)))
 
 plots <- list()
 
@@ -52,9 +59,36 @@ kmean_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
 kmean_tbl <- map_dfr(kmean_clusters$kmean, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-kmean_analysis <- cluster_analysis(kmean_tbl, backbone_angles = backbone_angles, foldx = foldx, er_str = 'Norm ER',
-                                    cluster_str = str_c('Kmean, n = ', n))
+kmean_analysis <- cluster_analysis(kmean_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
+                                   er_str = 'Norm ER', cluster_str = str_c('Kmean, n = ', n), pos_col = pos)
+
 plots$kmean <- kmean_analysis$plots
+
+kmean_cluster_mean_sift <- select(kmean_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
+  filter(!is.na(uniprot_id)) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(., sift_long,
+            by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
+  group_by(cluster, wt, mut) %>%
+  summarise(er = mean(er, na.rm=TRUE),
+            sift = mean(sift, na.rm=TRUE)) %>%
+  ungroup() %>%
+  mutate(cluster = factor(cluster, levels = kmean_analysis$cluster_cor_order))
+
+plots$kmean$average_sift <- ggplot(kmean_cluster_mean_sift, aes(x = mut, y = cluster, fill = sift)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  coord_fixed() +
+  ggtitle(str_c('Mean Log10(SIFT) score for kmeans (n = ', n, ') clusters')) +
+  guides(fill=guide_colourbar(title = 'log10(SIFT)')) +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[unique(kmean_cluster_mean_sift$mut)]),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_mean_sift$cluster), end = 1)]))
+plots$kmean$average_sift <- labeled_ggplot(p = plots$kmean$average_sift, units = 'cm', width = 20,
+                                           height = length(levels(kmean_cluster_mean_sift$cluster)) * 0.5 + 3)
+
 ########
 
 #### hclust ####
@@ -65,9 +99,34 @@ hclust_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-hclust_analysis <- cluster_analysis(hclust_tbl, backbone_angles = backbone_angles, foldx = foldx, er_str = 'Norm ER',
-                                    cluster_str = str_c('Hclust, h = ', h))
+hclust_analysis <- cluster_analysis(hclust_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
+                                    er_str = 'Norm ER', cluster_str = str_c('Hclust, h = ', h), pos_col = pos)
 plots$hclust <- hclust_analysis$plots
+
+hclust_cluster_mean_sift <- select(hclust_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
+  filter(!is.na(uniprot_id)) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(., sift_long,
+            by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
+  group_by(cluster, wt, mut) %>%
+  summarise(er = mean(er, na.rm=TRUE),
+            sift = mean(sift, na.rm=TRUE)) %>%
+  ungroup() %>%
+  mutate(cluster = factor(cluster, levels = hclust_analysis$cluster_cor_order))
+
+plots$hclust$average_sift <- ggplot(hclust_cluster_mean_sift, aes(x = mut, y = cluster, fill = sift)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  coord_fixed() +
+  ggtitle(str_c('Mean Log10(SIFT) score for hclust (h = ', h, ') clusters')) +
+  guides(fill=guide_colourbar(title = 'log10(SIFT)')) +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[unique(hclust_cluster_mean_sift$mut)]),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_mean_sift$cluster), end = 1)]))
+plots$hclust$average_sift <- labeled_ggplot(p = plots$hclust$average_sift, units = 'cm', width = 20,
+                                            height = length(levels(hclust_cluster_mean_sift$cluster)) * 0.5 + 3)
 ########
 
 #### Tidy plots ####
