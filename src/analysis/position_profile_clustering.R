@@ -176,7 +176,8 @@ make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL,
 # backbone_angles = tbl giving psi/phi for each study/pdb_id/chain/aa/position combo
 # foldx = tbl giving FoldX derived energy terms for deep mut positions
 
-cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str='<UNKNOWN>', er_str='<UNKNOWN>', id_col=NULL){
+cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str='<UNKNOWN>', er_str='<UNKNOWN>',
+                             id_col=NULL, pos_col=NULL){
   id_col <- enquo(id_col)
   if (rlang::quo_is_null(id_col)){
     id_col <- quo(study)
@@ -185,10 +186,18 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     id_col_str <- rlang::as_name(id_col)
   }
   
+  pos_col <- enquo(pos_col)
+  if (rlang::quo_is_null(pos_col)){
+    pos_col <- quo(position)
+    pos_col_str <- 'position'
+  } else {
+    pos_col_str <- rlang::as_name(pos_col)
+  }
+  
   # Ramachandran Plot
   if (!is.null(backbone_angles)){
-    angles <- left_join(rename(backbone_angles, pos=position, wt=aa),
-                        select(tbl, study, pos, wt, cluster),
+    angles <- left_join(rename(backbone_angles, !!pos_col:=position, wt=aa),
+                        select(tbl, study, !!pos_col, wt, cluster),
                         by = c('study', 'pos', 'wt')) %>%
       drop_na(cluster) %>%
     mutate(cluster_num = str_sub(cluster, start=-1))
@@ -278,10 +287,10 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
 
   # FoldX params
   if (!is.null(foldx)){
-    tbl_fx <- group_by(foldx, !!id_col, position, wt) %>%
+    tbl_fx <- group_by(foldx, !!id_col, !!pos_col, wt) %>%
       summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean, na.rm=TRUE) %>%
-      inner_join(tbl, ., by=c(id_col_str, 'position', 'wt')) %>%
-      select(cluster, !!id_col, position, wt, total_energy:entropy_complex, everything())
+      inner_join(tbl, ., by=c(id_col_str, pos_col_str, 'wt')) %>%
+      select(cluster, !!id_col, !!pos_col, wt, total_energy:entropy_complex, everything())
     
     p_foldx_boxes <- labeled_ggplot(
     p=ggplot(gather(tbl_fx, key = 'term', value = 'ddG', total_energy:entropy_complex),
@@ -298,7 +307,7 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     units = 'cm', width = length(unique(tbl_fx$cluster)) + 5, height = 80)
     
     foldx_cluster_mean_energy <- gather(tbl_fx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
-      select(cluster, !!id_col, position, wt, foldx_term, ddG, everything()) %>%
+      select(cluster, !!id_col, !!pos_col, wt, foldx_term, ddG, everything()) %>%
       group_by(cluster, foldx_term) %>%
       summarise(ddG = mean(ddG)) %>%
       group_by(foldx_term) %>%

@@ -5,10 +5,10 @@
 # import sift scores in standard/log10/wt normalised forms, plus masks for invariant/permisive positions 
 import_sift_scores <- function(tbl){
   invariant <- tibble_to_matrix(tbl, A:Y) == 0
-  invariant <- !(rowSums(invariant, na.rm = TRUE) == 19)
+  invariant <- rowSums(invariant, na.rm = TRUE) == 19
   
   permissive <- tibble_to_matrix(tbl, A:Y) < 0.05
-  permissive <- !(rowSums(permissive) == 0)
+  permissive <- rowSums(permissive) == 0
   
   min_non_zero <- tibble_to_matrix(tbl, A:Y)
   min_non_zero <- min(min_non_zero[min_non_zero > 0], na.rm = TRUE)
@@ -17,16 +17,29 @@ import_sift_scores <- function(tbl){
   
   # Normalise by wt score at position
   mat <- tibble_to_matrix(tbl, A:Y)
-  wt <- sapply(1:nrow(mat), function(x){print(tbl$wt[x]); mat[x, tbl$wt[x]]}) %>% unname()
+  wt <- sapply(1:nrow(mat), function(x){mat[x, tbl$wt[x]]}) %>% unname()
   mat_norm <- mat / wt
   
-  min_non_zero_norm <- min(mat_norm[mat_norm > 0])
-  wt_norm <- select(tbl, uniprot_id, position, wt, median_ic, n_aa, n_seq) %>%
+  min_non_zero_wt_norm <- min(mat_norm[mat_norm > 0])
+  wt_norm <- select(tbl, -(A:Y)) %>%
     bind_cols(., as_tibble(mat_norm)) %>%
-    mutate_at(vars(A:Y), .funs = ~ log10(. + min_non_zero_norm))
+    mutate_at(vars(A:Y), .funs = ~ log10(. + min_non_zero_wt_norm))
   
-  return(list(standard=tbl, log10=tbl_log10, wt_norm=wt_norm,
-              invariant_mask=invariant, permissive_mask=permissive))
+  # Normalise by average profile of wt AA
+  mean_profiles <- filter(tbl, !permissive, !invariant) %>%
+    group_by(wt) %>%
+    summarise_at(vars(A:Y), mean) %>%
+    tibble_to_matrix(A:Y, row_names = 'wt')
+  
+  mat_mean_norm <- mat / mean_profiles[tbl$wt,]
+  min_non_zero_mean_norm <- min(mat_mean_norm[mat_mean_norm > 0])
+  
+  mean_norm <- select(tbl, -(A:Y)) %>%
+    bind_cols(., as_tibble(mat_mean_norm)) %>%
+    mutate_at(vars(A:Y), .funs = ~ log2(. + min_non_zero_mean_norm))
+  
+  return(list(standard=tbl, log10=tbl_log10, wt_norm=wt_norm, mean_norm=mean_norm,
+              invariant_positions=invariant, permissive_positions=permissive))
 }
 
 analyse_sift_clusters <- function(sift, foldx, deep_mut_hclust, score_str='SIFT', n=4, h=NULL, k=NULL){
