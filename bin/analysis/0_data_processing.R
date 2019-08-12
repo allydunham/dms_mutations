@@ -99,22 +99,26 @@ sift_ptms <- bind_rows(sample_n(filter(sift, modification == 'none'), 50000),
                        sample_n(filter(sift, !modification == 'none'), 50000))
 saveRDS(sift_ptms, 'data/rdata/human_sift_ptms.RDS')
 
-# Load FoldX Scores
-foldx_all <- read_tsv('data/mutfunc/human/structure/exp_full.tab') %>%
-  rename_all(.funs = ~str_replace_all(., ' ', '_')) %>%
-  filter(pos > 0) %>%
-  arrange(uniprot_id, pdb_id, pos) %>%
-  distinct(uniprot_id, pos, mut, .keep_all = TRUE) %>% # Choose one pdb_id per position (randomly TODO - change to better filter)
-  rename(position = pos) %>%
-  left_join(., ptms, by = c('uniprot_id', 'position')) %>%
-  mutate(modification = ifelse(is.na(modification), 'none', modification))
-saveRDS(foldx_all, 'data/rdata/human_foldx.RDS')
+# Load FoldX Scores - uncomment to regenerate
+# foldx <- read_tsv('data/mutfunc/human/structure/exp_full.tab') %>%
+#   rename_all(.funs = ~str_replace_all(., ' ', '_')) %>%
+#   filter(pos > 0) %>%
+#   arrange(uniprot_id, pdb_id, pos) %>%
+#   distinct(uniprot_id, pos, mut, .keep_all = TRUE) %>% # Choose one pdb_id per position (randomly TODO - change to better filter)
+#   rename(position = pos) %>%
+#   left_join(., ptms, by = c('uniprot_id', 'position')) %>%
+#   mutate(modification = ifelse(is.na(modification), 'none', modification))
+# saveRDS(foldx_all, 'data/rdata/human_foldx.RDS')
+foldx <- readRDS('data/rdata/human_foldx.RDS')
 
-foldx_reduced <- filter(foldx_all, uniprot_id %in% sample(foldx_all$uniprot_id, 50))
+foldx_tiny <- filter(foldx, uniprot_id %in% sample(foldx$uniprot_id, 10))
+saveRDS(foldx_tiny, 'data/rdata/human_foldx_tiny.RDS')
+
+foldx_reduced <- filter(foldx, uniprot_id %in% sample(foldx$uniprot_id, 50))
 saveRDS(foldx_reduced, 'data/rdata/human_foldx_reduced.RDS')
 
 # Identify positions with/without modifications to sample from
-foldx_positions <- group_by(foldx_all, uniprot_id, position) %>% 
+foldx_positions <- group_by(foldx, uniprot_id, position) %>% 
   summarise(m = first(modification))
   
 # Sample 50000 positions with/without ptms
@@ -123,7 +127,7 @@ ptm_positions <- mutate(foldx_positions, any_mod = m == 'none') %>%
   sample_n(min(15000, sum(!foldx_positions$m == 'none'))) %>%
   mutate(id = str_c(uniprot_id, '_', position))
 
-foldx_ptms <- semi_join(foldx_all, ptm_positions, by=c('uniprot_id', 'position'))
+foldx_ptms <- semi_join(foldx, ptm_positions, by=c('uniprot_id', 'position'))
 saveRDS(foldx_ptms, 'data/rdata/human_foldx_ptms.RDS')
 
 # Dataframe of all individually scored variant/sets of variants in all studies
