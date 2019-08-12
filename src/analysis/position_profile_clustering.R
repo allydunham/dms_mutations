@@ -154,14 +154,23 @@ make_kmeans_clusters <- function(tbl, cols, n=5, ...){
 ########
 
 #### hclust ####
-make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL, k = NULL, ...){
+make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL, k = NULL, max_k=NULL, ...){
   cols <- enquo(cols)
   
   mat <- tibble_to_matrix(tbl, !!cols)
   
   hc <- hclust(dist(mat, method = dist_method), ...)
   
-  return(list(tbl = mutate(tbl, cluster = cutree(hc, k = k, h = h)),
+  clus <- cutree(hc, k = k, h = h)
+  
+  # max_k overrides h if too many clusters are given for a given height cut
+  if (is.null(k) & !is.null(max_k)){
+    if (max(clus) > max_k){
+      clus <- cutree(hc, k = max_k)
+    }
+  }
+  
+  return(list(tbl = mutate(tbl, cluster = clus),
               hclust = hc))
 }
 ########
