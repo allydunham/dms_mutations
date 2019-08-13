@@ -10,9 +10,7 @@ foldx <- readRDS('data/rdata/human_foldx_tiny.RDS')
 plots <- list()
 
 #### Analyse by average at position ####
-plots$pos_avg <- list()
-
-# foldx_pos_avg <- group_by(foldx, uniprot_id, position, wt, modification) %>%
+# foldx_pos_avg <- group_by(foldx, uniprot_id, position, wt) %>%
 #   summarise_at(vars(total_energy:entropy_complex), mean, na.rm=TRUE) %>%
 #   ungroup()
 # saveRDS(foldx_pos_avg, 'data/rdata/human_foldx_tiny_pos_avg.RDS')
@@ -25,75 +23,52 @@ foldx_pos_avg_scaled <- select(foldx_pos_avg, -sloop_entropy, -mloop_entropy, -e
   as_tibble() %>%
   bind_cols(select(foldx_pos_avg, uniprot_id:modification), .)
 
-h <- 2.5
-k <- NULL
-max_k <- 6
-cluster_str <- str_c('hclust (h = ', h, ', k = ', k, ', max_k = ', max_k, ')')
-hclust_clusters <- group_by(foldx_pos_avg_scaled, wt) %>%
-  do(hclust = make_hclust_clusters(., total_energy:energy_ionisation, h = h, max_k = max_k))
-#sapply(hclust_clusters$hclust, function(x){plot(x$hclust); abline(h = 12)})
+pos_avg_settings <- list(h=2.5, k=NULL, max_k=6)
+pos_avg_hclust <- group_by(foldx_pos_avg_scaled, wt) %>%
+  do(hclust = make_hclust_clusters(., total_energy:energy_ionisation, h = pos_avg_settings$h, max_k = pos_avg_settings$max_k))
+#sapply(pos_avg_hclust$hclust, function(x){plot(x$hclust); abline(h = 12)})
 
-hclust_cluster_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
+pos_avg_hclust_tbl <- map_dfr(pos_avg_hclust$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-hclust_cluster_profiles <- group_by(hclust_cluster_tbl, cluster) %>%
-  summarise_at(.vars = vars(total_energy:energy_ionisation), .funs = mean)
+pos_avg_hclust_analysis <- analyse_clusters(pos_avg_hclust_tbl,
+                                            str_c('hclust (h = ', pos_avg_settings$h, 
+                                                  ', k = ', pos_avg_settings$k, 
+                                                  ', max_k = ', pos_avg_settings$max_k, ')'),
+                                            total_energy:energy_ionisation,
+                                            transform_ddg = function(x){x / max(abs(x))})
 
-hclust_cluster_profiles_long <- gather(hclust_cluster_profiles, key = 'term', value = 'ddG', -cluster) %>%
-  add_factor_order(cluster, term, ddG, sym = FALSE) %>%
-  group_by(term) %>%
-  mutate(trans_ddg = ddG / max(abs(ddG))) %>%
-  ungroup()
+plots$pos_avg_clusters <- pos_avg_hclust_analysis$plots
+########
 
-hclust_cluster_sizes <- group_by(hclust_cluster_tbl, cluster) %>%
-  summarise(n = n()) %>%
-  mutate(aa = str_sub(cluster, end = 1), cluster = factor(cluster, levels = levels(hclust_cluster_profiles_long$cluster)))
+#### Analyse by total energy of each substitution ####
+foldx_total_energy <- select(foldx, uniprot_id:mut, total_energy) %>%
+  spread(key = mut, value = total_energy)
 
-plots$pos_avg$cluster_sizes <- ggplot(hclust_cluster_sizes, aes(x=cluster, y=n, fill=aa)) +
-  geom_col() +
-  scale_fill_manual(values = AA_COLOURS) +
-  labs(x='Cluster', y='Size', title = str_c('Size of ', cluster_str,  'clusters from mean position FoldX terms')) +
-  theme_pubclean() +
-  scale_y_log10() +
-  guides(fill=FALSE) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+tot_eng_settings <- list(h=75, k=NULL, max_k=6)
+tot_eng_hclust <- group_by(foldx_total_energy, wt) %>%
+  do(hclust = make_hclust_clusters(., A:Y, h = tot_eng_settings$h, max_k = tot_eng_settings$max_k))
+#sapply(tot_eng_hclust$hclust, function(x){plot(x$hclust); abline(h = tot_eng_settings$h)})
 
-plots$pos_avg$cluster_mean_profile <- labeled_ggplot(
-  p = ggplot(hclust_cluster_profiles_long, aes(x=term, y=cluster, fill=trans_ddg)) +
-    geom_raster() +
-    scale_fill_gradient2() +
-    coord_fixed() +
-    theme(axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
-          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_profiles_long$cluster), end = 1)]),
-          plot.title = element_text(hjust = 0.5)) +
-    labs(y='Cluster', x='FoldX Term', title = str_c('Mean profile of ', cluster_str, 'clusters from mean position FoldX terms')),
-  units='cm', height = length(levels(hclust_cluster_profiles_long$cluster)) * 0.5, width = 15)
+tot_eng_hclust_tbl <- map_dfr(tot_eng_hclust$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
 
-hclust_cluster_cors <- transpose_tibble(hclust_cluster_profiles, cluster, name_col = 'term') %>%
-  tibble_correlation(-term) %>%
-  rename(cluster1 = cat1, cluster2 = cat2) %>%
-  mutate(wt1 = str_sub(cluster1, end = 1),
-         wt2 = str_sub(cluster2, end = 1)) %>%
-  mutate(pair = mapply(function(x, y){str_c(str_sort(c(x, y)), collapse = '')}, wt1, wt2))
+tot_eng_hclust_analysis <- analyse_clusters(tot_eng_hclust_tbl,
+                                            str_c('hclust (h = ', tot_eng_settings$h, 
+                                                  ', k = ', tot_eng_settings$k, 
+                                                  ', max_k = ', tot_eng_settings$max_k, ')'),
+                                            A:Y,
+                                            transform_ddg = function(x){atan(0.5 * x)})
+tot_eng_hclust_analysis$plots$mean_profile$plot <- tot_eng_hclust_analysis$plots$mean_profile$plot + 
+  theme(axis.text.x = element_text(angle = 0))
+  scale_fill_gradientn(colors = c('red', 'white', 'blue', 'yellow', 'green'),
+                       values = rescale(c(min(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg),
+                                          0 ,
+                                          -1 * min(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg),
+                                          30,
+                                          max(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg))))
 
-plots$pos_avg$cluster_correlation <- ggplot(hclust_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
-  geom_raster() +
-  scale_fill_gradient2() +
-  labs(x='', y='', title = str_c('Correlation of ', cluster_str, ' cluster centroids based on mean FoldX profile')) +
-  coord_fixed() +
-  theme(axis.ticks = element_blank(),
-        panel.background = element_blank(),
-        axis.title = element_blank(),
-        axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster1), end = 1)],
-                                   angle = 90, vjust = 0.5),
-        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_cors$cluster2), end = 1)]),
-        plot.title = element_text(hjust = 0.5))
-plots$pos_avg$cluster_correlation <- labeled_ggplot(p = plots$pos_avg$cluster_correlation, units='cm',
-                                                    height = length(levels(hclust_cluster_cors$cluster1)) * 0.5,
-                                                    width = length(levels(hclust_cluster_cors$cluster2)) * 0.5)
-
+plots$total_energy <- tot_eng_hclust_analysis$plots
 ########
 
 # Save Plots
