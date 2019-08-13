@@ -5,3 +5,4 @@ ev.tar.gz
 *.md
 sift_mat_all.Rdata
 sift_parsed_all.tab
+sift_cluster_analysis.RDS
