@@ -154,24 +154,53 @@ make_kmeans_clusters <- function(tbl, cols, n=5, ...){
 ########
 
 #### hclust ####
-make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', h = NULL, k = NULL, max_k=NULL, ...){
+# Perfrom hclust on columns of a tibble, using parameters in conf or by specific h, k, ... settings if given. conf takes preference
+# k overrides h as in the base hclust
+make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', conf=NULL, h = NULL, k = NULL, max_k=Inf, min_k=0, ...){
   cols <- enquo(cols)
   
+  defaults <- list(h=h, k=k, max_k=max_k, min_k=min_k)
+  if (is.null(conf)){
+    conf <- defaults
+  } else {
+    conf <- list_modify(defaults, !!!conf)
+  }
+  
   mat <- tibble_to_matrix(tbl, !!cols)
-  
   hc <- hclust(dist(mat, method = dist_method), ...)
+  clus <- cutree(hc, k = conf$k, h = conf$h)
   
-  clus <- cutree(hc, k = k, h = h)
-  
-  # max_k overrides h if too many clusters are given for a given height cut
-  if (is.null(k) & !is.null(max_k)){
-    if (max(clus) > max_k){
-      clus <- cutree(hc, k = max_k)
+  # Use max/min cluster nums if using h (defaults mean any number is allowed)
+  if (is.null(conf$k)){
+    # too many clusters
+    if (max(clus) > conf$max_k){
+      clus <- cutree(hc, k = conf$max_k)
+    }
+    # too few clusters
+    if (max(clus) < conf$min_k){
+      clus <- cutree(hc, k = conf$min_k)
     }
   }
   
   return(list(tbl = mutate(tbl, cluster = clus),
               hclust = hc))
+}
+
+# Generate a sensible name for an hclust run passing a config list and/or individual values for the params (overrides settings)
+make_hclust_cluster_str <- function(conf=NULL, ...){
+  manual <- list(...)
+  
+  if (is.null(conf)){
+    conf <- list(h=NULL, k=NULL, max_k=NULL, min_k=NULL)
+  }
+  
+  if (length(manual) > 0){
+    conf <- list_modify(conf, manual)
+  }
+  
+  conf <- conf[!sapply(conf, is.null)]
+  
+  return(str_c('hclust ', str_sub(capture.output(dput(conf)), start = 5)))
 }
 ########
 

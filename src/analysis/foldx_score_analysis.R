@@ -3,7 +3,7 @@
 
 # analyse a dataframe of clusters
 # ... columns on which clustering was run
-analyse_clusters <- function(tbl, str, ..., transform_ddg=function(x){x}){
+analyse_clusters <- function(tbl, str, origin_str, ..., transform_ddg=function(x){x}){
   cols <- enquos(...)
   plots <- list()
   
@@ -30,7 +30,7 @@ analyse_clusters <- function(tbl, str, ..., transform_ddg=function(x){x}){
   plots$sizes <- ggplot(sizes, aes(x=cluster, y=n, fill=aa)) +
     geom_col() +
     scale_fill_manual(values = AA_COLOURS) +
-    labs(x='Cluster', y='Size', title = str_c('Size of ', str,  'clusters from mean position FoldX terms')) +
+    labs(x='Cluster', y='Size', title = str_c('Size of ', str,  ' clusters from ', origin_str)) +
     theme_pubclean() +
     scale_y_log10() +
     guides(fill=FALSE) +
@@ -46,7 +46,7 @@ analyse_clusters <- function(tbl, str, ..., transform_ddg=function(x){x}){
             axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
             axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(profiles_long$cluster), end = 1)]),
             plot.title = element_text(hjust = 0.5)) +
-      labs(y='Cluster', x='FoldX Term', title = str_c('Mean profile of ', str, 'clusters from mean position FoldX terms')),
+      labs(y='Cluster', x='FoldX Term', title = str_c('Mean profile of ', str, ' clusters ', origin_str)),
     units='cm', height = length(levels(profiles_long$cluster)) * 0.5, width = 15)
   
   
@@ -54,7 +54,7 @@ analyse_clusters <- function(tbl, str, ..., transform_ddg=function(x){x}){
     p = ggplot(cors, aes(x=cluster1, y=cluster2, fill=cor)) +
       geom_raster() +
       scale_fill_gradient2() +
-      labs(x='', y='', title = str_c('Correlation of ', str, ' cluster centroids based on mean FoldX profile')) +
+      labs(x='', y='', title = str_c('Correlation of ', str, ' cluster centroids based on ', origin_str)) +
       coord_fixed() +
       theme(axis.ticks = element_blank(),
             panel.background = element_blank(),

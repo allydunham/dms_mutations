@@ -7,6 +7,10 @@ source('src/analysis/position_profile_clustering.R')
 
 foldx <- readRDS('data/rdata/human_foldx_tiny.RDS')
 
+foldx_ptms <- readRDS('data/rdata/human_foldx_ptms.RDS')
+
+deep_mut_hclust <- readRDS('data/rdata/deep_mut_hclust_clusters.RDS')
+
 plots <- list()
 
 #### Analyse by average at position ####
@@ -21,7 +25,7 @@ foldx_pos_avg_scaled <- select(foldx_pos_avg, -sloop_entropy, -mloop_entropy, -e
   tibble_to_matrix(., total_energy:energy_ionisation) %>% 
   scale(center = FALSE, scale = TRUE) %>% 
   as_tibble() %>%
-  bind_cols(select(foldx_pos_avg, uniprot_id:modification), .)
+  bind_cols(select(foldx_pos_avg, uniprot_id:wt), .)
 
 pos_avg_settings <- list(h=2.5, k=NULL, max_k=6)
 pos_avg_hclust <- group_by(foldx_pos_avg_scaled, wt) %>%
@@ -31,10 +35,7 @@ pos_avg_hclust <- group_by(foldx_pos_avg_scaled, wt) %>%
 pos_avg_hclust_tbl <- map_dfr(pos_avg_hclust$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-pos_avg_hclust_analysis <- analyse_clusters(pos_avg_hclust_tbl,
-                                            str_c('hclust (h = ', pos_avg_settings$h, 
-                                                  ', k = ', pos_avg_settings$k, 
-                                                  ', max_k = ', pos_avg_settings$max_k, ')'),
+pos_avg_hclust_analysis <- analyse_clusters(pos_avg_hclust_tbl, make_hclust_cluster_str(pos_avg_settings), 'mean FoldX terms',
                                             total_energy:energy_ionisation,
                                             transform_ddg = function(x){x / max(abs(x))})
 
@@ -47,28 +48,193 @@ foldx_total_energy <- select(foldx, uniprot_id:mut, total_energy) %>%
 
 tot_eng_settings <- list(h=75, k=NULL, max_k=6)
 tot_eng_hclust <- group_by(foldx_total_energy, wt) %>%
-  do(hclust = make_hclust_clusters(., A:Y, h = tot_eng_settings$h, max_k = tot_eng_settings$max_k))
+  do(hclust = make_hclust_clusters(., A:Y, conf = tot_eng_settings))
 #sapply(tot_eng_hclust$hclust, function(x){plot(x$hclust); abline(h = tot_eng_settings$h)})
 
 tot_eng_hclust_tbl <- map_dfr(tot_eng_hclust$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
-tot_eng_hclust_analysis <- analyse_clusters(tot_eng_hclust_tbl,
-                                            str_c('hclust (h = ', tot_eng_settings$h, 
-                                                  ', k = ', tot_eng_settings$k, 
-                                                  ', max_k = ', tot_eng_settings$max_k, ')'),
-                                            A:Y,
+tot_eng_hclust_analysis <- analyse_clusters(tot_eng_hclust_tbl, make_hclust_cluster_str(tot_eng_settings),
+                                            'per substitution total_energy', A:Y,
                                             transform_ddg = function(x){atan(0.5 * x)})
 tot_eng_hclust_analysis$plots$mean_profile$plot <- tot_eng_hclust_analysis$plots$mean_profile$plot + 
   theme(axis.text.x = element_text(angle = 0))
-  scale_fill_gradientn(colors = c('red', 'white', 'blue', 'yellow', 'green'),
-                       values = rescale(c(min(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg),
-                                          0 ,
-                                          -1 * min(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg),
-                                          30,
-                                          max(tot_eng_hclust_analysis$mean_profiles_long$trans_ddg))))
 
 plots$total_energy <- tot_eng_hclust_analysis$plots
+########
+
+#### Analyse by total energy of each substitution use PTMs dataset ####
+foldx_ptms_total_energy <- select(foldx_ptms, uniprot_id:mut, modified, acetylation:ubiquitination, total_energy) %>%
+  spread(key = mut, value = total_energy)
+
+tot_eng_ptms_settings <- list(h=75, k=NULL, max_k=6)
+tot_eng_ptms_hclust <- group_by(foldx_ptms_total_energy, wt) %>%
+  do(hclust = make_hclust_clusters(., A:Y, conf = tot_eng_settings))
+#sapply(tot_eng_ptms_hclust$hclust, function(x){plot(x$hclust); abline(h = tot_eng_ptms_settings$h)})
+
+tot_eng_ptms_hclust_tbl <- map_dfr(tot_eng_ptms_hclust$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+tot_eng_ptms_hclust_analysis <- analyse_clusters(tot_eng_ptms_hclust_tbl, make_hclust_cluster_str(tot_eng_ptms_settings),
+                                            'per substitution total_energy', A:Y,
+                                            transform_ddg = function(x){atan(0.5 * x)})
+tot_eng_ptms_hclust_analysis$plots$mean_profile$plot <- tot_eng_ptms_hclust_analysis$plots$mean_profile$plot + 
+  theme(axis.text.x = element_text(angle = 0))
+
+plots$total_energy_ptms <- tot_eng_ptms_hclust_analysis$plots
+
+# Mean profiles for each cluster under each modification
+tot_eng_ptm_mean_profs <- mutate(tot_eng_ptms_hclust_tbl, none = !modified) %>%
+  gather(key = 'modification', value = 'present', none, acetylation:ubiquitination) %>%
+  filter(present) %>%
+  group_by(cluster, modification) %>%
+  summarise_at(vars(A:Y), mean) %>%
+  gather(key = 'aa', value = 'ddg', A:Y) %>%
+  spread(modification, ddg) %>%
+  gather(key = 'ptm', value = 'ddg', -cluster, -aa, -none) %>%
+  drop_na() %>%
+  mutate(cluster_aa = str_sub(cluster, end=1),
+         cluster_num = str_sub(cluster, start=3)) %>%
+  filter(!ptm %in% c('o_galnac_glycosilation', 'o_glcnac_glycosilation'))
+
+plots$total_energy_ptms$ptm_profile_cor <- ggplot(tot_eng_ptm_mean_profs, aes(x=none, y=ddg, shape=ptm, colour=aa)) +
+  geom_point() +
+  scale_colour_manual(values = AA_COLOURS) +
+  facet_wrap(~cluster, scales = 'free') +
+  theme_pubclean()
+########
+
+#### Analyse all FoldX terms ####
+foldx_wide <- select(foldx, -sd, -sloop_entropy, -mloop_entropy, -entropy_complex, -electrostatic_kon, -water_bridge) %>%
+  gather(key = 'term', value = 'ddg', total_energy:energy_ionisation) %>%
+  unite(term, mut, term) %>%
+  spread(term, ddg)
+
+foldx_wide_scaled <- tibble_to_matrix(foldx_wide, A_backbone_clash:Y_van_der_waals_clashes) %>% 
+  scale(center = FALSE, scale = TRUE) %>% 
+  as_tibble() %>%
+  bind_cols(select(foldx_wide, uniprot_id:sumoylation), .)
+
+all_terms_settings <- list(h=300, k=NULL, max_k=6, min_k=3)
+all_terms_hclust <- group_by(foldx_wide_scaled, wt) %>%
+  do(hclust = make_hclust_clusters(., A_backbone_clash:Y_van_der_waals_clashes, conf = all_terms_settings))
+#sapply(all_terms_hclust$hclust, function(x){plot(x$hclust); abline(h = all_terms_settings$h)})
+
+all_terms_hclust_tbl <- map_dfr(all_terms_hclust$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+all_terms_hclust_analysis <- analyse_clusters(all_terms_hclust_tbl, make_hclust_cluster_str(all_terms_settings),
+                                              'all FoldX terms for all substitutions',
+                                              A_backbone_clash:Y_van_der_waals_clashes,
+                                              transform_ddg = function(x){x / max(abs(x))})
+all_terms_hclust_analysis$plots$mean_profile$width <- 100
+
+plots$all_terms <- all_terms_hclust_analysis$plots
+
+# Correlation of terms between amino acid
+term_correlation <- select(all_terms_hclust_analysis$mean_profiles_long, cluster, term, ddG) %>%
+  spread(term, ddG) %>%
+  tibble_correlation(-cluster) %>%
+  rename(term1 = cat1, term2 = cat2)
+
+plots$all_terms$term_correlations <- labeled_ggplot(
+  p = ggplot(term_correlation, aes(x=term1, y=term2, fill=cor)) +
+    geom_raster() +
+    scale_fill_gradient2() +
+    labs(x='', y='', title = 'Correlation of each FoldX term accross clusters') +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+          plot.title = element_text(hjust = 0.5)),
+  units='cm',
+  height = 100,
+  width = 100)
+
+term_correlation_reduced <- mutate(term_correlation,
+                                   aa1 = str_sub(term1, end = 1), term1 = str_sub(term1, start = 3),
+                                   aa2 = str_sub(term2, end = 1), term2 = str_sub(term2, start = 3)) %>%
+  filter(term1 == term2) %>%
+  select(term = term1, cor, aa1, aa2)
+
+plots$all_terms$term_correlation_reduced <- labeled_ggplot(
+  p = ggplot(term_correlation_reduced, aes(x=aa1, y=aa2, fill=cor)) +
+    facet_wrap(~term) +
+    geom_raster() +
+    scale_fill_gradient2() +
+    labs(x='', y='', title = 'Correlation of each AA within FoldX terms') +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          plot.title = element_text(hjust = 0.5)),
+  units='cm',
+  height = 100,
+  width = 100)
+########
+
+#### Compare to Deep Mut Clustering ####
+deep_mut_cor <- cor(select(deep_mut_hclust$foldx_cluster_mean_energy, cluster, term=foldx_term, ddg=ddG) %>%
+                      filter(term %in% colnames(pos_avg_hclust_analysis$mean_profiles)) %>%
+                      mutate(cluster = str_c('dm_', cluster)) %>%
+                      spread(key = term, value = ddg) %>%
+                      tibble_to_matrix(-cluster, row_names = 'cluster') %>%
+                      t() %>%
+                      alphabetise_matrix(by='rows'),
+                    mutate(pos_avg_hclust_analysis$mean_profiles, cluster = str_c('fx_', cluster)) %>%
+                      tibble_to_matrix(-cluster, row_names = 'cluster') %>%
+                      t() %>%
+                      alphabetise_matrix(by='rows')) %>%
+  as_tibble(rownames = 'dm_cluster') %>%
+  gather(key = 'fx_cluster', value = 'cor', -dm_cluster) %>%
+  mutate(dm_aa = str_sub(dm_cluster, start=4, end=4),
+         fx_aa = str_sub(fx_cluster, start=4, end=4)) %>%
+  add_factor_order(dm_cluster, fx_cluster, cor, sym=FALSE)
+
+plots$pos_avg_clusters$dm_comparison_cor <- labeled_ggplot(
+  p = filter(deep_mut_cor, dm_aa == fx_aa) %>%
+  ggplot(aes(x=dm_cluster, y=fx_cluster, fill=cor)) +
+  geom_raster() +
+  facet_wrap(~dm_aa, nrow = 4, ncol = 5, scales = 'free') +
+  scale_fill_gradient2() +
+  labs(x='', y='', title = 'Comparison between Deep Mut and FoldX based hclust using pearsons correlation') +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_text(hjust = 0.5)),
+  units = 'cm', height = 20, width = 30) 
+
+deep_mut_dist <- bind_rows(select(deep_mut_hclust$foldx_cluster_mean_energy, cluster, term=foldx_term, ddg=ddG) %>%
+                             filter(term %in% colnames(pos_avg_hclust_analysis$mean_profiles)) %>%
+                             mutate(cluster = str_c('dm_', cluster)) %>%
+                             spread(key = term, value = ddg),
+                           mutate(pos_avg_hclust_analysis$mean_profiles, cluster = str_c('fx_', cluster))) %>%
+  tibble_to_matrix(-cluster, row_names = 'cluster') %>%
+  dist() %>%
+  as.matrix() %>%
+  as_tibble(rownames = 'dm_cluster') %>%
+  gather(key = 'fx_cluster', value = 'dist', -dm_cluster) %>%
+  filter(startsWith(dm_cluster, 'dm_'), startsWith(fx_cluster, 'fx_')) %>%
+  mutate(dm_aa = str_sub(dm_cluster, start=4, end=4),
+         fx_aa = str_sub(fx_cluster, start=4, end=4)) %>%
+  add_factor_order(dm_cluster, fx_cluster, dist, sym=FALSE)
+
+plots$pos_avg_clusters$dm_comparison_dist <- labeled_ggplot(
+  p = filter(deep_mut_dist, dm_aa == fx_aa) %>%
+    ggplot(aes(x=dm_cluster, y=fx_cluster, fill=dist)) +
+    geom_raster() +
+    facet_wrap(~dm_aa, nrow = 4, ncol = 5, scales = 'free') +
+    scale_fill_gradient(low = 'blue', high = 'white') +
+    labs(x='', y='', title = 'Comparison between Deep Mut and FoldX based hclust using euclidean distance') +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          strip.background = element_blank(),
+          axis.title = element_blank(),
+          plot.title = element_text(hjust = 0.5)),
+  units = 'cm', height = 20, width = 30) 
+
 ########
 
 # Save Plots
