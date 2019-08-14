@@ -109,11 +109,11 @@ saveRDS(sift_ptms, 'data/rdata/human_sift_ptms.RDS')
 #   left_join(., ptms, by = c('uniprot_id', 'position')) %>%
 #   mutate(modification = ifelse(is.na(modification), 'none', modification), m = TRUE) %>%
 #   distinct() %>%
-#   spread(key = modification, value = m) %>%
-#   mutate_at(.vars = vars(acetylation:ubiquitination), .funs =~ !is.na(.)) %>%
+#   spread(key = modification, value = m, fill=FALSE) %>%
 #   rename(modified = none,
 #          o_glcnac_glycosilation = `o-linked glycosilation (o-glcnac)`,
 #          o_galnac_glycosilation = `o-linked glycosilation (o-galnac)`) %>%
+#   select(uniprot_id:mut, modified, sd:entropy_complex, acetylation:ubiquitination) %>%
 #   mutate(modified = !modified)
 # saveRDS(foldx, 'data/rdata/human_foldx.RDS')
 foldx <- readRDS('data/rdata/human_foldx.RDS')
@@ -124,10 +124,12 @@ saveRDS(foldx_tiny, 'data/rdata/human_foldx_tiny.RDS')
 foldx_reduced <- filter(foldx, uniprot_id %in% sample(foldx$uniprot_id, 50))
 saveRDS(foldx_reduced, 'data/rdata/human_foldx_reduced.RDS')
 
-# Sample 50000 positions with/without ptms
-foldx_ptms <- group_by(foldx, modified) %>%
-  sample_n(15000) %>%
-  ungroup()
+# Sample 1000 positions with/without ptms
+foldx_ptms <- distinct(foldx, uniprot_id, position, modified) %>%
+  group_by(modified) %>%
+  sample_n(1000) %>%
+  ungroup() %>%
+  semi_join(foldx, ., by = c('uniprot_id', 'position', 'modified'))
 saveRDS(foldx_ptms, 'data/rdata/human_foldx_ptms.RDS')
 
 # Dataframe of all individually scored variant/sets of variants in all studies
