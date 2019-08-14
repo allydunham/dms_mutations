@@ -24,6 +24,20 @@ enumerate_unique_rows <- function(mat){
   }
   return(list(indeces=unique_inds, duplicate=dupe_rows))
 }
+
+alphabetise_matrix <- function(x, by=c('rows', 'columns', 'both')){
+  by <- match.arg(by)
+  
+  if (by %in% c('rows', 'both')){
+    x <- x[sort(rownames(x)),]
+  }
+  
+  if (by %in% c('cols', 'both')){
+    x <- x[,sort(colnames(x))]
+  }
+  
+  return(x)
+}
 ########
 
 #### Tibbles ####
