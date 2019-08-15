@@ -32,7 +32,7 @@ alphabetise_matrix <- function(x, by=c('rows', 'columns', 'both')){
     x <- x[sort(rownames(x)),]
   }
   
-  if (by %in% c('cols', 'both')){
+  if (by %in% c('columns', 'both')){
     x <- x[,sort(colnames(x))]
   }
   
