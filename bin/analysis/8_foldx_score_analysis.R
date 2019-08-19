@@ -336,15 +336,15 @@ plots$dm_cluster_assignment$foldx_dm_cluster_term_rel <- labeled_ggplot(
 ########
 
 #### Cluster deep mut results based on FoldX terms ####
-dm_foldx_scaled <- select(deep_mut_hclust$foldx, gene_name, position=pos, wt, total_energy:entropy_complex) %>%
+dm_foldx_scaled <- select(deep_mut_hclust$foldx, gene_name, position=pos, wt, total_energy:entropy_complex, A:Y) %>%
   select(-total_energy, -sloop_entropy, -mloop_entropy, -electrostatic_kon, -entropy_complex, -water_bridge) %>%
-  distinct() %>%
-  bind_cols(select(., gene_name, position, wt),
-            tibble_to_matrix(., backbone_hbond:energy_ionisation) %>%
-              scale(center = FALSE, scale=term_scaling_factors) %>%
-              as_tibble())
+  distinct()
+dm_foldx_scaled <- bind_cols(select(dm_foldx_scaled, gene_name, position, wt, A:Y),
+                             tibble_to_matrix(dm_foldx_scaled, backbone_hbond:energy_ionisation) %>%
+                               scale(center = FALSE, scale=term_scaling_factors) %>%
+                               as_tibble())
 
-dm_foldx_settings <- list(h=8, k=NULL, max_k=6, min_k=3)
+dm_foldx_settings <- list(h=30, k=NULL, max_k=6, min_k=3)
 dm_foldx_hclust <- group_by(dm_foldx_scaled, wt) %>%
   do(hclust = make_hclust_clusters(., backbone_hbond:energy_ionisation, conf = dm_foldx_settings))
 #sapply(dm_foldx_hclust$hclust, function(x){plot(x$hclust); abline(h = dm_foldx_settings$h)})
@@ -358,7 +358,59 @@ dm_foldx_hclust_analysis <- analyse_clusters(dm_foldx_hclust_tbl, make_hclust_cl
 
 plots$dm_foldx_clusters <- dm_foldx_hclust_analysis$plots
 
-# Compare to Deep Mut ER based clusters
+# ER profile of FoldX clusters
+dm_foldx_cluster_mean_er <- group_by(dm_foldx_hclust_tbl, cluster) %>%
+  summarise_at(vars(A:Y), list(mean=mean, sd=sd)) %>%
+  gather(key = 'mut', value = 'er', -cluster) %>%
+  separate(mut, into = c('mut', 'var'), sep='_') %>%
+  spread(var, er) %>%
+  add_factor_order(cluster, mut, mean, sym = FALSE)
+
+plots$dm_foldx_clusters$mean_er <- labeled_ggplot(
+  p = ggplot(dm_foldx_cluster_mean_er, aes(x=mut, y=cluster, fill=mean)) +
+    geom_raster() +
+    scale_fill_gradient2() +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[levels(dm_foldx_cluster_mean_er$mut)]),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(dm_foldx_cluster_mean_er$cluster), end = 1)]),
+          plot.title = element_text(hjust = 0.5)) +
+    labs(y='Cluster', x='Substitution', title = str_c('Mean ER profile of Deep Mut FoldX data derived clusters')),
+  units='cm', height = length(levels(dm_foldx_cluster_mean_er$cluster)) * 0.25, width = 10)
+
+plots$dm_foldx_clusters$sd_er <- labeled_ggplot(
+  p = ggplot(dm_foldx_cluster_mean_er, aes(x=mut, y=cluster, fill=sd)) +
+    geom_raster() +
+    scale_fill_gradient2() +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[levels(dm_foldx_cluster_mean_er$mut)]),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(dm_foldx_cluster_mean_er$cluster), end = 1)]),
+          plot.title = element_text(hjust = 0.5)) +
+    labs(y='Cluster', x='Substitution', title = str_c('SD of ER profile of Deep Mut FoldX data derived clusters')),
+  units='cm', height = length(levels(dm_foldx_cluster_mean_er$cluster)) * 0.25, width = 10)
+
+dm_foldx_er_residual <- select(dm_foldx_hclust_tbl, cluster, gene_name, position, wt, A:Y) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(select(dm_foldx_cluster_mean_er, cluster, mut, clus_er=mean) %>% mutate_at(vars(cluster, mut), as.character),
+            by = c('cluster', 'mut')) %>%
+  mutate(diff_er = er - clus_er)
+
+plots$dm_foldx_clusters$er_residuals <- ggplot(dm_foldx_er_residual, aes(x=diff_er)) +
+  facet_wrap(~wt) +
+  geom_histogram()
+
+plots$dm_foldx_clusters$er_prediction <- labeled_ggplot(
+  p = ggplot(dm_foldx_er_residual, aes(x=er, y=clus_er)) +
+  facet_grid(rows = vars(wt), cols = vars(mut)) +
+  geom_point() +
+  geom_abline(slope = 1, linetype='dotted', colour='red'),
+  units='cm', height=40, width = 40)
+########
+
+#### Compare Deep Mut FoldX derived clusters to Deep Mut ER based clusters ####
 dm_foldx_profiles <- select(dm_foldx_hclust_tbl, cluster, backbone_hbond:energy_ionisation) %>%
   group_by(cluster) %>%
   summarise_all(mean) %>%
@@ -458,6 +510,82 @@ plots$dm_foldx_clusters$er_cluster_dist_per_aa <- labeled_ggplot(
           axis.text.x = element_text(angle = 90, vjust = 0.5),
           plot.title = element_text(hjust = 0.5)),
   units='cm', height=length(levels(dm_foldx_cluster_dist$fx_cluster)) * 0.5, width=length(levels(dm_foldx_cluster_dist$er_cluster)) * 0.5)
+########
+
+#### Control FoldX clusterings predictability of ER space ####
+dm_foldx_subset_scaled <- distinct(dm_foldx_scaled, gene_name, position) %>%
+  mutate(train = sample(c(TRUE, FALSE), size = nrow(.), replace = TRUE, prob = c(0.8, 0.2))) %>%
+  left_join(dm_foldx_scaled, ., by=c('gene_name', 'position'))
+
+dm_foldx_subset_settings <- list(h=30, k=NULL, max_k=6, min_k=3)
+dm_foldx_subset_hclust <- filter(dm_foldx_subset_scaled, train) %>%
+  group_by(wt) %>%
+  do(hclust = make_hclust_clusters(., backbone_hbond:energy_ionisation, conf = dm_foldx_settings))
+#sapply(dm_foldx_subset_hclust$hclust, function(x){plot(x$hclust); abline(h = dm_foldx_subset_settings$h)})
+
+dm_foldx_subset_hclust_tbl <- map_dfr(dm_foldx_subset_hclust$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+dm_foldx_subset_hclust_analysis <- analyse_clusters(dm_foldx_subset_hclust_tbl, make_hclust_cluster_str(dm_foldx_subset_settings),
+                                                    'mean FoldX terms',
+                                                    backbone_hbond:energy_ionisation,
+                                                    transform_ddg = function(x){x / max(abs(x))})
+plots$dm_foldx_subset_clusters <- dm_foldx_subset_hclust_analysis$plots
+
+# Assign clusters to test data
+dm_foldx_subset_dists <- filter(dm_foldx_subset_scaled, !train) %>%
+  select(backbone_hbond:energy_ionisation) %>%
+  apply(1, col_distances,
+        ref=t(tibble_to_matrix(dm_foldx_subset_hclust_analysis$mean_profiles, -cluster, row_names = 'cluster'))) %>%
+  t()
+dm_foldx_subset_wt <- filter(dm_foldx_subset_scaled, !train) %>% pull(wt)
+dm_foldx_subset_wt_cluster_distance <- sapply(1:length(dm_foldx_subset_wt), assign_cluster,
+                                              wt=dm_foldx_subset_wt, dists=dm_foldx_subset_dists)
+dm_foldx_subset_wt_cluster_assignment <- names(dm_foldx_subset_wt_cluster_distance)
+
+# Collate data
+dm_foldx_subset <- left_join(dm_foldx_subset_scaled,
+                             select(dm_foldx_subset_hclust_tbl, gene_name, position, wt, cluster),
+                             by=c('gene_name', 'position', 'wt'))
+dm_foldx_subset[!dm_foldx_subset$train, 'cluster'] <- dm_foldx_subset_wt_cluster_assignment
+
+# Test assigned clusters
+dm_foldx_subset_cluster_mean_er <- group_by(dm_foldx_subset, cluster, train) %>%
+  summarise_at(vars(A:Y), mean) %>%
+  gather(key = 'mut', value = 'clus_er', A:Y)
+
+dm_foldx_subset_er_diffs <- select(dm_foldx_subset, cluster, train, gene_name, position, wt, A:Y) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(filter(dm_foldx_subset_cluster_mean_er, train) %>% select(-train),
+            by = c('cluster', 'mut')) %>%
+  mutate(diff = er - clus_er)
+
+plots$dm_foldx_subset_clusters$er_residual <- ggplot(dm_foldx_subset_er_diffs, aes(x=diff, y=..ncount.., colour=train)) +
+  geom_freqpoly()
+
+plots$dm_foldx_subset_clusters$er_cor <- ggplot(dm_foldx_subset_er_diffs, aes(x=clus_er, y=er, colour=train)) +
+  geom_point(shape=20) +
+  geom_density2d(size=1.25, colour='black', aes(group=train)) +
+  geom_density2d(size=1) +
+  geom_abline(slope = 1, colour='red', linetype='dotted')
+
+# Not particularly enlightening as there are not enough in each test set cluster
+plots$dm_foldx_subset_clusters$er_means <-labeled_ggplot(
+  p = ggplot(dm_foldx_subset_cluster_mean_er, aes(x=cluster, y=mut, fill=clus_er)) +
+    facet_wrap(~train, nrow = 2) +
+    geom_raster() +
+    scale_fill_gradient2() +
+    labs(x='', y='', title = 'Mean ER Profile of Deep Mut FoldX Clusters') +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(dm_foldx_subset_cluster_mean_er$cluster), end=1)],
+                                     angle = 90, vjust = 0.5),
+          axis.text.y = element_text(colour = AA_COLOURS[unique(dm_foldx_subset_cluster_mean_er$mut)]),
+          plot.title = element_text(hjust = 0.5)),
+  units='cm', height=20, width=length(unique(dm_foldx_subset_cluster_mean_er$cluster)) * 0.5)
+
 ########
 
 # Save Plots
