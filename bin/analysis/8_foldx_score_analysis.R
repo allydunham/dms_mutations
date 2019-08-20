@@ -332,14 +332,13 @@ plots$dm_cluster_assignment$foldx_dm_cluster_term_rel <- labeled_ggplot(
           axis.text.y = element_text(colour = AA_COLOURS[str_sub(sort(unique(foldx_dm_cluster_avg$cluster)), end = 1)]),
           plot.title = element_text(hjust = 0.5)),
   units='cm', height=length(unique(foldx_dm_cluster_avg$cluster))*0.5, width=20)
-
 ########
 
 #### Cluster deep mut results based on FoldX terms ####
-dm_foldx_scaled <- select(deep_mut_hclust$foldx, gene_name, position=pos, wt, total_energy:entropy_complex, A:Y) %>%
+dm_foldx_scaled <- select(deep_mut_hclust$foldx, study, gene_name, position=pos, wt, total_energy:entropy_complex, A:Y) %>%
   select(-total_energy, -sloop_entropy, -mloop_entropy, -electrostatic_kon, -entropy_complex, -water_bridge) %>%
   distinct()
-dm_foldx_scaled <- bind_cols(select(dm_foldx_scaled, gene_name, position, wt, A:Y),
+dm_foldx_scaled <- bind_cols(select(dm_foldx_scaled, study, gene_name, position, wt, A:Y),
                              tibble_to_matrix(dm_foldx_scaled, backbone_hbond:energy_ionisation) %>%
                                scale(center = FALSE, scale=term_scaling_factors) %>%
                                as_tibble())
@@ -513,9 +512,9 @@ plots$dm_foldx_clusters$er_cluster_dist_per_aa <- labeled_ggplot(
 ########
 
 #### Control FoldX clusterings predictability of ER space ####
-dm_foldx_subset_scaled <- distinct(dm_foldx_scaled, gene_name, position) %>%
+dm_foldx_subset_scaled <- distinct(dm_foldx_scaled, study, gene_name, position) %>%
   mutate(train = sample(c(TRUE, FALSE), size = nrow(.), replace = TRUE, prob = c(0.8, 0.2))) %>%
-  left_join(dm_foldx_scaled, ., by=c('gene_name', 'position'))
+  left_join(dm_foldx_scaled, ., by=c('study', 'gene_name', 'position'))
 
 dm_foldx_subset_settings <- list(h=30, k=NULL, max_k=6, min_k=3)
 dm_foldx_subset_hclust <- filter(dm_foldx_subset_scaled, train) %>%
@@ -545,14 +544,15 @@ dm_foldx_subset_wt_cluster_assignment <- names(dm_foldx_subset_wt_cluster_distan
 
 # Collate data
 dm_foldx_subset <- left_join(dm_foldx_subset_scaled,
-                             select(dm_foldx_subset_hclust_tbl, gene_name, position, wt, cluster),
-                             by=c('gene_name', 'position', 'wt'))
+                             select(dm_foldx_subset_hclust_tbl, study, gene_name, position, wt, cluster),
+                             by=c('study', 'gene_name', 'position', 'wt'))
 dm_foldx_subset[!dm_foldx_subset$train, 'cluster'] <- dm_foldx_subset_wt_cluster_assignment
 
 # Test assigned clusters
 dm_foldx_subset_cluster_mean_er <- group_by(dm_foldx_subset, cluster, train) %>%
   summarise_at(vars(A:Y), mean) %>%
-  gather(key = 'mut', value = 'clus_er', A:Y)
+  gather(key = 'mut', value = 'clus_er', A:Y) %>%
+  ungroup()
 
 dm_foldx_subset_er_diffs <- select(dm_foldx_subset, cluster, train, gene_name, position, wt, A:Y) %>%
   gather(key = 'mut', value = 'er', A:Y) %>%
@@ -569,22 +569,110 @@ plots$dm_foldx_subset_clusters$er_cor <- ggplot(dm_foldx_subset_er_diffs, aes(x=
   geom_density2d(size=1) +
   geom_abline(slope = 1, colour='red', linetype='dotted')
 
-# Not particularly enlightening as there are not enough in each test set cluster
-plots$dm_foldx_subset_clusters$er_means <-labeled_ggplot(
-  p = ggplot(dm_foldx_subset_cluster_mean_er, aes(x=cluster, y=mut, fill=clus_er)) +
-    facet_wrap(~train, nrow = 2) +
+# Distance to all cluster centers
+dm_foldx_subset_er_dists <- select(dm_foldx_subset, A:Y) %>%
+  apply(1, col_distances,
+        ref=filter(dm_foldx_subset_cluster_mean_er, train) %>%
+          spread(key = mut, value = clus_er) %>%
+          tibble_to_matrix(A:Y, row_names = 'cluster') %>%
+          t()) %>%
+  t() %>%
+  as_tibble() %>%
+  bind_cols(dm_foldx_subset, .) %>%
+  select(gene_name, position, wt, train, cluster, matches('[A-Z]_[0-9]+')) %>%
+  gather(key = 'dist_cluster', value = 'distance', matches('[A-Z]_[0-9]+')) %>%
+  mutate(match_cluster = cluster == dist_cluster)
+
+plots$dm_foldx_subset_clusters$er_distance_distributions <- ggplot(dm_foldx_subset_er_dists, aes(x=distance, y=..scaled..,
+                                                                                                 colour=match_cluster,
+                                                                                                 linetype=train)) +
+  geom_line(stat='density') + 
+  scale_linetype_manual(name = '', labels = c('Test', 'Train'), values = c('solid', 'dotted')) +
+  scale_colour_manual(name = '', labels = c('Background', 'Same Cluster'), values = c('red', 'blue')) +
+  theme_pubclean() +
+  theme(legend.position = 'right') +
+  labs(x = 'ER Distance', y='Frequency', title = 'Distance between position ER profiles and the mean ER profile of clusters',
+       subtitle = 'Using avg. FoldX term based clusters, assigned via FoldX profile nearest neighbour in the test set')
+
+########
+
+#### Control ER clusterings predictability via FoldX matching ####
+dm_er_settings <- list(h=7, k=NULL, max_k=4, min_k=2)
+dm_er_hclust <- filter(dm_foldx_subset_scaled, train) %>%
+  group_by(wt) %>%
+  do(hclust = make_hclust_clusters(., A:Y, conf = dm_er_settings))
+#sapply(dm_er_hclust$hclust, function(x){plot(x$hclust); abline(h = dm_er_settings$h)})
+
+dm_er_hclust_tbl <- map_dfr(dm_er_hclust$hclust, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+dm_er_hclust_analysis <- analyse_clusters(dm_er_hclust_tbl, make_hclust_cluster_str(dm_er_settings), 'ER',
+                                          A:Y)
+
+plots$dm_er_clusters <- dm_er_hclust_analysis$plots
+
+# Mean FoldX
+dm_er_mean_profs <- group_by(dm_er_hclust_tbl, cluster) %>%
+          summarise_at(vars(backbone_hbond:energy_ionisation, A:Y), mean)
+
+dm_er_mean_foldx_long <- select(dm_er_mean_foldx, cluster, backbone_hbond:energy_ionisation) %>%
+  gather(key = 'term', value = 'ddg', -cluster) %>%
+  add_factor_order(cluster, term, ddg) %>%
+  group_by(term) %>%
+  mutate(rel_ddg = ddg / max(abs(ddg))) %>%
+  ungroup()
+
+plots$dm_er_clusters$mean_foldx_profile <- labeled_ggplot(
+  p = ggplot(dm_er_mean_foldx_long, aes(x=cluster, y=term, fill=rel_ddg)) +
     geom_raster() +
     scale_fill_gradient2() +
-    labs(x='', y='', title = 'Mean ER Profile of Deep Mut FoldX Clusters') +
     coord_fixed() +
     theme(axis.ticks = element_blank(),
           panel.background = element_blank(),
-          axis.title = element_blank(),
-          axis.text.x = element_text(colour = AA_COLOURS[str_sub(unique(dm_foldx_subset_cluster_mean_er$cluster), end=1)],
-                                     angle = 90, vjust = 0.5),
-          axis.text.y = element_text(colour = AA_COLOURS[unique(dm_foldx_subset_cluster_mean_er$mut)]),
-          plot.title = element_text(hjust = 0.5)),
-  units='cm', height=20, width=length(unique(dm_foldx_subset_cluster_mean_er$cluster)) * 0.5)
+          axis.text.x = element_text(colour = AA_COLOURS[str_sub(levels(dm_er_mean_foldx_long$cluster), end = 1)],
+                                     angle=90, hjust = 1, vjust = 0.5),
+          plot.title = element_text(hjust = 0.5)) +
+    labs(y='FoldX Term', x='Cluster', title = 'FoldX term profile of ER based clusters'),
+  units='cm', height = 20, width = length(levels(dm_er_mean_foldx_long$cluster)) * 0.5)
+
+# Assign clusters to test data
+dm_er_foldx_dists <- select(dm_foldx_subset_scaled, backbone_hbond:energy_ionisation) %>%
+  apply(1, col_distances,
+        ref= tibble_to_matrix(dm_er_mean_foldx, -cluster, row_names = 'cluster') %>%
+          t()) %>%
+  t()
+
+dm_er_cluster_distance <- sapply(1:nrow(dm_foldx_subset_scaled), assign_cluster, wt=dm_foldx_subset_scaled$wt, dists=dm_er_foldx_dists)
+dm_er_cluster_assignment <- names(dm_er_cluster_distance)
+
+# Collate data
+dm_er <- left_join(dm_foldx_subset_scaled,
+                   select(dm_er_hclust_tbl, study, gene_name, position, wt, cluster),
+                   by=c('study', 'gene_name', 'position', 'wt')) %>%
+  bind_cols(as_tibble(dm_er_dists))
+dm_er[!dm_foldx_subset_scaled$train, 'cluster'] <- dm_er_cluster_assignment[!dm_foldx_subset_scaled$train]
+
+dm_er_cluster_er_dists <- select(dm_er, A:Y) %>%
+  apply(1, col_distances,
+        ref= select(dm_er_mean_profs, cluster, A:Y) %>%
+          tibble_to_matrix(-cluster, row_names = 'cluster') %>%
+          t()) %>%
+  t() %>%
+  as_tibble() %>%
+  bind_cols(select(dm_er, study, gene_name, position, wt, train, cluster), .) %>%
+  gather(key = 'dist_cluster', value = 'distance', matches('[A-Z]_[0-9]+')) %>%
+  mutate(match_cluster = cluster == dist_cluster)
+
+plots$dm_er_clusters$er_distance_distributions <- ggplot(dm_er_cluster_er_dists, aes(x=distance, y=..scaled..,
+                                                                                  colour=match_cluster,
+                                                                                  linetype=train)) +
+  geom_line(stat='density') + 
+  scale_linetype_manual(name = '', labels = c('Test', 'Train'), values = c('solid', 'dotted')) +
+  scale_colour_manual(name = '', labels = c('Background', 'Same Cluster'), values = c('red', 'blue')) +
+  theme_pubclean() +
+  theme(legend.position = 'right') +
+  labs(x = 'ER Distance', y='Density', title = 'Distance between position ER profiles and the mean ER profile of clusters',
+       subtitle = 'Using ER based clusters, assigned via FoldX profile nearest neighbour in the test set')
 
 ########
 
