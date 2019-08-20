@@ -106,7 +106,7 @@ tibble_correlation <- function(tbl, ..., filter_diag=FALSE){
 }
 
 # Determine order of long factor cols based on a third col (i.e. assume it is a gathered version of a relationship matrix)
-add_factor_order <- function(tbl, col1, col2, value, sym=TRUE){
+add_factor_order <- function(tbl, col1, col2, value, sym=FALSE){
   col1 <- enquo(col1)
   col2 <- enquo(col2)
   value <- enquo(value)
