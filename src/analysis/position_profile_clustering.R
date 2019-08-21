@@ -171,7 +171,7 @@ make_hclust_clusters <- function(tbl, cols, dist_method = 'manhattan', conf=NULL
   clus <- cutree(hc, k = conf$k, h = conf$h)
   
   # Use max/min cluster nums if using h (defaults mean any number is allowed)
-  if (is.null(conf$k)){
+  if (is.null(conf$k) & !is.null(conf$max_k) & !is.null(conf$min_k)){
     # too many clusters
     if (max(clus) > conf$max_k){
       clus <- cutree(hc, k = conf$max_k)
