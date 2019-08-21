@@ -103,6 +103,7 @@ hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
 hclust_analysis <- cluster_analysis(hclust_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
                                     er_str = 'Norm ER', cluster_str = make_hclust_cluster_str(hclust_settings), pos_col = pos)
 plots$hclust <- hclust_analysis$plots
+hclust_analysis$tbl <- hclust_tbl
 
 hclust_cluster_mean_sift <- select(hclust_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
   filter(!is.na(uniprot_id)) %>%
@@ -128,6 +129,37 @@ plots$hclust$average_sift <- ggplot(hclust_cluster_mean_sift, aes(x = mut, y = c
         axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hclust_cluster_mean_sift$cluster), end = 1)]))
 plots$hclust$average_sift <- labeled_ggplot(p = plots$hclust$average_sift, units = 'cm', width = 20,
                                             height = length(levels(hclust_cluster_mean_sift$cluster)) * 0.5 + 3)
+########
+
+#### Hclust all residues ####
+hclust_all_settings <- list(h=8, k=NULL, max_k=Inf, min_k=0)
+hclust_all <- make_hclust_clusters(imputed_matrices$norm_sig_positions, A:Y, conf = hclust_all_settings)
+hclust_all$tbl <- mutate(hclust_all$tbl, cluster = as.character(cluster))
+
+hclust_all_analysis <- cluster_analysis(hclust_all$tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
+                                        er_str = 'Norm ER', cluster_str = make_hclust_cluster_str(hclust_all_settings),
+                                        pos_col = pos)
+plots$hclust_all <- hclust_all_analysis$plots
+hclust_analysis$tbl <- hclust_all$tbl
+
+hclust_all_cluster_aa_count <- group_by(hclust_all$tbl, cluster) %>%
+  count(wt) %>%
+  ungroup() %>%
+  mutate(cluster = factor(cluster, levels = hclust_all_analysis$cluster_cor_order))
+
+plots$hclust_all$aa_breakdown <- labeled_ggplot(
+  p = ggplot(hclust_all_cluster_aa_count, aes(x=cluster, y=wt, fill=n)) +
+    geom_raster() +
+    scale_fill_viridis_c() +
+    labs(x='Cluster', y='WT',
+         title = str_c('Count of WT positions in each ', make_hclust_cluster_str(hclust_all_settings), ' cluster')) +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          strip.background = element_blank(),
+          axis.title = element_blank(),
+          plot.title = element_text(hjust = 0.5)),
+  units = 'cm', height = 20, width = n_distinct(hclust_all_cluster_aa_count$cluster) * 0.66) 
+
 ########
 
 #### Tidy plots ####
