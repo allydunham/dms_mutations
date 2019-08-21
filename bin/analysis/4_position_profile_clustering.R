@@ -92,15 +92,16 @@ plots$kmean$average_sift <- labeled_ggplot(p = plots$kmean$average_sift, units =
 ########
 
 #### hclust ####
-h <- 8
+hclust_settings <- list(h=10, k=NULL, max_k=6, min_k=3)
 hclust_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
-  do(hclust = make_hclust_clusters(., A:Y, h = h))
+  do(hclust = make_hclust_clusters(., A:Y, conf = hclust_settings))
+#sapply(hclust_clusters$hclust, function(x){plot(x$hclust); abline(h = hclust_settings$h)})
 
 hclust_tbl <- map_dfr(hclust_clusters$hclust, .f = ~ .[[1]]) %>%
   mutate(cluster = str_c(wt, '_', cluster))
 
 hclust_analysis <- cluster_analysis(hclust_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
-                                    er_str = 'Norm ER', cluster_str = str_c('Hclust, h = ', h), pos_col = pos)
+                                    er_str = 'Norm ER', cluster_str = make_hclust_cluster_str(hclust_settings), pos_col = pos)
 plots$hclust <- hclust_analysis$plots
 
 hclust_cluster_mean_sift <- select(hclust_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
@@ -118,7 +119,7 @@ plots$hclust$average_sift <- ggplot(hclust_cluster_mean_sift, aes(x = mut, y = c
   geom_tile() +
   scale_fill_gradient2() +
   coord_fixed() +
-  ggtitle(str_c('Mean Log10(SIFT) score for hclust (h = ', h, ') clusters')) +
+  ggtitle(str_c('Mean Log10(SIFT) score for ', make_hclust_cluster_str(hclust_settings),' clusters')) +
   guides(fill=guide_colourbar(title = 'log10(SIFT)')) +
   theme(axis.ticks = element_blank(),
         panel.background = element_blank(),
@@ -191,4 +192,4 @@ plots$pca$sig_positions$avg_aa_profile_blosum_cor <- ggplot(aa_prof_blosum, aes(
 save_plot_list(plots, root='figures/4_position_profile_clustering/')
 
 # Save analyses
-saveRDS(hclust_analysis, str_c('data/rdata/deep_mut_hclust_clusters.RDS'))
+saveRDS(hclust_analysis, 'data/rdata/deep_mut_hclust_clusters.RDS')
