@@ -615,7 +615,7 @@ plots$dm_er_clusters <- dm_er_hclust_analysis$plots
 dm_er_mean_profs <- group_by(dm_er_hclust_tbl, cluster) %>%
           summarise_at(vars(backbone_hbond:energy_ionisation, A:Y), mean)
 
-dm_er_mean_foldx_long <- select(dm_er_mean_foldx, cluster, backbone_hbond:energy_ionisation) %>%
+dm_er_mean_foldx_long <- select(dm_er_mean_profs, cluster, backbone_hbond:energy_ionisation) %>%
   gather(key = 'term', value = 'ddg', -cluster) %>%
   add_factor_order(cluster, term, ddg) %>%
   group_by(term) %>%
@@ -638,7 +638,8 @@ plots$dm_er_clusters$mean_foldx_profile <- labeled_ggplot(
 # Assign clusters to test data
 dm_er_foldx_dists <- select(dm_foldx_subset_scaled, backbone_hbond:energy_ionisation) %>%
   apply(1, col_distances,
-        ref= tibble_to_matrix(dm_er_mean_foldx, -cluster, row_names = 'cluster') %>%
+        ref=select(dm_er_mean_profs, cluster, backbone_hbond:energy_ionisation) %>%
+          tibble_to_matrix(-cluster, row_names = 'cluster') %>%
           t()) %>%
   t()
 
@@ -649,7 +650,7 @@ dm_er_cluster_assignment <- names(dm_er_cluster_distance)
 dm_er <- left_join(dm_foldx_subset_scaled,
                    select(dm_er_hclust_tbl, study, gene_name, position, wt, cluster),
                    by=c('study', 'gene_name', 'position', 'wt')) %>%
-  bind_cols(as_tibble(dm_er_dists))
+  bind_cols(as_tibble(dm_er_foldx_dists))
 dm_er[!dm_foldx_subset_scaled$train, 'cluster'] <- dm_er_cluster_assignment[!dm_foldx_subset_scaled$train]
 
 dm_er_cluster_er_dists <- select(dm_er, A:Y) %>%
