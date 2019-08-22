@@ -15,3 +15,6 @@ dm_tbl <- select(dm_hclust$tbl, cluster, study, gene_name, position=pos, wt, A:Y
   select(-total_energy, -sloop_entropy, -mloop_entropy, -entropy_complex, -electrostatic_kon, -water_bridge) # drop unused foldx terms 
 
 # Classify 
+train_control <- trainControl(method = 'cv', number = 10, savePredictions = TRUE)
+model <- train(cluster ~ ., data = filter(dm_tbl, wt == 'A') %>% select(cluster, all_atom_rel, phi:energy_ionisation) %>% drop_na(),
+               method = 'rf')
