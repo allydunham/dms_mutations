@@ -136,21 +136,114 @@ hclust_all_settings <- list(h=8, k=NULL, max_k=Inf, min_k=0)
 hclust_all <- make_hclust_clusters(imputed_matrices$norm_sig_positions, A:Y, conf = hclust_all_settings)
 hclust_all$tbl <- mutate(hclust_all$tbl, cluster = as.character(cluster))
 
-hclust_all_analysis <- cluster_analysis(hclust_all$tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
-                                        er_str = 'Norm ER', cluster_str = make_hclust_cluster_str(hclust_all_settings),
-                                        pos_col = pos)
-plots$hclust_all <- hclust_all_analysis$plots
-hclust_analysis$tbl <- hclust_all$tbl
+hclust_all_str <- make_hclust_cluster_str(hclust_all_settings)
+plots$hclust_all <- list()
 
-hclust_all_cluster_aa_count <- group_by(hclust_all$tbl, cluster) %>%
-  count(wt) %>%
+# Cluster mean profiles
+hclust_all_mean_profiles <- group_by(hclust_all$tbl, cluster) %>%
+  summarise_at(.vars = vars(A:Y), .funs = mean)
+
+# Cluster mean profile correlation
+hclust_all_cluster_cors <- transpose_tibble(hclust_all_mean_profiles, cluster, name_col = 'aa') %>%
+  tibble_correlation(-aa) %>%
+  rename(cluster1 = cat1, cluster2 = cat2)
+
+hclust_all_mean_prof_long <- gather(hclust_all_mean_profiles, key='mut', value = 'norm_er', -cluster) %>%
+  add_factor_order(cluster, mut, norm_er, sym=FALSE) %>%
+  mutate(cluster = factor(cluster, levels = levels(hclust_all_cluster_cors$cluster1)))
+
+# Cluster Sizes
+hclust_all_cluster_sizes <- count(hclust_all$tbl, cluster) %>%
+  mutate(cluster = factor(cluster, levels = levels(hclust_all_cluster_cors$cluster1)))
+
+hclust_all_plot_height <- 0.5*n_distinct(hclust_all_mean_prof_long$cluster) + 2
+
+# Plot mean profile
+plots$hclust_all$mean_prof <- labeled_ggplot(
+  p=ggplot(hclust_all_mean_prof_long, aes(x=mut, y=cluster, fill=norm_er)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    coord_fixed() +
+    ggtitle(str_c('Cluster centroid', er_str, 'for', cluster_str, 'clusters', sep=' ')) +
+    guides(fill=guide_colourbar(title = er_str)) +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank()),
+  units = 'cm', width = 20, height = hclust_all_plot_height, limitsize=FALSE)
+
+# Plot sizes
+plots$hclust_all$cluster_size <- labeled_ggplot(
+  p = ggplot(hclust_all_cluster_sizes, aes(x=cluster, y=n)) +
+    geom_col(fill = 'cornflowerblue') +
+    xlab('Cluster') +
+    ylab('Size') +
+    scale_y_log10() +
+    coord_flip() +
+    theme_pubclean() +
+    guides(fill=FALSE),
+  units = 'cm', height = 15, width = hclust_all_plot_height)
+
+# Plot cors
+plots$hclust_all$centre_cor <- labeled_ggplot(
+  p = ggplot(hclust_all_cluster_cors, aes(x=cluster1, y=cluster2, fill=cor)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    ggtitle(str_c('Correlation of', hclust_all_str, 'centroids for clusters based on Norm ER')) +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank()),
+  units = 'cm', width = hclust_all_plot_height, height = hclust_all_plot_height, limitsize=FALSE)
+
+# FoldX params
+hclust_all_fx <- group_by(foldx, study, position, wt) %>%
+  summarise_at(.vars = vars(-mut, -pdb_id, -sd), .funs = mean, na.rm=TRUE) %>%
+  rename(pos=position) %>%
+  inner_join(hclust_all$tbl, ., by=c('study', 'pos', 'wt')) %>%
+  select(cluster, study, pos, wt, total_energy:entropy_complex, everything())
+
+hclust_all_fx_cluster_mean <- gather(hclust_all_fx, key = 'foldx_term', value = 'ddG', total_energy:entropy_complex) %>%
+  select(cluster, study, pos, wt, foldx_term, ddG, everything()) %>%
+  group_by(cluster, foldx_term) %>%
+  summarise(ddG = mean(ddG)) %>%
+  group_by(foldx_term) %>%
+  mutate(max_ddG = max(abs(ddG))) %>%
+  filter(max_ddG != 0) %>% # Filter any terms that are all 0
+  ungroup() %>%
+  mutate(rel_ddG = ddG/max_ddG) %>%
+  add_factor_order(cluster, foldx_term, rel_ddG, sym = FALSE) %>%
+  mutate(cluster = factor(cluster, levels = levels(hclust_all_cluster_cors$cluster1)))
+
+plots$hclust_all$cluster_avg_foldx_profile <- labeled_ggplot(
+  p=ggplot(hclust_all_fx_cluster_mean,
+           aes(x=foldx_term, y=cluster, fill=rel_ddG)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    ggtitle(str_c('Mean FoldX energy terms for each ', hclust_all_str, ' cluster (norm ER)')) +
+    coord_fixed() +
+    theme(plot.title = element_text(hjust = 0.5, size=8),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
+  units='cm', height=hclust_all_plot_height, width=13, limitsize=FALSE)
+
+# Count of AAs in each cluster
+hclust_all_cluster_aa_count <- count(hclust_all$tbl, wt, cluster) %>%
+  ungroup() %>%
+  spread(key = wt, value = n) %>%
+  gather(key = 'wt', value = 'n', -cluster) %>%
+  replace_na(list(n=0)) %>%
+  add_factor_order(cluster, wt, n) %>%
+  group_by(cluster) %>%
+  mutate(n = n/sum(n)) %>%
   ungroup() %>%
   mutate(cluster = factor(cluster, levels = hclust_all_analysis$cluster_cor_order))
 
 plots$hclust_all$aa_breakdown <- labeled_ggplot(
-  p = ggplot(hclust_all_cluster_aa_count, aes(x=cluster, y=wt, fill=n)) +
+  p = ggplot(hclust_all_cluster_aa_count, aes(y=cluster, x=wt, fill=n)) +
     geom_raster() +
-    scale_fill_viridis_c() +
+    scale_fill_gradientn(colours = c('white', 'blue', 'green', 'yellow', 'red'), values = c(0, 0.25, 0.5, 0.75, 1)) +
     labs(x='Cluster', y='WT',
          title = str_c('Count of WT positions in each ', make_hclust_cluster_str(hclust_all_settings), ' cluster')) +
     theme(axis.ticks = element_blank(),
@@ -158,7 +251,7 @@ plots$hclust_all$aa_breakdown <- labeled_ggplot(
           strip.background = element_blank(),
           axis.title = element_blank(),
           plot.title = element_text(hjust = 0.5)),
-  units = 'cm', height = 20, width = n_distinct(hclust_all_cluster_aa_count$cluster) * 0.66) 
+  units = 'cm', width = 20, height = hclust_all_plot_height)
 
 ########
 
