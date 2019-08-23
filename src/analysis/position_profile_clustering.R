@@ -204,6 +204,19 @@ make_hclust_cluster_str <- function(conf=NULL, ...){
 }
 ########
 
+#### hdbscan ####
+make_hdbscan_clusters <- function(tbl, cols, dist_method = 'euclidean', minPts=5, ...){
+  cols <- enquo(cols)
+  
+  mat <- tibble_to_matrix(tbl, !!cols)
+  dis <- dist(mat, method = dist_method)
+  hdb <- hdbscan(mat, minPts = minPts, xdist = dis, ...)
+  
+  return(list(tbl = mutate(tbl, cluster = hdb$cluster),
+              hdbscan = hdb))
+}
+########
+
 #### Cluster analysis ####
 # Expects a tbl with a columns:
 # study - deep mut study

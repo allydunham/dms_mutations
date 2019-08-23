@@ -4,6 +4,8 @@
 source('src/config.R')
 source('src/analysis/position_profile_clustering.R')
 
+library(dbscan)
+
 meta <- readRDS('data/rdata/study_meta_data.RDS')
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS')
@@ -252,6 +254,46 @@ plots$hclust_all$aa_breakdown <- labeled_ggplot(
           axis.title = element_blank(),
           plot.title = element_text(hjust = 0.5)),
   units = 'cm', width = 20, height = hclust_all_plot_height)
+
+########
+
+#### HDBSCAN clustering ####
+minPts <- 5
+hdbscan_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
+  do(hdbscan = make_hdbscan_clusters(., A:Y, minPts = minPts))
+
+hdbscan_tbl <- map_dfr(hdbscan_clusters$hdbscan, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+hdbscan_analysis <- cluster_analysis(hdbscan_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
+                                    er_str = 'Norm ER', cluster_str = str_c('HDBSCAN (min = ', minPts, ')'), pos_col = pos)
+plots$hdbscan <- hdbscan_analysis$plots
+hdbscan_analysis$tbl <- hdbscan_tbl
+
+hdbscan_cluster_mean_sift <- select(hdbscan_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
+  filter(!is.na(uniprot_id)) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(., sift_long,
+            by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
+  group_by(cluster, wt, mut) %>%
+  summarise(er = mean(er, na.rm=TRUE),
+            sift = mean(sift, na.rm=TRUE)) %>%
+  ungroup() %>%
+  mutate(cluster = factor(cluster, levels = hdbscan_analysis$cluster_cor_order))
+
+plots$hdbscan$average_sift <- ggplot(hdbscan_cluster_mean_sift, aes(x = mut, y = cluster, fill = sift)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  coord_fixed() +
+  ggtitle(str_c('Mean Log10(SIFT) score for ', str_c('HDBSCAN (min = ', minPts, ')'),' clusters')) +
+  guides(fill=guide_colourbar(title = 'log10(SIFT)')) +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[unique(hdbscan_cluster_mean_sift$mut)]),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hdbscan_cluster_mean_sift$cluster), end = 1)]))
+plots$hdbscan$average_sift <- labeled_ggplot(p = plots$hdbscan$average_sift, units = 'cm', width = 20,
+                                            height = length(levels(hdbscan_cluster_mean_sift$cluster)) * 0.5 + 3)
 
 ########
 
