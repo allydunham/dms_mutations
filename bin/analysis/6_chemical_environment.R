@@ -74,7 +74,7 @@ for (i in 1:length(chem_env_profiles)){
   prof_plots$pca <- c(pca_plots, list(factor_heatmap=pca_factor_heatmap(pca_factor_cors)))
   
   ## tSNE analysis of profile
-  tsne <- chem_env_tsne(chem_env, !!! prof_col_syms)
+  tsne <- tibble_tsne(chem_env, !!! prof_col_syms)
   
   chem_env <- bind_cols(chem_env, as_tibble(set_colnames(tsne$tsne$Y[tsne$unique_row_indeces,], c('tSNE1', 'tSNE2'))))      
   

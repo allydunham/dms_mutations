@@ -172,16 +172,4 @@ plot_avg_factor_pca_profile <- function(tbl, variable='aa'){
 ########
 
 #### tSNE ####
-chem_env_tsne <- function(tbl, ..., tsne_kwargs=list()){
-  prof_cols <- enquos(...)
-  
-  mat <- tibble_to_matrix(tbl, !!! prof_cols)
-  
-  mat_dupe_rows <- enumerate_unique_rows(mat)
-  mat_deduped <- mat[!mat_dupe_rows$duplicate,]
-  
-  tsne <- do.call(Rtsne, c(list(X=mat_deduped), tsne_kwargs))
-
-  return(list(tsne=tsne, dupe_rows=mat_dupe_rows$duplicate, unique_row_indeces=mat_dupe_rows$indeces))
-}
 ########
