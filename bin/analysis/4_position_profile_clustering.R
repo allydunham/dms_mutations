@@ -53,6 +53,21 @@ plots <- list_modify(plots, pca=sapply(pca_factor_cors, function(x){list(pca_fac
 # }, simplify = FALSE))
 ########
 
+#### tSNE ####
+tsne <- tibble_tsne(imputed_matrices$norm_all_variants, A:Y)
+
+plots$tsne <- list()
+plots$tsne$gene_confounding <- labeled_ggplot(
+  p = ggplot(tsne$tbl, aes(x = tSNE1, y=tSNE2, colour=gene_name)) +
+  geom_point() +
+  theme_pubclean() +
+  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey')) +
+  guides(colour=guide_legend(title = 'Gene')),
+  units = 'cm', height = 14, width = 20
+)
+
+#######
+
 #### K means clustering ####
 n <- 3
 kmean_clusters <- group_by(imputed_matrices$norm_sig_positions, wt) %>%
@@ -91,6 +106,45 @@ plots$kmean$average_sift <- ggplot(kmean_cluster_mean_sift, aes(x = mut, y = clu
 plots$kmean$average_sift <- labeled_ggplot(p = plots$kmean$average_sift, units = 'cm', width = 20,
                                            height = length(levels(kmean_cluster_mean_sift$cluster)) * 0.5 + 3)
 
+########
+
+#### K means no PC1 ####
+n <- 3
+kmean_no_sig_clusters <- bind_cols(imputed_matrices$norm_all_variants,
+                            select(variant_pcas$norm_all_variants$profiles, PC1:PC20)) %>%
+  group_by(wt) %>%
+  do(kmean = make_kmeans_clusters(., PC2:PC20, n=n))
+
+kmean_no_sig_tbl <- map_dfr(kmean_no_sig_clusters$kmean, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+kmean_no_sig_analysis <- cluster_analysis(kmean_no_sig_tbl, backbone_angles = backbone_angles,
+                                          foldx = rename(foldx, pos=position),
+                                          er_str = 'Norm ER', cluster_str = str_c('Kmean PC2:PC20, n = ', n), pos_col = pos)
+
+plots$kmean_no_sig <- kmean_no_sig_analysis$plots
+
+kmean_no_sig_er_prof <- group_by(kmean_no_sig_tbl, cluster) %>%
+  summarise_at(vars(A:Y), mean) %>%
+  gather(key = 'mut', value = 'norm_er', -cluster) %>%
+  add_factor_order(cluster, mut, norm_er) %>%
+  mutate(cluster = factor(cluster, levels = sort(levels(cluster))))
+
+plots$kmean_no_sig$mean_er_profiles <- labeled_ggplot(
+  p=ggplot(kmean_no_sig_er_prof, aes(x=mut, y=cluster, fill=norm_er)) +
+    geom_tile() +
+    scale_fill_gradient2() +
+    coord_fixed() +
+    ggtitle('Mean norm er profile for Kmean PC2:PC20, n = 3') +
+    guides(fill=guide_colourbar(title = 'Norm ER')) +
+    theme(axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_blank(),
+          axis.text.x = element_text(colour = AA_COLOURS[levels(kmean_no_sig_er_prof$mut)]),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_no_sig_er_prof$cluster), end = 1)])),
+  units = 'cm', width = 0.5*length(unique(kmean_no_sig_er_prof$mut)) + 4,
+  height = 0.5*length(unique(kmean_no_sig_er_prof$cluster)) + 2, limitsize=FALSE)
+  
 ########
 
 #### hclust ####
@@ -298,6 +352,7 @@ plots$hdbscan$average_sift <- labeled_ggplot(p = plots$hdbscan$average_sift, uni
 ########
 
 #### Tidy plots ####
+# Poster Surface Accesibility
 plots$pca$sig_positions$poster_surf_acc <- labeled_ggplot(
   p=ggplot(drop_na(variant_pcas$sig_positions$profiles, all_atom_abs),
            aes(x=PC2, y=PC4, colour=all_atom_abs)) +
@@ -314,7 +369,24 @@ plots$pca$sig_positions$poster_surf_acc <- labeled_ggplot(
           legend.title = element_text(size=30)),
   width = 9.82, height = 7.09)
 
+# Norm Surface Accesibility
+plots$pca$norm_all_variants$clean_surf_acc <- labeled_ggplot(
+  p=ggplot(drop_na(variant_pcas$norm_all_variants$profiles, all_atom_abs),
+           aes(x=PC2, y=PC4, colour=all_atom_abs)) +
+    scale_colour_gradientn(colours = c('blue', 'green', 'yellow', 'orange', 'red')) +
+    geom_point() +
+    lims(x=c(-5,5), y=c(-4,4)) +
+    guides(colour=guide_colorbar(title='Surface\nAccesibility')) +
+    theme_pubclean() +
+    theme(legend.position = 'right',
+          panel.grid.major = element_line(colour = 'lightgrey', linetype = 'dotted'),
+          axis.title = element_text(size=30),
+          axis.text = element_text(size=20),
+          legend.text = element_text(size=20),
+          legend.title = element_text(size=30)),
+  width = 9.82, height = 7.09)
 
+# Poster Sig Count
 plots$pca$sig_positions$poster_sig_count <- labeled_ggplot(
   p=ggplot(variant_pcas$sig_positions$profiles,
                                                    aes(x=PC1, y=PC2, colour=sig_count)) +
@@ -329,6 +401,22 @@ plots$pca$sig_positions$poster_sig_count <- labeled_ggplot(
         legend.title = element_text(size=30)),
 width = 9.82, height = 7.09)
 
+# Norm Sig Count
+plots$pca$norm_all_variants$clean_sig_count <- labeled_ggplot(
+  p=ggplot(variant_pcas$norm_all_variants$profiles,
+           aes(x=PC1, y=PC2, colour=sig_count)) +
+    scale_colour_gradientn(colours = c('blue', 'red')) +
+    geom_point() +
+    guides(colour=guide_colorbar(title='# Significant\nSubstitutions')) +  
+    theme_pubclean() +
+    theme(legend.position = 'right', panel.grid.major = element_line(colour = 'lightgrey', linetype = 'dotted'),
+          axis.title = element_text(size=30),
+          axis.text = element_text(size=20),
+          legend.text = element_text(size=20),
+          legend.title = element_text(size=30)),
+  width = 9.82, height = 7.09)
+
+# Poster AA profile heatmap
 plots$pca$sig_positions$poster_aa_profile_heatmap <- labeled_ggplot(
   p=ggplot(avg_AA_pca_profiles$sig_positions$cor_tbl, aes(x=AA1, y=AA2, fill=cor)) + 
     geom_tile(colour='white') + 
@@ -352,6 +440,32 @@ aa_prof_blosum <- as_tibble(BLOSUM62, rownames='AA1') %>%
 
 plots$pca$sig_positions$avg_aa_profile_blosum_cor <- ggplot(aa_prof_blosum, aes(x=cor, y=BLOSUM62)) +
   geom_point()
+
+# PCA AA vectors
+plots$pca$norm_all_variants$aa_vectors <- labeled_ggplot(
+  p=ggplot(variant_pcas$norm_all_variants$profiles, aes(x=PC1, y=PC2, colour=wt)) +
+  geom_smooth(method = 'lm') + 
+  theme_pubclean() +
+  scale_colour_manual(values = AA_COLOURS) +
+  theme(legend.position = 'right') +
+  labs(title = 'Differing trends in slope between positions in PC space based on wt AA'),
+  units = 'cm', height = 16, width = 24)
+
+# confounding by study
+plots$pca$norm_all_variants$study_confounding <- labeled_ggplot(
+  p = select(variant_pcas$norm_all_variants$profiles, study, PC1:PC20) %>%
+    gather(key = 'PC', value = 'value', -study) %>%
+    mutate(PC = factor(PC, levels = unique(PC)[unique(PC) %>% str_sub(start = 3) %>% as.integer() %>% order()])) %>%
+    ggplot(aes(x = value, y = ..ncount.., colour = study)) +
+    facet_wrap(~PC, scales = 'free_x') +
+    geom_freqpoly() +
+    guides(colour=FALSE) +
+    labs(title='Distribution of each PC of Norm ER across studies', x = 'PC Value', y = 'Normalised Count') + 
+    theme_pubclean() +
+    theme(strip.background = element_blank(),
+          plot.title = element_text(hjust = 0.5)),
+  units = 'cm', height = 20, width = 30
+)
 
 ########
 
