@@ -43,6 +43,12 @@ secondary_structure <- sapply(dms_data, function(x){if(!identical(NA, x$secondar
   mutate(ss_reduced = SS_REDUCED_HASH[ss])
 saveRDS(secondary_structure, 'data/rdata/position_secondary_structure.RDS')
 
+# Hydrophobicity
+hydrophobicity <- read_tsv('meta/residue_hydrophobicity.tsv', comment = '#',
+                           col_types = cols(AA = col_character(), .default = col_double())) %>%
+  rename_all(str_to_lower)
+saveRDS(hydrophobicity, 'data/rdata/hydrophobicity.RDS')
+
 # Parse FoldX data for all structures
 foldx_preds <- sapply(dms_data, function(x){if (!identical(x$foldx, NA)) bind_rows(x$foldx, .id='pdb_id') else NULL}, simplify = FALSE) %>%
   bind_rows(.id = 'study') %>%
