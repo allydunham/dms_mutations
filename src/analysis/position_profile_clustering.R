@@ -140,6 +140,19 @@ per_aa_pcas <- function(aa, variant_matrix){
 }
 ########
 
+#### tSNE ####
+tsne_plot <- function(tbl, var){
+  var <- enquo(var)
+  
+  return(
+    ggplot(tsne$tbl, aes(x = tSNE1, y=tSNE2, colour=!!var)) +
+      geom_point() +
+      theme_pubclean() +
+      theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
+  )
+}
+########
+
 #### kmeans ####
 make_kmeans_clusters <- function(tbl, cols, n=5, ...){
   cols <- enquo(cols)

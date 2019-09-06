@@ -12,6 +12,8 @@ imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS'
 foldx <- readRDS('data/rdata/all_foldx.RDS')
 sift <- readRDS('data/rdata/human_sift.RDS')
 backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
+propensity <- readRDS('data/rdata/a_helix_propensity.RDS')
+hydrophobicity <- readRDS('data/rdata/hydrophobicity.RDS')
 data("BLOSUM62")
 
 sift_long <- select(sift, uniprot_id, pos=position, wt, A:Y) %>%
@@ -51,21 +53,40 @@ plots <- list_modify(plots, pca=sapply(pca_factor_cors, function(x){list(pca_fac
 # plots <- list_modify(plots, pca=sapply(imputed_matrices, function(x){
 #   list(per_aa_pcas=sapply(AAs, per_aa_pcas, variant_matrix=x, simplify = FALSE))
 # }, simplify = FALSE))
+
+plots$pca$norm_all_variants$clean_hydrophobicity <- select(hydrophobicity, wt = aa, hydrophobicity = white4) %>%
+  left_join(variant_pcas$norm_all_variants$profiles, ., by='wt') %>%
+  ggplot(aes(x=PC1, y=PC2, colour=hydrophobicity)) +
+  geom_point() +
+  theme_pubclean() +
+  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
 ########
 
 #### tSNE ####
 tsne <- tibble_tsne(imputed_matrices$norm_all_variants, A:Y)
+  
+tsne$tbl <- left_join(tsne$tbl, select(propensity, wt = aa1, a_helix_propensity = exptl), by = 'wt')
 
 plots$tsne <- list()
 plots$tsne$gene_confounding <- labeled_ggplot(
-  p = ggplot(tsne$tbl, aes(x = tSNE1, y=tSNE2, colour=gene_name)) +
-  geom_point() +
-  theme_pubclean() +
-  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey')) +
-  guides(colour=guide_legend(title = 'Gene')),
+  p = tsne_plot(tsne$tbl, gene_name) + guides(colour=guide_legend(title = 'Gene')),
   units = 'cm', height = 14, width = 20
 )
 
+plots$tsne$study_confounding <- labeled_ggplot(
+  p = tsne_plot(tsne$tbl, study) + guides(colour=guide_legend(title = 'Study')),
+  units = 'cm', height = 14, width = 30
+)
+
+plots$tsne$helix_propensity <- labeled_ggplot(
+  p = tsne_plot(tsne$tbl, a_helix_propensity) + guides(colour=guide_colourbar(title = 'alpha helix propensity')),
+  units = 'cm', height = 14, width = 20
+)
+
+plots$tsne$sec_struct <- labeled_ggplot(
+  p = tsne_plot(tsne$tbl, ss) + guides(colour=guide_legend(title = 'Sec. Struct.')),
+  units = 'cm', height = 14, width = 20
+)
 #######
 
 #### K means clustering ####
