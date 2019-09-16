@@ -90,7 +90,7 @@ saveRDS(ptms, 'data/rdata/human_ptms.RDS')
 
 # Load SIFT scores
 # sift <- read_tsv('data/mutfunc/human/conservation/sift_parsed_all.tab') %>%
-#   rename(wt=ref, mut=alt, uniprot_id = acc, position = pos) %>%
+#   rename(wt = ref, mut = alt, uniprot_id = acc, position = pos) %>%
 #   filter(wt %in% Biostrings::AA_STANDARD) %>%
 #   spread(key = mut, value = score) %>%
 #   left_join(ptms, by = c('uniprot_id', 'position')) %>%
