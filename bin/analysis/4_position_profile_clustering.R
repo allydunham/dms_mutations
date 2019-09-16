@@ -14,6 +14,13 @@ sift <- readRDS('data/rdata/human_sift.RDS')
 backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
 propensity <- readRDS('data/rdata/a_helix_propensity.RDS')
 hydrophobicity <- readRDS('data/rdata/hydrophobicity.RDS')
+chemical_environments <- readRDS('data/rdata/position_chemical_environments.RDS') %>%
+  select(study, position, wt=aa, within_10=within_10.0) %>%
+  distinct(study, position, wt, .keep_all = TRUE) %>%
+  unnest() %>%
+  mutate(mut = rep(sort(AA_STANDARD), n() / 20)) %>%
+  spread(key = mut, value = within_10) %>%
+  rename_at(vars(A:Y), ~str_c('chem_env_', .))
 data("BLOSUM62")
 
 sift_long <- select(sift, uniprot_id, pos=position, wt, A:Y) %>%
@@ -54,12 +61,102 @@ plots <- list_modify(plots, pca=sapply(pca_factor_cors, function(x){list(pca_fac
 #   list(per_aa_pcas=sapply(AAs, per_aa_pcas, variant_matrix=x, simplify = FALSE))
 # }, simplify = FALSE))
 
+# Conservation
+pos_conervation <- filter(sift, uniprot_id %in% unique(variant_pcas$norm_all_variants$profiles$uniprot_id)) %>%
+  gather('mut', 'sift_score', A:Y) %>%
+  filter(!wt == mut) %>%
+  group_by(uniprot_id, position, wt) %>%
+  summarise(mean_sift = mean(sift_score, na.rm = TRUE),
+            mean_log10_sift = mean(log10(sift_score + 0.0001), na.rm = TRUE))
+
+# Cor = -0.36 between sig_count and conservation
+plots$pca$norm_all_variants$conservation <- left_join(variant_pcas$norm_all_variants$profiles, rename(pos_conervation, pos=position),
+                                                      by=c('uniprot_id', 'pos', 'wt')) %>%
+  filter(!is.na(mean_sift)) %>%
+  ggplot(aes(x=PC1, y=PC2, colour=mean_log10_sift)) +
+  geom_point() +
+  theme_pubclean() +
+  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
+
+# Hydrophobicity
 plots$pca$norm_all_variants$clean_hydrophobicity <- select(hydrophobicity, wt = aa, hydrophobicity = white4) %>%
   left_join(variant_pcas$norm_all_variants$profiles, ., by='wt') %>%
   ggplot(aes(x=PC1, y=PC2, colour=hydrophobicity)) +
   geom_point() +
   theme_pubclean() +
   theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
+
+# Chemical environment
+chem_env <- inner_join(variant_pcas$norm_all_variants$profiles, rename(chemical_environments, pos=position), by=c('study', 'pos', 'wt'))
+
+chem_env_pc_cor <- cor(tibble_to_matrix(chem_env, PC1:PC20), tibble_to_matrix(chem_env, starts_with('chem_env_'))) %>%
+  as_tibble(rownames = 'pc') %>%
+  gather(key = 'chem_env', value = 'raw_cor', -pc) %>%
+  mutate(chem_env = str_sub(chem_env, start = -1),
+         pc = factor(pc, levels = str_c('PC', 1:20)))
+
+chem_env_pc_cor <- cor(tibble_to_matrix(chem_env, PC1:PC20),
+                       tibble_pca(chem_env, starts_with('chem_env_'))$x) %>%
+  as_tibble(rownames = 'pc') %>%
+  gather(key = 'chem_env_pc', value = 'pc_cor', -pc) %>%
+  mutate(chem_env_pc = factor(chem_env_pc, levels = str_c('PC', 1:20))) %>%
+  select(chem_env_pc, pc_cor) %>%
+  bind_cols(chem_env_pc_cor, .)
+
+plots$pca$norm_all_variants$chemical_environment <- ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env, fill = raw_cor)) +
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+plots$pca$norm_all_variants$chemical_environment_pcs <- ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env_pc, fill = pc_cor)) +
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+# FoldX properties
+pcs_foldx <- distinct(foldx, study, position, wt, mut, .keep_all = TRUE) %>%
+  group_by(study, pos=position, wt) %>%
+  summarise_at(vars(total_energy:entropy_complex), mean) %>%
+  inner_join(variant_pcas$norm_all_variants$profiles, ., by = c('study', 'pos', 'wt'))
+
+pcs_foldx_cor <- cor(tibble_to_matrix(pcs_foldx, PC1:PC20),
+                     select(pcs_foldx, -water_bridge, -sloop_entropy, -mloop_entropy, -entropy_complex) %>%
+                       tibble_to_matrix(total_energy:energy_ionisation)) %>%
+  as_tibble(rownames = 'pc') %>%
+  gather(key = 'foldx_term', value = 'cor', -pc) %>%
+  add_factor_order(pc, foldx_term, cor)
+
+plots$pca$norm_all_variants$foldx_terms <- ggplot(pcs_foldx_cor, aes(x = pc, y = foldx_term, fill = cor)) +
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+plots$pca$norm_all_variants$foldx_solv_hydrophobic <- ggplot(pcs_foldx, aes(x=PC2, y=solvation_hydrophobic)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  theme_pubclean() +
+  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
+
+plots$pca$norm_all_variants$foldx_solv_hydrophobic <- ggplot(pcs_foldx, aes(x=PC4, y=PC5, colour=entropy_sidechain)) +
+  geom_point() +
+  scale_colour_gradient2(mid = 'lightgrey', low = 'red', high = 'blue') +
+  theme_pubclean() +
+  theme(legend.position = 'right', panel.grid.major  = element_line(linetype = 'dotted', colour = 'grey'))
+
+# Phi/Psi
+phi_psi_cor <- cor(tibble_to_matrix(variant_pcas$norm_all_variants$profiles, PC1:PC20),
+                   tibble_to_matrix(variant_pcas$norm_all_variants$profiles, phi, psi),
+                   use = 'pairwise.complete.obs') %>%
+  as_tibble(rownames = 'pc') %>%
+  gather(key = 'angle', value = 'cor', -pc) %>%
+  mutate(pc = factor(pc, levels = str_c('PC', 1:20)))
+
+plots$pca$norm_all_variants$psi_phi <- ggplot(phi_psi_cor, aes(x = pc, y = angle, fill = cor)) +
+  geom_tile(colour='white') + 
+  scale_fill_gradient2() +
+  theme(axis.ticks = element_blank(), panel.background = element_blank())
+
+
 ########
 
 #### tSNE ####
