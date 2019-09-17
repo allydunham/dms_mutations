@@ -11,6 +11,7 @@ dms_data <- readRDS('data/rdata/processed_variant_data.RDS')
 meta_df <- tibble(study = names(dms_data),
                   gene_type = sapply(dms_data, function(x){get_meta(x$dm, 'gene_type')}),
                   gene_name = sapply(dms_data, function(x){get_meta(x$dm, 'gene_name')}),
+                  gene_length = sapply(dms_data, function(x){nchar(get_meta(x$dm, 'aa_seq'))}),
                   uniprot_id = sapply(dms_data, function(x){get_meta(x$dm, 'uniprot_id')}),
                   test_class = sapply(dms_data, function(x){get_meta(x$dm, 'test_class')}),
                   species = sapply(dms_data, function(x){get_meta(x$dm, 'species')}),
@@ -96,15 +97,38 @@ saveRDS(ptms, 'data/rdata/human_ptms.RDS')
 #   left_join(ptms, by = c('uniprot_id', 'position')) %>%
 #   mutate(modification = ifelse(is.na(modification), 'none', modification))
 # saveRDS(sift, 'data/rdata/human_sift.RDS')
-sift <- readRDS('data/rdata/human_sift.RDS') # Only store cached file locally normally to save disk space
+sift_human <- readRDS('data/rdata/human_sift.RDS') # Only store cached file locally normally to save disk space
 
-sift_reduced <- filter(sift, uniprot_id %in% sample(sift$uniprot_id, 100))
-saveRDS(sift_reduced, 'data/rdata/human_sift_reduced.RDS')
+sift_human_reduced <- filter(sift_human, uniprot_id %in% sample(sift$uniprot_id, 100))
+saveRDS(sift_human_reduced, 'data/rdata/human_sift_reduced.RDS')
 
-sift_ptms <- bind_rows(sample_n(filter(sift, modification == 'none'), 50000),
-                       sample_n(filter(sift, !modification == 'none'), 50000))
-saveRDS(sift_ptms, 'data/rdata/human_sift_ptms.RDS')
+sift_human_ptms <- bind_rows(sample_n(filter(sift_human, modification == 'none'), 50000),
+                       sample_n(filter(sift_human, !modification == 'none'), 50000))
+saveRDS(sift_human_ptms, 'data/rdata/human_sift_ptms.RDS')
 
+# Make SIFT for our genes
+dms_genes <- unique(meta_df$uniprot_id) %>% extract(!is.na(.))
+
+sift_yeast <- read_tsv('data/mutfunc/yeast/conservation/sift_parsed_all.tab', comment = '#') %>%
+  rename(wt = ref, mut = alt, uniprot_id = acc, position = pos) %>%
+  filter(wt %in% Biostrings::AA_STANDARD) %>%
+  spread(key = mut, value = score)
+
+sift_ecoli <- read_tsv('data/mutfunc/ecoli/conservation/sift.tab', comment = '#') %>%
+  rename(wt = ref, mut = alt, uniprot_id = protein, position = pos) %>%
+  filter(wt %in% Biostrings::AA_STANDARD) %>%
+  spread(key = mut, value = score)
+
+sift_dms <- bind_rows(human=filter(sift_human, uniprot_id %in% dms_genes) %>% select(-modification) %>% distinct(),
+                      yeast=filter(sift_yeast, uniprot_id %in% dms_genes),
+                      ecoli=filter(sift_ecoli, uniprot_id %in% dms_genes),
+                      .id = 'species')
+saveRDS(sift_dms, 'data/rdata/sift_dms.RDS')
+
+min_sift <- tibble_to_matrix(sift_dms, A:Y) %>% extract(. > 0) %>% min(na.rm = TRUE)
+sift_dms_log10 <- mutate_at(sift_dms, vars(A:Y), ~log10(. + min_sift))
+saveRDS(sift_dms_log10, 'data/rdata/sift_dms_log10.RDS')
+  
 # Load FoldX Scores - uncomment to regenerate
 # foldx <- read_tsv('data/mutfunc/human/structure/exp_full.tab') %>%
 #   rename_all(.funs = ~str_replace_all(., ' ', '_')) %>%
