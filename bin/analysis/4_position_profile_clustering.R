@@ -10,20 +10,21 @@ meta <- readRDS('data/rdata/study_meta_data.RDS')
 variant_matrices <- readRDS('data/rdata/all_study_position_matrices.RDS')
 imputed_matrices <- readRDS('data/rdata/all_study_imputed_position_matrices.RDS')
 foldx <- readRDS('data/rdata/all_foldx.RDS')
-sift <- readRDS('data/rdata/human_sift.RDS')
+sift_human <- readRDS('data/rdata/human_sift.RDS')
+sift_dms <- readRDS('data/rdata/sift_dms_log10.RDS')
 backbone_angles <- readRDS('data/rdata/backbone_angles.RDS')
 propensity <- readRDS('data/rdata/a_helix_propensity.RDS')
 hydrophobicity <- readRDS('data/rdata/hydrophobicity.RDS')
 chemical_environments <- readRDS('data/rdata/position_chemical_environments.RDS') %>%
   select(study, position, wt=aa, within_10=within_10.0) %>%
   distinct(study, position, wt, .keep_all = TRUE) %>%
-  unnest() %>%
+  unnest(cols = within_10) %>%
   mutate(mut = rep(sort(AA_STANDARD), n() / 20)) %>%
   spread(key = mut, value = within_10) %>%
   rename_at(vars(A:Y), ~str_c('chem_env_', .))
 data("BLOSUM62")
 
-sift_long <- select(sift, uniprot_id, pos=position, wt, A:Y) %>%
+sift_human_long <- select(sift_human, uniprot_id, pos=position, wt, A:Y) %>%
   filter(uniprot_id %in% unique(variant_matrices$all_variants$uniprot_id)) %>%
   gather(key = 'mut', value = 'sift', A:Y) %>%
   mutate(sift = log10(sift + min(sift[sift > 0], na.rm=TRUE)))
@@ -62,7 +63,7 @@ plots <- list_modify(plots, pca=sapply(pca_factor_cors, function(x){list(pca_fac
 # }, simplify = FALSE))
 
 # Conservation
-pos_conervation <- filter(sift, uniprot_id %in% unique(variant_pcas$norm_all_variants$profiles$uniprot_id)) %>%
+pos_conervation <- filter(sift_human, uniprot_id %in% unique(variant_pcas$norm_all_variants$profiles$uniprot_id)) %>%
   gather('mut', 'sift_score', A:Y) %>%
   filter(!wt == mut) %>%
   group_by(uniprot_id, position, wt) %>%
@@ -202,7 +203,7 @@ plots$kmean <- kmean_analysis$plots
 kmean_cluster_mean_sift <- select(kmean_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
   filter(!is.na(uniprot_id)) %>%
   gather(key = 'mut', value = 'er', A:Y) %>%
-  left_join(., sift_long,
+  left_join(., sift_human_long,
             by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
   group_by(cluster, wt, mut) %>%
   summarise(er = mean(er, na.rm=TRUE),
@@ -282,7 +283,7 @@ hclust_analysis$tbl <- hclust_tbl
 hclust_cluster_mean_sift <- select(hclust_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
   filter(!is.na(uniprot_id)) %>%
   gather(key = 'mut', value = 'er', A:Y) %>%
-  left_join(., sift_long,
+  left_join(., sift_human_long,
             by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
   group_by(cluster, wt, mut) %>%
   summarise(er = mean(er, na.rm=TRUE),
@@ -445,7 +446,7 @@ hdbscan_analysis$tbl <- hdbscan_tbl
 hdbscan_cluster_mean_sift <- select(hdbscan_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
   filter(!is.na(uniprot_id)) %>%
   gather(key = 'mut', value = 'er', A:Y) %>%
-  left_join(., sift_long,
+  left_join(., sift_human_long,
             by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
   group_by(cluster, wt, mut) %>%
   summarise(er = mean(er, na.rm=TRUE),
@@ -466,6 +467,63 @@ plots$hdbscan$average_sift <- ggplot(hdbscan_cluster_mean_sift, aes(x = mut, y =
         axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hdbscan_cluster_mean_sift$cluster), end = 1)]))
 plots$hdbscan$average_sift <- labeled_ggplot(p = plots$hdbscan$average_sift, units = 'cm', width = 20,
                                             height = length(levels(hdbscan_cluster_mean_sift$cluster)) * 0.5 + 3)
+########
+
+#### Classifying hdbscan ####
+# Version of hdbscan limited to positions with sift data
+minPts_sift <- 4
+hdbscan_sift_clusters <- semi_join(imputed_matrices$norm_sig_positions, rename(sift_dms, pos=position),
+                                   by = c('uniprot_id', 'pos', 'wt')) %>%
+  group_by(wt) %>%
+  do(hdbscan = make_hdbscan_clusters(., A:Y, minPts = minPts_sift))
+
+hdbscan_sift_tbl <- map_dfr(hdbscan_sift_clusters$hdbscan, .f = ~ .[[1]]) %>%
+  mutate(cluster = str_c(wt, '_', cluster))
+
+hdbscan_sift_analysis <- cluster_analysis(hdbscan_sift_tbl, backbone_angles = backbone_angles, foldx = rename(foldx, pos=position),
+                                          er_str = 'Norm ER', cluster_str = str_c('HDBSCAN (min = ', minPts, ')'), pos_col = pos)
+plots$hdbscan_sift <- hdbscan_sift_analysis$plots
+hdbscan_sift_analysis$tbl <- hdbscan_sift_tbl
+
+hdbscan_sift_cluster_mean_sift <- select(hdbscan_sift_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
+  gather(key = 'mut', value = 'er', A:Y) %>%
+  left_join(., select(sift_dms, uniprot_id, pos=position, wt, A:Y) %>% gather(key = 'mut', value = 'log10_sift', A:Y),
+            by = c('uniprot_id', 'pos', 'wt', 'mut')) %>%
+  group_by(cluster, wt, mut) %>%
+  summarise(er = mean(er, na.rm=TRUE),
+            log10_sift = mean(log10_sift, na.rm=TRUE)) %>%
+  ungroup() %>%
+  mutate(cluster = factor(cluster, levels = hdbscan_sift_analysis$cluster_cor_order))
+
+plots$hdbscan_sift$average_sift <- ggplot(hdbscan_sift_cluster_mean_sift, aes(x = mut, y = cluster, fill = log10_sift)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  coord_fixed() +
+  ggtitle(str_c('Mean Log10(SIFT) score for ', str_c('HDBSCAN (min = ', minPts, ')'),' clusters')) +
+  guides(fill=guide_colourbar(title = 'log10(SIFT)')) +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[unique(hdbscan_sift_cluster_mean_sift$mut)]),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(hdbscan_sift_cluster_mean_sift$cluster), end = 1)]))
+plots$hdbscan_sift$average_sift <- labeled_ggplot(p = plots$hdbscan_sift$average_sift, units = 'cm', width = 20,
+                                                  height = length(levels(hdbscan_sift_cluster_mean_sift$cluster)) * 0.5 + 3)
+
+# Save tsv for classifying
+gene_lengths <- structure(meta$gene_length, names=meta$uniprot_id) %>%
+  extract(unique(names(.))) %>%
+  extract(!is.na(names(.)))
+
+hdbscan_sift_class_tbl <- select(hdbscan_sift_tbl, cluster, uniprot_id, gene_name, position=pos, wt, ss, A:Y) %>%
+  filter(uniprot_id %in% unique(sift_dms$uniprot_id)) %>%
+  rename_at(vars(A:Y), ~str_c('er_', .)) %>%
+  left_join(sift_dms, by = c('uniprot_id', 'position', 'wt')) %>%
+  filter(!is.na(species)) %>%
+  rename_at(vars(A:Y), ~str_c('sift_', .)) %>%
+  mutate(relative_position = position / unname(gene_lengths[uniprot_id]),
+         var_sp = 1, var_ss = 1) %>%
+  spread(species, var_sp, fill = 0) %>%
+  spread(ss, var_ss, fill = 0)
 
 ########
 
