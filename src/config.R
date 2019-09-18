@@ -4,6 +4,7 @@
 # Load all libraries (keeps namespace consistent)
 library(Biostrings)
 library(tidyverse)
+library(rlang)
 library(magrittr)
 library(broom)
 library(readxl)
