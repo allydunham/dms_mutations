@@ -1,42 +1,70 @@
 #!/usr/bin/env bash
-# Script to sync folders between farm and local folder
-# Currently does not delete things - must be done manually for safety
-# Syncs folders passeed as arguments, or all folders if no args passed
+# TODO: Convert to python script with more convenient behaviour
+# Script to sync between a local and remote directory(s)
+#
+# Setup for a given project folder using the config beow
+#
+# Will look for global and local .rsync_exclude/rsync_include files
+# .rsync_exclude in $HOME is assumed to be global prefs
+# Manual include overrides all excludes
+#
+# Sync only desired folders based on args
 
-# Colours for printf
+## Config ##
+project_name="Mutations Project"
+local_dir=$HOME/phd/mutations
+remote_dirs=( ebi:/nfs/research1/beltrao/ally/mutations ) # No hps dir yet
+folders=( "data" "meta" "figures" "test" )
+
+## Colours for printf ##
 green=$(tput setaf 2)
 magenta=$(tput setaf 5)
 bold=$(tput bold)
 normal=$(tput sgr0)
 
-# Local/Farm Roots
-local=$HOME/Projects/mutations
-farm=ebi:/nfs/research1/beltrao/ally/mutations
+## Check for presence of include/exclude files ##
+rsync_options=( -a -u -h )
 
-# Sync function
+if [ -e "$HOME/.rsync_exclude" ]; then
+   rsync_options+=( --exclude-from "$HOME/.rsync_exclude" )
+fi
+
+if [ -e "$local_dir/.rsync_include" ]; then
+   rsync_options+=( --include-from "$local_dir/.rsync_include" --exclude"="'*')
+elif [ -e "$local_dir/.rsync_exclude" ]; then
+   rsync_options+=( --exclude-from "$local_dir/.rsync_exclude" )
+fi
+
+## Sync function ##
 syncr () {
-   rsync -vauh --exclude-from "$HOME/.rsync_exclude" --exclude-from "$local/rsync_exclude" --dry-run "$1" "$2"
+   rsync -v --dry-run "${rsync_options[@]}" "$1" "$2"
 
    read -p "Transfer? " -n 1 -r
    echo
    if [[ $REPLY =~ ^[Yy]$ ]]
    then
-      rsync -auh --exclude-from "$HOME/.rsync_exclude" --exclude-from "$local/rsync_exclude" "$1" "$2"
+      rsync "${rsync_options[@]}" "$1" "$2"
    fi
 }
 
-if [ $# -eq 0 ]
-   then
-   folders=( "data" "meta" "figures" "test" )
-else
+## Override folders if argument passed ##
+if [ $# -ne 0 ]; then
    folders=( "$@" )
 fi
 
-printf "%s" "${magenta}${bold}Rsyncing mutations project${normal}"
-for f in "${folders[@]}"
-do
-   printf "\n%s\n%s\n" "${green}${bold}Folder: $f${normal}" "${green}Local -> Farm${normal}"
-   syncr "$local/$f/" "$farm/$f"
-   printf "\n%s\n" "${green}Farm -> Local${normal}"
-   syncr "$farm/$f/" "$local/$f"
+## Perform sync ##
+printf "%s\n" "${magenta}${bold}Rsyncing $project_name${normal}"
+for r in "${remote_dirs[@]}"; do
+   read -p "Sync to remote: $r? " -n 1 -r
+   echo
+   if [[ $REPLY =~ ^[Yy]$ ]]; then
+      for f in "${folders[@]}"; do
+         printf "\n%s\n%s\n" "${green}${bold}Folder: $f${normal}" "${green}Local -> Remote${normal}"
+         syncr "$local_dir/$f/" "$r/$f"
+         printf "\n%s\n" "${green}Local <- Remote${normal}"
+         syncr "$r/$f/" "$local_dir/$f"
+      done
+   fi
 done
+
+
