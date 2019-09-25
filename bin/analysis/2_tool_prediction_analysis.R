@@ -481,15 +481,17 @@ combined_plots$all_correlations <- ggplot(all_cor, aes(y=estimate, x=study_prett
   # To ylim(0,...) elegantly use sapply(conf.low, function(x){max(x, 0)})
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high), width=0.5, position = position_dodge(0.9)) +
   geom_hline(yintercept = 0) +
-  ggtitle('Correlation between experimental deep mutagenesis scores and tool predictions') +
+  ggtitle('Correlation between |ER| and tool scores') +
   #  ylim(0, 0.75) +
   xlab('') +
   ylab('Pearson Correlation Coefficient') +
   scale_fill_viridis_d(guide=guide_legend(title='p-value'), direction = -1, drop=FALSE) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-
-combined_plots$all_correlations <- labeled_ggplot(combined_plots$all_correlations,
-                                                               width=9, height=12)
+  theme_pubclean() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        legend.position = 'right',
+        strip.background = element_blank())
+  
+combined_plots$all_correlations <- labeled_ggplot(combined_plots$all_correlations, width=18, height=25, units = 'cm')
 ########
 
 #### SIFT/FoldX Position Profiles vs DMS Position Profiles ####
@@ -546,15 +548,17 @@ study_roc_vals$precision[is.nan(study_roc_vals$precision)] <- 0
 combined_plots$roc_curve <- ggplot(study_roc_vals, aes(x=FPR, y=TPR, colour=study)) +
   geom_line() +
   geom_abline(slope = 1) +
-  facet_wrap(~tool) +
-  guides(colour=FALSE)
+  facet_wrap(~tool, nrow = 1) +
+  guides(colour=FALSE) +
+  theme_pubclean(base_size = 10)
 
 combined_plots$pr_curve <- ggplot(study_roc_vals, aes(x=TPR, y=precision, colour=study)) +
   geom_line() +
-  facet_wrap(~tool) +
+  facet_wrap(~tool, nrow = 1) +
   guides(colour=FALSE) +
   xlab('Recall') +
-  ylab('Precision')
+  ylab('Precision') +
+  theme_pubclean(base_size = 10)
 
 combined_plots$roc_curve_si_fx <- labeled_ggplot(
   p=ggplot(filter(study_roc_vals, tool %in% c('SIFT', 'FoldX')), aes(x=FPR, y=TPR, colour=study)) +
@@ -582,6 +586,19 @@ combined_plots$pr_curve_si_fx <- labeled_ggplot(
           axis.title = element_text(size = 25),
           axis.text = element_text(size=13)),
   height=13.75, width=19.5, units = 'cm')
+
+combined_plots$pr_roc_curves <- labeled_ggplot(
+  p=gridExtra::arrangeGrob(combined_plots$roc_curve + 
+                             labs(tag = 'A') + 
+                             theme(strip.background = element_blank(),
+                                   axis.text.x = element_text(angle = 90, vjust = 0.5)),
+                           combined_plots$pr_curve + 
+                             labs(tag = 'B') + 
+                             theme(strip.background = element_blank(),
+                                   axis.text.x = element_text(angle = 90, vjust = 0.5)),
+                           ncol = 1),
+  units = 'cm', width = 18, height = 10
+)
 ########
 
 # Save all study plots 
