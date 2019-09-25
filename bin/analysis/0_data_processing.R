@@ -12,7 +12,10 @@ meta_df <- tibble(study = names(dms_data),
                   gene_type = sapply(dms_data, function(x){get_meta(x$dm, 'gene_type')}),
                   gene_name = sapply(dms_data, function(x){get_meta(x$dm, 'gene_name')}),
                   gene_length = sapply(dms_data, function(x){nchar(get_meta(x$dm, 'aa_seq'))}),
+                  domain = sapply(dms_data, function(x){get_meta(x$dm, 'domain')}),
                   uniprot_id = sapply(dms_data, function(x){get_meta(x$dm, 'uniprot_id')}),
+                  variant_count = sapply(dms_data, function(x){n_distinct(x$single_variants$variants)}),
+                  position_count = sapply(dms_data, function(x){n_distinct(str_sub(x$single_variants$variants, end = -2))}),
                   test_class = sapply(dms_data, function(x){get_meta(x$dm, 'test_class')}),
                   species = sapply(dms_data, function(x){get_meta(x$dm, 'species')}),
                   authour = sapply(dms_data, function(x){get_meta(x$dm, 'authour')}),
@@ -23,6 +26,14 @@ meta_df <- tibble(study = names(dms_data),
                   norm_thresh=thresh/factor)
 write_tsv(meta_df, 'meta/study_meta_data.tsv')
 saveRDS(meta_df, 'data/rdata/study_meta_data.RDS')
+
+# Generate template latex table code
+meta_df %>%
+  select(study, uniprot_id, gene_name, domain, position_count, variant_count, single, species) %>%
+  mutate(domain = ifelse(is.na(domain), '', domain), uniprot_id = ifelse(is.na(uniprot_id), '', uniprot_id)) %>%
+  arrange(as.numeric(str_split(study, '_', simplify = TRUE)[,2])) %>%
+  apply(1, function(x){str_c(x, collapse = ' & ')}) %>% str_c(., ' \\\\') %>%
+  cat(sep='\n')
 
 # Helix propensity
 a_helix_propensity <- read_tsv('meta/alpha_helix_energy', comment = '#') %>%
