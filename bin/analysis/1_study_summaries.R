@@ -18,6 +18,14 @@ plots$dm_norm_hists <- labeled_ggplot(p = plot_study_histogram(all_variants, met
                                                                             x='norm_score', thresh = 'norm_thresh'),
                                                    width = 14, height = 9)
 
+plots$dm_norm_hists_tidy <- ggplot(all_variants, aes(x=x, fill=gene_name)) + 
+  geom_histogram() +
+  facet_wrap(facet, scales = 'free', ncol = 4) +
+  theme_pubclean() +
+  xlab('Normalised ER') +
+  ylab('Count') +
+  geom_vline(aes(xintercept=thresh), data = meta_df, colour='red')
+
 ## Plot ER distribution split by various factors
 factor_density_config <- list(gene_type=list(facet='~gene_type'), test_class=list(facet='~test_class'),
                               species=list(facet='~species'), gene=list(facet='~gene_name'))
