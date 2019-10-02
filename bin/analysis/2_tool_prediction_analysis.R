@@ -396,22 +396,6 @@ combined_plots$evcouplings$prediction_accuracy <- labeled_ggplot(
 
 #### Mixture Plots ####
 # Sift/FoldX Score Correlation with exp score
-format_study <- function(x){
-  spl <- str_split(x, '[_.]')[[1]]
-  
-  # Special case of Roscoe and Bolon 2014
-  if (all(spl[1:2] == c('roscoe', '2014'))){
-    result <- str_c('Roscoe & Bolon 2014 (UBI4, ', spl[4], ' ', spl[5], ')')
-  } else {
-    result <- str_c(str_to_title(spl[1]), ' et al. ', spl[2], ' (', str_to_upper(spl[3]), ')')
-    
-    if (!is.na(spl[4])){
-      result <- str_c(str_sub(result, end=-2), ', ', str_c(spl[4:length(spl)], collapse = ' '), ')')
-    }
-  }
-  
-  return(result)
-}
 
 fx <- ungroup(foldx_cor_test) %>%
   filter(single) %>%
