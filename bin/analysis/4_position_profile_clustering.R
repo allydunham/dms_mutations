@@ -104,15 +104,27 @@ chem_env_pc_cor <- cor(tibble_to_matrix(chem_env, PC1:PC20),
   select(chem_env_pc, pc_cor) %>%
   bind_cols(chem_env_pc_cor, .)
 
-plots$pca$norm_all_variants$chemical_environment <- ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env, fill = raw_cor)) +
-  geom_tile(colour='white') + 
-  scale_fill_gradient2() +
-  theme(axis.ticks = element_blank(), panel.background = element_blank())
+plots$pca$norm_all_variants$chemical_environment <- labeled_ggplot(
+  p = ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env, fill = raw_cor)) +
+    geom_tile(colour='white') + 
+    scale_fill_gradient2() +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(), panel.background = element_blank(),
+          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    guides(fill = guide_colourbar(title = 'Pearson\nCorrelation')) +
+    labs(x = 'Mutational Landscape', y = 'Chemical Environment'),
+  units = 'cm', width = 18, height = 14)
 
-plots$pca$norm_all_variants$chemical_environment_pcs <- ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env_pc, fill = pc_cor)) +
-  geom_tile(colour='white') + 
-  scale_fill_gradient2() +
-  theme(axis.ticks = element_blank(), panel.background = element_blank())
+plots$pca$norm_all_variants$chemical_environment_pcs <- labeled_ggplot(
+  p = ggplot(chem_env_pc_cor, aes(x = pc, y = chem_env_pc, fill = pc_cor)) +
+    geom_tile(colour='white') + 
+    scale_fill_gradient2() +
+    coord_fixed() +
+    theme(axis.ticks = element_blank(), panel.background = element_blank(),
+          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    guides(fill = guide_colourbar(title = 'Pearson\nCorrelation')) +
+    labs(x = 'Mutational Landscape', y = 'Chemical Environment'),
+  units = 'cm', width = 18, height = 14)
 
 # FoldX properties
 pcs_foldx <- distinct(foldx, study, position, wt, mut, .keep_all = TRUE) %>%
