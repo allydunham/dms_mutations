@@ -333,8 +333,42 @@ plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions <- pull(chem
       theme(strip.background = element_blank(), strip.text = element_text(size=30),
             axis.title = element_text(size=30), axis.text = element_text(size=20),
             panel.grid.major = element_line(colour = 'lightgrey', linetype = 'dotted'))
-plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions <- labeled_ggplot(p = plots$within_10.0$lm$sig_count$poster_subset_predictions,
-                                                                           units='in', width=10, height=10)
+plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions <- labeled_ggplot(p = plots$within_10.0$lm$er_profile_sig_count$poster_subset_predictions,
+                                                                                      units='in', width=10, height=10)
+
+# Summary plot for within 10 sig count lm
+loadings <- select(chem_env_analyses$within_10.0$lm_er_sig, target, model, n, r.squared) %>%
+  mutate(coef_df = lapply(model, tidy)) %>%
+  unnest(coef_df) %>%
+  mutate(term = str_remove(term, 'prof_') %>% str_replace('sig_count', '#Sig'))
+
+p_loadings <- ggplot(loadings, aes(x=term, y=target, fill=estimate)) + 
+  geom_raster() +
+  scale_fill_gradient2() +
+  geom_point(data = filter(loadings, p.value < 0.0001), aes(shape='p < 0.0001')) + 
+  geom_point(data = filter(loadings, p.value < 0.001, p.value > 0.0001), aes(shape='p < 0.001')) + 
+  geom_point(data = filter(loadings, p.value < 0.01, p.value > 0.001), aes(shape='p < 0.01')) +
+  scale_shape_manual(values = c('p < 0.0001'=8, 'p < 0.001'=3, 'p < 0.01'=20)) +
+  guides(shape = guide_legend(title = '', order = 2), fill = guide_colourbar(title = 'Coefficient', order = 1)) +
+  labs(y = 'Substituted AA', x = 'LM Term', tag = 'A') +
+  theme(axis.ticks = element_blank(), panel.background = element_blank(), legend.position = 'left',
+        legend.key = element_rect(fill = 'white'), legend.text = element_text(size = 8))
+
+p_r_squared <- ggplot(chem_env_analyses$within_10.0$lm_er_sig, aes(x=target, y=r.squared,
+                                                                   label=str_c('n = ', n, ', t = ', round(statistic, digits = 1)))) + 
+  geom_col(fill = 'gray87') + 
+  geom_text(colour='black', y = 0 + max(chem_env_analyses$within_10.0$lm_er_sig$r.squared)/100,
+            check_overlap = FALSE, hjust=0, vjust=0.5, size = 3) +
+  coord_flip() +
+  theme(panel.background = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank(),
+        axis.title.y = element_blank()) +
+  labs(y = 'R squared', tag = 'B') +
+  lims(y = c(0, 1))
+
+plots$within_10.0$lm$er_profile_sig_count$clean_loadings <- labeled_ggplot(
+  p = ggarrange(p_loadings, p_r_squared, nrow = 1, align = 'h', widths = c(2, 1), legend = 'bottom', common.legend = TRUE),
+  units = 'cm', width = 20, height = 12)
+
 #######
 
 # Save plots
