@@ -212,6 +212,7 @@ kmean_analysis <- cluster_analysis(kmean_tbl, backbone_angles = backbone_angles,
 
 plots$kmean <- kmean_analysis$plots
 
+# Cluster mean sift
 kmean_cluster_mean_sift <- select(kmean_tbl, uniprot_id, cluster, pos, wt, A:Y) %>%
   filter(!is.na(uniprot_id)) %>%
   gather(key = 'mut', value = 'er', A:Y) %>%
@@ -236,6 +237,34 @@ plots$kmean$average_sift <- ggplot(kmean_cluster_mean_sift, aes(x = mut, y = clu
         axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_mean_sift$cluster), end = 1)]))
 plots$kmean$average_sift <- labeled_ggplot(p = plots$kmean$average_sift, units = 'cm', width = 20,
                                            height = length(levels(kmean_cluster_mean_sift$cluster)) * 0.5 + 3)
+
+# Cluster mean chem env
+kmean_cluster_mean_chem_env <- select(kmean_tbl, study, uniprot_id, cluster, position=pos, wt) %>%
+  inner_join(chemical_environments, by = c('study', 'position', 'wt')) %>%
+  group_by(cluster) %>%
+  summarise_at(vars(chem_env_A:chem_env_Y), list(mean = ~mean(.), n = ~n())) %>%
+  rename(n=chem_env_A_n) %>%
+  select(-(chem_env_C_n:chem_env_Y_n)) %>%
+  rename_at(vars(-cluster, -n), ~str_sub(., start = -6, end = -6)) %>%
+  gather(key = 'aa', value = 'mean_count', -cluster, -n) %>%
+  group_by(aa) %>%
+  mutate(norm_count = log2((mean_count + min(mean_count[mean_count > 0])/2)/mean(mean_count))) %>%
+  ungroup() %>%
+  add_factor_order(cluster, aa, norm_count, sym = FALSE)
+
+plots$kmean$average_chem_env <- ggplot(kmean_cluster_mean_chem_env, aes(x = aa, y = cluster, fill = norm_count)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  coord_fixed() +
+  ggtitle(str_c('Log2(Cluster Mean) score for kmeans (n = ', n, ') clusters')) +
+  guides(fill=guide_colourbar(title = 'Norm. Log2(Cluster Mean)')) +
+  theme(axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = AA_COLOURS[unique(kmean_cluster_mean_chem_env$aa)]),
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_mean_chem_env$cluster), end = 1)]))
+plots$kmean$average_chem_env <- labeled_ggplot(p = plots$kmean$average_chem_env, units = 'cm', width = 18,
+                                           height = length(levels(kmean_cluster_mean_chem_env$cluster)) * 0.5 + 3)
 
 ########
 
