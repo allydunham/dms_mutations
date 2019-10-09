@@ -249,8 +249,7 @@ kmean_cluster_mean_chem_env <- select(kmean_tbl, study, uniprot_id, cluster, pos
   gather(key = 'aa', value = 'mean_count', -cluster, -n) %>%
   group_by(aa) %>%
   mutate(norm_count = log2((mean_count + min(mean_count[mean_count > 0])/2)/mean(mean_count))) %>%
-  ungroup() %>%
-  add_factor_order(cluster, aa, norm_count, sym = FALSE)
+  ungroup()
 
 plots$kmean$average_chem_env <- ggplot(kmean_cluster_mean_chem_env, aes(x = aa, y = cluster, fill = norm_count)) +
   geom_tile() +
@@ -262,9 +261,9 @@ plots$kmean$average_chem_env <- ggplot(kmean_cluster_mean_chem_env, aes(x = aa, 
         panel.background = element_blank(),
         axis.title = element_blank(),
         axis.text.x = element_text(colour = AA_COLOURS[unique(kmean_cluster_mean_chem_env$aa)]),
-        axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(kmean_cluster_mean_chem_env$cluster), end = 1)]))
+        axis.text.y = element_text(colour = AA_COLOURS[str_sub(unique(kmean_cluster_mean_chem_env$cluster), end = 1)]))
 plots$kmean$average_chem_env <- labeled_ggplot(p = plots$kmean$average_chem_env, units = 'cm', width = 18,
-                                           height = length(levels(kmean_cluster_mean_chem_env$cluster)) * 0.5 + 3)
+                                           height = n_distinct(kmean_cluster_mean_chem_env$cluster) * 0.5 + 3)
 
 ########
 
@@ -454,7 +453,7 @@ hclust_all_cluster_aa_count <- count(hclust_all$tbl, wt, cluster) %>%
   group_by(cluster) %>%
   mutate(n = n/sum(n)) %>%
   ungroup() %>%
-  mutate(cluster = factor(cluster, levels = hclust_all_analysis$cluster_cor_order))
+  mutate(cluster = factor(cluster, levels = levels(hclust_all_cluster_cors$cluster1)))
 
 plots$hclust_all$aa_breakdown <- labeled_ggplot(
   p = ggplot(hclust_all_cluster_aa_count, aes(y=cluster, x=wt, fill=n)) +

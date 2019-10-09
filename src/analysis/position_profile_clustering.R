@@ -295,8 +295,8 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
   
   cluster_mean_order <- levels(mean_prof_long$cluster)
   cluster_cor_order <- levels(cluster_cors$cluster1)
-  
-  mean_prof_long <- mutate(mean_prof_long, cluster = factor(cluster, levels = cluster_cor_order))
+
+  mean_prof_long <- mutate(mean_prof_long, cluster = as.character(cluster), mut = as.character(mut))
   
   p_mean_prof <- labeled_ggplot(
     p=ggplot(mean_prof_long, aes(x=mut, y=cluster, fill=norm_er)) +
@@ -308,10 +308,10 @@ cluster_analysis <- function(tbl, backbone_angles=NULL, foldx=NULL, cluster_str=
     theme(axis.ticks = element_blank(),
           panel.background = element_blank(),
           axis.title = element_blank(),
-          axis.text.x = element_text(colour = AA_COLOURS[levels(mean_prof_long$mut)]),
-          axis.text.y = element_text(colour = AA_COLOURS[str_sub(levels(mean_prof_long$cluster), end = 1)])),
-    units = 'cm', width = 0.5*length(unique(mean_prof_long$mut)) + 4,
-    height = 0.5*length(unique(mean_prof_long$cluster)) + 2, limitsize=FALSE)
+          axis.text.x = element_text(colour = AA_COLOURS[unique(mean_prof_long$mut)]),
+          axis.text.y = element_text(colour = AA_COLOURS[str_sub(unique(mean_prof_long$cluster), end = 1)])),
+    units = 'cm', width = 0.5*n_distinct(mean_prof_long$mut) + 4,
+    height = 0.5*n_distinct(mean_prof_long$cluster) + 2, limitsize=FALSE)
 
   # Cluster Sizes
   cluster_sizes <- group_by(tbl, cluster) %>%
