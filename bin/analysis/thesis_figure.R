@@ -29,12 +29,19 @@ combine_study <- function(x) {
   return(tbl)
 }
 
+# New SIFT4G results have more sig figs
+new_sift <- read_tsv("data/long_combined_mutational_scans.tsv") %>%
+  select(gene, position, wt, mut, new_sift_score = sift)
+
 dms <- readRDS('data/rdata/processed_variant_data.RDS') %>%
   lapply(combine_study) %>%
   bind_rows(.id = "study") %>%
-  tidyr::extract(variants, into = c("wt", "position", "mut"), regex = "([A-Z])([0-9]*)([A-Z])") %>%
+  tidyr::extract(variants, into = c("wt", "position", "mut"), regex = "([A-Z])([0-9]*)([A-Z])", convert = TRUE) %>%
   left_join(select(study_meta, study, gene=gene_name, uniprot_id, species, authour, thresh, norm_thresh), ., by = "study") %>%
-  mutate(pretty_study = map_chr(study, format_study))
+  mutate(pretty_study = map_chr(study, format_study)) %>%
+  left_join(new_sift, by = c("gene", "position", "wt", "mut")) %>%
+  mutate(sift_score = ifelse(is.na(new_sift_score), sift_score, new_sift_score)) %>%
+  select(-new_sift_score)
 
 #### Panel - Dataset Description ####
 variant_counts <- group_by(dms, study = pretty_study) %>%
@@ -102,14 +109,14 @@ step_auc <- function(x, y){
   sum(diff(x) * y[-length(y)])
 }
 
-calc_roc <- function(tbl, true_col, var_col, greater=TRUE, max_steps = 1000){
+calc_roc <- function(tbl, true_col, var_col, greater=TRUE, max_steps = 500){
   true_col <- enquo(true_col)
   var_col <- enquo(var_col)
   
   tbl <- select(tbl, !!true_col, !!var_col) %>%
     drop_na()
   if (nrow(tbl) == 0){
-    return(tibble(TP=NA, TN=NA, FP=NA, FN=NA))
+    return(tibble(thresh=NA, tp=NA, tn=NA, fp=NA, fn=NA, tpr=NA, tnr=NA, fpr=NA, precision=NA, auc=NA))
   }
   
   true <- pull(tbl, !!true_col)
@@ -157,21 +164,57 @@ roc <- select(dms, study = pretty_study, score, thresh, SIFT4G = sift_score, Fol
        PolyPhen2 = pph2_prob, Envision = envision_prediction) %>%
   mutate(del = score < thresh) %>%
   select(study, del, SIFT4G, FoldX, EVCouplings, PolyPhen2, Envision) %>%
-  pivot_longer(c(-study, -del), names_to = "tool", values_to = "value")
+  pivot_longer(c(-study, -del), names_to = "tool", values_to = "value") %>%
+  drop_na() %>%
+  {
+    bind_rows(group_by(., study, tool) %>% 
+                group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool])) %>% 
+                ungroup(),
+              group_by(., tool) %>% 
+                group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool])) %>% 
+                ungroup() %>% 
+                mutate(study = "All"))
+  }
 
-p_roc <- blank_plot("ROC Curves")
+auc <- select(roc, study, tool, auc) %>%
+  distinct()
+
+p_roc <- ggplot(mapping = aes(x = fpr, y = tpr)) +
+  facet_wrap(~tool, nrow = 2, scales = "free") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
+  geom_step(data = filter(roc, study != "All"), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey") +
+  geom_step(data = filter(roc, study == "All"), mapping = aes(colour = tool), show.legend = FALSE) +
+  scale_colour_brewer(palette = "Dark2") + 
+  labs(x = "FPR", y = "TPR") +
+  theme(panel.grid.major.y = element_blank(),
+        axis.line = element_line(colour = "grey"))
+
+p_roc_summary <- ggplot(mapping = aes(x = tool, y = auc)) +
+  geom_boxplot(data = filter(auc, study != "All"), mapping = aes(fill = tool), show.legend = FALSE, outlier.shape = 20) +
+  geom_point(data = filter(auc, study == "All"), mapping = aes(shape = "All Studies"), colour = "black", size = 3) +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_shape_manual(name = "", values = c(`All Studies` = 10)) +
+  labs(x = "", y = "ROC AUC") + 
+  lims(y = c(0, 1)) +
+  theme(legend.position = "top",
+        legend.margin = margin(0,0,0,0),
+        legend.box.spacing = unit(1, "mm"),
+        legend.key.size = unit(2, "mm"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 #### Figure Assembly ####
 size <- theme(text = element_text(size = 9))
 p1 <- p_data + labs(tag = 'A') + size
 p2 <- p_cor + labs(tag = 'B') + size
 p3 <- p_roc + labs(tag = 'C') + size
+p4 <- p_roc_summary + labs(tag = 'D') + size
 
-figure <- multi_panel_figure(width = 180, height = 240, columns = 1, rows = 3,
+figure <- multi_panel_figure(width = 180, height = 240, columns = 3, rows = 3,
                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
-  fill_panel(p1, row = 1, column = 1) %>%
-  fill_panel(p2, row = 2, column = 1) %>%
-  fill_panel(p3, row = 3, column = 1)
+  fill_panel(p1, row = 1, column = 1:3) %>%
+  fill_panel(p2, row = 2, column = 1:3) %>%
+  fill_panel(p3, row = 3, column = 1:2) %>%
+  fill_panel(p4, row = 3, column = 3)
 
 ggsave('figures/thesis_figure.pdf', figure, width = figure_width(figure), height = figure_height(figure), units = 'mm', device = cairo_pdf)
 ggsave('figures/thesis_figure.tiff', figure, width = figure_width(figure), height = figure_height(figure), units = 'mm')
