@@ -160,21 +160,26 @@ calc_roc <- function(tbl, true_col, var_col, greater=TRUE, max_steps = 500){
 }
 
 greater <- c(SIFT4G = FALSE, FoldX = TRUE, EVCouplings = FALSE, PolyPhen2 = TRUE, Envision = FALSE)
-roc <- select(dms, study = pretty_study, score, thresh, SIFT4G = sift_score, FoldX = foldx_ddg, EVCouplings = evcoup_epistatic,
-       PolyPhen2 = pph2_prob, Envision = envision_prediction) %>%
-  mutate(del = score < thresh) %>%
-  select(study, del, SIFT4G, FoldX, EVCouplings, PolyPhen2, Envision) %>%
-  pivot_longer(c(-study, -del), names_to = "tool", values_to = "value") %>%
-  drop_na() %>%
-  {
-    bind_rows(group_by(., study, tool) %>% 
-                group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool])) %>% 
-                ungroup(),
-              group_by(., tool) %>% 
-                group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool])) %>% 
-                ungroup() %>% 
-                mutate(study = "All"))
-  }
+if (file.exists("data/tool_roc.tsv")) {
+  roc <- read_tsv("data/tool_roc.tsv") # Load cached result by default
+} else {
+  roc <- select(dms, study = pretty_study, score, thresh, SIFT4G = sift_score, FoldX = foldx_ddg, EVCouplings = evcoup_epistatic,
+         PolyPhen2 = pph2_prob, Envision = envision_prediction) %>%
+    mutate(del = score < thresh) %>%
+    select(study, del, SIFT4G, FoldX, EVCouplings, PolyPhen2, Envision) %>%
+    pivot_longer(c(-study, -del), names_to = "tool", values_to = "value") %>%
+    drop_na() %>%
+    {
+      bind_rows(group_by(., study, tool) %>%
+                  group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool], max_steps = 6000)) %>%
+                  ungroup(),
+                group_by(., tool) %>%
+                  group_modify(~calc_roc(.x, del, value, greater = greater[.y$tool], max_steps = 6000)) %>%
+                  ungroup() %>%
+                  mutate(study = "All"))
+    }
+  write_tsv(roc, "data/tool_roc.tsv")
+}
 
 auc <- select(roc, study, tool, auc) %>%
   distinct()
