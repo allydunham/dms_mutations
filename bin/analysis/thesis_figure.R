@@ -30,8 +30,8 @@ combine_study <- function(x) {
 }
 
 # New SIFT4G results have more sig figs
-new_sift <- read_tsv("data/long_combined_mutational_scans.tsv") %>%
-  select(gene, position, wt, mut, new_sift_score = sift)
+new_preds <- read_tsv("data/long_combined_mutational_scans.tsv") %>%
+  select(gene, position, wt, mut, new_sift_score = sift, new_foldx = total_energy)
 
 dms <- readRDS('data/rdata/processed_variant_data.RDS') %>%
   lapply(combine_study) %>%
@@ -39,9 +39,10 @@ dms <- readRDS('data/rdata/processed_variant_data.RDS') %>%
   tidyr::extract(variants, into = c("wt", "position", "mut"), regex = "([A-Z])([0-9]*)([A-Z])", convert = TRUE) %>%
   left_join(select(study_meta, study, gene=gene_name, uniprot_id, species, authour, thresh, norm_thresh), ., by = "study") %>%
   mutate(pretty_study = map_chr(study, format_study)) %>%
-  left_join(new_sift, by = c("gene", "position", "wt", "mut")) %>%
-  mutate(sift_score = ifelse(is.na(new_sift_score), sift_score, new_sift_score)) %>%
-  select(-new_sift_score)
+  left_join(new_preds, by = c("gene", "position", "wt", "mut")) %>%
+  mutate(sift_score = ifelse(is.na(new_sift_score), sift_score, new_sift_score),
+         foldx_ddg = ifelse(is.na(new_foldx), foldx_ddg, new_foldx)) %>%
+  select(-new_sift_score, -new_foldx)
 
 #### Panel - Dataset Description ####
 variant_counts <- group_by(dms, study = pretty_study) %>%
@@ -58,7 +59,7 @@ p_data <- ggplot(distinct(variant_counts, study, variants), aes(x = study, y = v
   geom_text(hjust = -0.25, size = 2) +
   geom_point(data = variant_counts, mapping = aes(y = count, colour = tool),
              position = position_dodge(0.9), shape = 20, size = 0.75) +
-  labs(x = "", y = "Variants") +
+  labs(x = "", y = "Variants Measured") +
   coord_flip() +
   scale_colour_brewer(name = "", type = "qual", palette = "Set1") +
   scale_y_continuous(expand = expansion(c(0.01, 0.18))) +
@@ -86,17 +87,24 @@ correlation <- select(dms, study = pretty_study, score, SIFT4G = sift_score, Fol
   ungroup() %>%
   mutate(p_cat = pretty_p_values(p.value, breaks = c(1e-12, 1e-6, 1e-3, 0.01, 0.05), markdown_exp = TRUE, prefix_p = TRUE))
 
-p_cor <- ggplot(correlation, aes(x = study, y = estimate, ymin = conf.low, ymax = conf.high, fill = p_cat)) +
+study_order <- filter(correlation, tool == "SIFT4G") %>%
+  arrange(estimate) %>%
+  pull(study) %>%
+  c("Ashenberg et al. 2016 (NP)", .)
+
+p_cor <- ggplot(correlation, aes(x = factor(study, levels = study_order), y = estimate, ymin = conf.low, ymax = conf.high, fill = p_cat)) +
   facet_wrap(~tool, nrow = 1) +
   geom_col(width = 0.8) +
-  geom_errorbar(width = 0.6) +
-  geom_hline(yintercept = 0) +
+  geom_errorbar(width = 0.4, size = 0.25) +
+  geom_hline(yintercept = 0, size = 0.3) +
   coord_flip() +
   scale_fill_viridis_d() +
+  scale_y_continuous(breaks = seq(-0.2, 0.6, 0.2), labels = c("-0.2", "0", "0.2", "0.4", "0.6")) +
   guides(fill = guide_legend(reverse = TRUE, nrow = 1)) +
   labs(x = "", y = "Pearson Correlation Coefficient") +
-  theme(panel.grid.major.x = element_line(linetype = "dotted", colour = "grey"),
+  theme(panel.grid.major.x = element_line(linetype = "dotted", colour = "grey", size = 0.3),
         panel.grid.major.y = element_blank(),
+        axis.ticks.y = element_blank(),
         legend.text = element_markdown(),
         legend.title = element_blank(),
         legend.position = "bottom",
@@ -184,20 +192,23 @@ if (file.exists("data/tool_roc.tsv")) {
 auc <- select(roc, study, tool, auc) %>%
   distinct()
 
-p_roc <- ggplot(mapping = aes(x = fpr, y = tpr)) +
-  facet_wrap(~tool, nrow = 2, scales = "free") +
+tool_colours <- c(Envision="#1b9e77", EVCouplings="#d95f02", FoldX="#7570b3", PolyPhen2="#e7298a", SIFT4G="#66a61e")
+
+plot_roc <- function(t){
+  ggplot(mapping = aes(x = fpr, y = tpr)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
-  geom_step(data = filter(roc, study != "All"), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey") +
-  geom_step(data = filter(roc, study == "All"), mapping = aes(colour = tool), show.legend = FALSE) +
-  scale_colour_brewer(palette = "Dark2") + 
-  labs(x = "FPR", y = "TPR") +
+  geom_step(data = filter(roc, study != "All", tool == t), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey", size = 0.4) +
+  geom_step(data = filter(roc, study == "All", tool == t), mapping = aes(colour = tool), show.legend = FALSE) +
+  scale_colour_manual(values = tool_colours) + 
+  labs(x = "FPR", y = "TPR", subtitle = t) +
   theme(panel.grid.major.y = element_blank(),
         axis.line = element_line(colour = "grey"))
+}
 
 p_roc_summary <- ggplot(mapping = aes(x = tool, y = auc)) +
   geom_boxplot(data = filter(auc, study != "All"), mapping = aes(fill = tool), show.legend = FALSE, outlier.shape = 20) +
   geom_point(data = filter(auc, study == "All"), mapping = aes(shape = "All Studies"), colour = "black", size = 3) +
-  scale_fill_brewer(palette = "Dark2") +
+  scale_fill_manual(values = tool_colours) + 
   scale_shape_manual(name = "", values = c(`All Studies` = 10)) +
   labs(x = "", y = "ROC AUC") + 
   lims(y = c(0, 1)) +
@@ -208,18 +219,35 @@ p_roc_summary <- ggplot(mapping = aes(x = tool, y = auc)) +
         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 #### Figure Assembly ####
-size <- theme(text = element_text(size = 9))
+size <- theme(text = element_text(size = 10))
 p1 <- p_data + labs(tag = 'A') + size
 p2 <- p_cor + labs(tag = 'B') + size
-p3 <- p_roc + labs(tag = 'C') + size
-p4 <- p_roc_summary + labs(tag = 'D') + size
 
-figure <- multi_panel_figure(width = 180, height = 240, columns = 3, rows = 3,
+p3 <- plot_roc("Envision") + labs(tag = 'A') + size
+p4 <- plot_roc("EVCouplings") + labs(tag = 'B') + size
+p5 <- plot_roc("FoldX") + labs(tag = 'C') + size
+p6 <- plot_roc("PolyPhen2") + labs(tag = 'D') + size
+p7 <- plot_roc("SIFT4G") + labs(tag = 'E') + size
+p8 <- p_roc_summary + labs(tag = 'F') + size
+
+# Bar plots
+figure1 <- multi_panel_figure(width = 210, height = c(120, 130), columns = 1,
                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
-  fill_panel(p1, row = 1, column = 1:3) %>%
-  fill_panel(p2, row = 2, column = 1:3) %>%
-  fill_panel(p3, row = 3, column = 1:2) %>%
-  fill_panel(p4, row = 3, column = 3)
+  fill_panel(p1, row = 1, column = 1) %>%
+  fill_panel(p2, row = 2, column = 1)
 
-ggsave('figures/thesis_figure.pdf', figure, width = figure_width(figure), height = figure_height(figure), units = 'mm', device = cairo_pdf)
-ggsave('figures/thesis_figure.tiff', figure, width = figure_width(figure), height = figure_height(figure), units = 'mm')
+# ROC analysis
+figure2 <- multi_panel_figure(width = 180, height = 120, columns = 3, rows = 2,
+                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
+  fill_panel(p3, row = 1, column = 1) %>%
+  fill_panel(p4, row = 1, column = 2) %>%
+  fill_panel(p5, row = 1, column = 3) %>%
+  fill_panel(p6, row = 2, column = 1) %>%
+  fill_panel(p7, row = 2, column = 2) %>%
+  fill_panel(p8, row = 2, column = 3)
+
+ggsave('figures/thesis_figure_cor.pdf', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm', device = cairo_pdf)
+ggsave('figures/thesis_figure_cor.tiff', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm')
+
+ggsave('figures/thesis_figure_roc.pdf', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm', device = cairo_pdf)
+ggsave('figures/thesis_figure_roc.tiff', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm')
