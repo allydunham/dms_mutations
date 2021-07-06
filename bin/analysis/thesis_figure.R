@@ -10,6 +10,8 @@ theme_set(theme_pubclean() + theme(legend.position = 'right',
                                    strip.background = element_blank(),
                                    legend.key = element_blank()))
 
+tool_colours <- c(Envision="#1b9e77", EVCouplings="#d95f02", FoldX="#7570b3", PolyPhen2="#e7298a", SIFT4G="#66a61e")
+
 study_meta <- readRDS('data/rdata/study_meta_data.RDS')
 
 combine_study <- function(x) {
@@ -189,65 +191,109 @@ if (file.exists("data/tool_roc.tsv")) {
   write_tsv(roc, "data/tool_roc.tsv")
 }
 
-auc <- select(roc, study, tool, auc) %>%
-  distinct()
-
-tool_colours <- c(Envision="#1b9e77", EVCouplings="#d95f02", FoldX="#7570b3", PolyPhen2="#e7298a", SIFT4G="#66a61e")
-
-plot_roc <- function(t){
-  ggplot(mapping = aes(x = fpr, y = tpr)) +
+p_roc <- ggplot(mapping = aes(x = fpr, y = tpr)) +
+  facet_wrap(~tool, nrow = 1, scales = "free") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "black") +
-  geom_step(data = filter(roc, study != "All", tool == t), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey", size = 0.4) +
-  geom_step(data = filter(roc, study == "All", tool == t), mapping = aes(colour = tool), show.legend = FALSE) +
+  geom_step(data = filter(roc, study != "All"), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey", size = 0.4) +
+  geom_step(data = filter(roc, study == "All"), mapping = aes(colour = tool), show.legend = FALSE) +
   scale_colour_manual(values = tool_colours) + 
-  labs(x = "FPR", y = "TPR", subtitle = t) +
+  scale_x_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  labs(x = "FPR", y = "TPR") +
   theme(panel.grid.major.y = element_blank(),
         axis.line = element_line(colour = "grey"))
-}
 
-p_roc_summary <- ggplot(mapping = aes(x = tool, y = auc)) +
-  geom_boxplot(data = filter(auc, study != "All"), mapping = aes(fill = tool), show.legend = FALSE, outlier.shape = 20) +
-  geom_point(data = filter(auc, study == "All"), mapping = aes(shape = "All Studies"), colour = "black", size = 3) +
+p_pr <- ggplot(mapping = aes(x = tpr, y = precision)) +
+  facet_wrap(~tool, nrow = 1, scales = "free") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", colour = "black") +
+  geom_step(data = filter(roc, study != "All"), mapping = aes(group = study), linetype = "dotted", colour = "darkgrey", size = 0.4) +
+  geom_step(data = filter(roc, study == "All"), mapping = aes(colour = tool), show.legend = FALSE) +
+  scale_colour_manual(values = tool_colours) + 
+  scale_x_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  labs(x = "Recall", y = "Precision") +
+  theme(panel.grid.major.y = element_blank(),
+        axis.line = element_line(colour = "grey"))
+
+### Panel Overall Performance ###
+auc <- select(roc, study, tool, value = auc) %>%
+  distinct() %>%
+  mutate(stat = "auc", study = ifelse(study == "All", "Overall", study))
+
+stats <- select(dms, study = pretty_study, thresh, score, evcoup_epistatic:foldx_ddg) %>%
+  mutate(true = score < thresh,
+         SIFT4G = sift_score < 0.05,
+         FoldX = foldx_ddg > 1,
+         PolyPhen2 = pph2_prob > 0.5,
+         Envision = envision_prediction < 0.75,
+         EVCouplings = evcoup_epistatic < -5) %>%
+  select(study, true, SIFT4G:EVCouplings) %>%
+  bind_rows(mutate(., study = "Overall"), .) %>%
+  pivot_longer(SIFT4G:EVCouplings, names_to = "tool", values_to = "pred") %>%
+  drop_na() %>%
+  group_by(study, tool) %>%
+  summarise(tp = sum(pred & true),
+            tn = sum(!pred & !true),
+            fp = sum(pred & !true),
+            fn = sum(!pred & true),
+            pe = sum(true) / n(),
+            .groups = "drop") %>%
+  mutate(accuracy = (tp + tn) / (tp + tn + fp + fn),
+         precision = tp / (tp + fp),
+         recall = tp / (tp + fn),
+         f1 = 2 * tp / (2 * tp + fp + fn),
+         kappa = (accuracy - pe) / (1 - pe)) %>%
+  select(study, tool, accuracy, precision, recall, f1, kappa) %>%
+  pivot_longer(accuracy:kappa, names_to = "stat") %>%
+  bind_rows(., auc) %>%
+  mutate(stat = factor(stat, levels = c("accuracy", "precision", "recall", "f1", "kappa", "auc")))
+
+stat_names <- c(accuracy = "Accuracy", precision = "Precision", recall = "Recall", f1 = "F1 Score", kappa = "Cohen's Kappa", auc = "ROC AUC")
+stat_lims <- tibble(stat = c("accuracy", "accuracy", "precision", "precision", "recall", "recall", "f1", "f1", "kappa", "kappa", "auc", "auc"),
+                    value = c(0, 1, 0, 1, 0, 1, 0, 1, -0.5, 1, 0, 1),
+                    tool = NA) %>%
+  mutate(stat = factor(stat, levels = c("accuracy", "precision", "recall", "f1", "kappa", "auc")))
+
+p_stats <- ggplot(mapping = aes(x = tool, y = value)) +
+  facet_wrap(vars(stat), nrow = 2, scales = "free_y", strip.position = "left", labeller = as_labeller(stat_names)) +
+  geom_boxplot(data = filter(stats, study != "Overall"), mapping = aes(fill = tool), width = 0.75, show.legend = FALSE, outlier.shape = 20) +
+  geom_point(data = filter(stats, study == "Overall"), mapping = aes(shape = "All Studies"), size = 2.5) +
+  geom_blank(data = stat_lims) +
   scale_fill_manual(values = tool_colours) + 
   scale_shape_manual(name = "", values = c(`All Studies` = 10)) +
-  labs(x = "", y = "ROC AUC") + 
-  lims(y = c(0, 1)) +
+  labs(x = "", y = "") + 
   theme(legend.position = "top",
         legend.margin = margin(0,0,0,0),
         legend.box.spacing = unit(1, "mm"),
-        legend.key.size = unit(2, "mm"),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        axis.ticks.x = element_blank(),
+        panel.spacing = unit(2, "mm"),
+        strip.placement = "outside",
+        strip.text = element_text(margin = margin(0, 0, 0, 0, unit = "mm")))
 
-#### Figure Assembly ####
+#### Cor Figure Assembly ####
 size <- theme(text = element_text(size = 10))
-p1 <- p_data + labs(tag = 'A') + size
-p2 <- p_cor + labs(tag = 'B') + size
+pc1 <- p_data + labs(tag = 'A') + size
+pc2 <- p_cor + labs(tag = 'B') + size
 
-p3 <- plot_roc("Envision") + labs(tag = 'A') + size
-p4 <- plot_roc("EVCouplings") + labs(tag = 'B') + size
-p5 <- plot_roc("FoldX") + labs(tag = 'C') + size
-p6 <- plot_roc("PolyPhen2") + labs(tag = 'D') + size
-p7 <- plot_roc("SIFT4G") + labs(tag = 'E') + size
-p8 <- p_roc_summary + labs(tag = 'F') + size
-
-# Bar plots
 figure1 <- multi_panel_figure(width = 210, height = c(120, 130), columns = 1,
                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
-  fill_panel(p1, row = 1, column = 1) %>%
-  fill_panel(p2, row = 2, column = 1)
-
-# ROC analysis
-figure2 <- multi_panel_figure(width = 180, height = 120, columns = 3, rows = 2,
-                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
-  fill_panel(p3, row = 1, column = 1) %>%
-  fill_panel(p4, row = 1, column = 2) %>%
-  fill_panel(p5, row = 1, column = 3) %>%
-  fill_panel(p6, row = 2, column = 1) %>%
-  fill_panel(p7, row = 2, column = 2) %>%
-  fill_panel(p8, row = 2, column = 3)
+  fill_panel(pc1, row = 1, column = 1) %>%
+  fill_panel(pc2, row = 2, column = 1)
 
 ggsave('figures/thesis_figure_cor.pdf', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm', device = cairo_pdf)
 ggsave('figures/thesis_figure_cor.tiff', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm')
+
+### ROC Figure Assembly
+pr1 <- p_stats + labs(tag = 'A') + size
+pr2 <- p_roc + labs(tag = 'B') + size
+pr3 <- p_pr + labs(tag = 'C') + size
+
+figure2 <- multi_panel_figure(width = 180, height = c(100, 40, 40), columns = 1,
+                              panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
+  fill_panel(pr1, row = 1, column = 1) %>%
+  fill_panel(pr2, row = 2, column = 1) %>%
+  fill_panel(pr3, row = 3, column = 1)
 
 ggsave('figures/thesis_figure_roc.pdf', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm', device = cairo_pdf)
 ggsave('figures/thesis_figure_roc.tiff', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm')
