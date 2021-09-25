@@ -70,10 +70,11 @@ p_data <- ggplot(distinct(variant_counts, study, variants), aes(x = study, y = v
          shape = guide_legend(reverse = TRUE)) +
   theme(panel.grid.major.x = element_line(linetype = "dotted", colour = "grey"),
         panel.grid.major.y = element_blank(),
-        legend.position = "right",
+        legend.position = "top",
         legend.margin = margin(0,0,0,0),
         legend.box.spacing = unit(1, "mm"),
         legend.key.size = unit(2, "mm"),
+        legend.text = element_text(size = 8.5),
         axis.ticks.y = element_blank())
 
 #### Panel - Score Correlation per study ####
