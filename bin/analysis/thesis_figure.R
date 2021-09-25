@@ -58,7 +58,7 @@ variant_counts <- group_by(dms, study = pretty_study) %>%
 
 p_data <- ggplot(distinct(variant_counts, study, variants), aes(x = study, y = variants, label = variants)) +
   geom_col(fill = "#a6cee3") +
-  geom_text(hjust = -0.25, size = 2) +
+  geom_text(hjust = -0.25, size = 3) +
   geom_point(data = variant_counts, mapping = aes(y = count, colour = tool),
              position = position_dodge(0.9), shape = 20, size = 0.75) +
   labs(x = "", y = "Variants Measured") +
@@ -101,12 +101,13 @@ p_cor <- ggplot(correlation, aes(x = factor(study, levels = study_order), y = es
   geom_hline(yintercept = 0, size = 0.3) +
   coord_flip() +
   scale_fill_viridis_d() +
-  scale_y_continuous(breaks = seq(-0.2, 0.6, 0.2), labels = c("-0.2", "0", "0.2", "0.4", "0.6")) +
+  scale_y_continuous(breaks = seq(-0.2, 0.6, 0.2), labels = c("-0.2", "0", "0.2", "0.4", "0.6"), expand = expansion(0)) +
   guides(fill = guide_legend(reverse = TRUE, nrow = 1)) +
   labs(x = "", y = "Pearson Correlation Coefficient") +
   theme(panel.grid.major.x = element_line(linetype = "dotted", colour = "grey", size = 0.3),
         panel.grid.major.y = element_blank(),
         axis.ticks.y = element_blank(),
+        axis.text.x = element_text(size = 8),
         legend.text = element_markdown(),
         legend.title = element_blank(),
         legend.position = "bottom",
@@ -248,14 +249,16 @@ stats <- select(dms, study = pretty_study, thresh, score, evcoup_epistatic:foldx
   bind_rows(., auc) %>%
   mutate(stat = factor(stat, levels = c("accuracy", "precision", "recall", "f1", "kappa", "auc")))
 
-stat_names <- c(accuracy = "Accuracy", precision = "Precision", recall = "Recall", f1 = "F1 Score", kappa = "Cohen's Kappa", auc = "ROC AUC")
+stat_names <- c(accuracy = '"Accuracy"', precision = '"Precision"', recall = '"Recall"',
+                f1 = '"F1 Score"', kappa = '"Cohen\'s"~kappa', auc = '"ROC AUC"')
 stat_lims <- tibble(stat = c("accuracy", "accuracy", "precision", "precision", "recall", "recall", "f1", "f1", "kappa", "kappa", "auc", "auc"),
                     value = c(0, 1, 0, 1, 0, 1, 0, 1, -0.5, 1, 0, 1),
                     tool = NA) %>%
   mutate(stat = factor(stat, levels = c("accuracy", "precision", "recall", "f1", "kappa", "auc")))
 
 p_stats <- ggplot(mapping = aes(x = tool, y = value)) +
-  facet_wrap(vars(stat), nrow = 2, scales = "free_y", strip.position = "left", labeller = as_labeller(stat_names)) +
+  facet_wrap(vars(stat), nrow = 2, scales = "free_y", strip.position = "left",
+             labeller = labeller(stat = as_labeller(stat_names, default = label_parsed))) +
   geom_boxplot(data = filter(stats, study != "Overall"), mapping = aes(fill = tool), width = 0.75, show.legend = FALSE, outlier.shape = 20) +
   geom_point(data = filter(stats, study == "Overall"), mapping = aes(shape = "All Studies"), size = 2.5) +
   geom_blank(data = stat_lims) +
@@ -269,10 +272,10 @@ p_stats <- ggplot(mapping = aes(x = tool, y = value)) +
         axis.ticks.x = element_blank(),
         panel.spacing = unit(2, "mm"),
         strip.placement = "outside",
-        strip.text = element_text(margin = margin(0, 0, 0, 0, unit = "mm")))
+        strip.text = element_markdown(margin = margin(0, 0, 0, 0, unit = "mm")))
 
 #### Cor Figure Assembly ####
-size <- theme(text = element_text(size = 10))
+size <- theme(text = element_text(size = 12))
 pc1 <- p_data + labs(tag = 'A') + size
 pc2 <- p_cor + labs(tag = 'B') + size
 
