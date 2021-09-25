@@ -10,7 +10,7 @@ theme_set(theme_pubclean() + theme(legend.position = 'right',
                                    strip.background = element_blank(),
                                    legend.key = element_blank()))
 
-tool_colours <- c(Envision="#1b9e77", EVCouplings="#d95f02", FoldX="#7570b3", PolyPhen2="#e7298a", SIFT4G="#66a61e")
+tool_colours <- c(Envision="#984ea3", EVCouplings="#4daf4a", FoldX="#377eb8", PolyPhen2="#ff7f00", SIFT4G="#e41a1c")
 
 study_meta <- readRDS('data/rdata/study_meta_data.RDS')
 
@@ -59,13 +59,15 @@ variant_counts <- group_by(dms, study = pretty_study) %>%
 p_data <- ggplot(distinct(variant_counts, study, variants), aes(x = study, y = variants, label = variants)) +
   geom_col(fill = "#a6cee3") +
   geom_text(hjust = -0.25, size = 3) +
-  geom_point(data = variant_counts, mapping = aes(y = count, colour = tool),
-             position = position_dodge(0.9), shape = 20, size = 0.75) +
+  geom_point(data = variant_counts, mapping = aes(y = count, fill = tool, shape = tool),
+             position = position_dodge(0.9), size = 1.5, colour = "transparent") +
   labs(x = "", y = "Variants Measured") +
   coord_flip() +
-  scale_colour_brewer(name = "", type = "qual", palette = "Set1") +
+  scale_fill_manual(name = "", values = tool_colours) +
+  scale_shape_manual(name = "", values = c(SIFT4G = 21, FoldX = 22, EVCouplings = 23, PolyPhen2 = 24, Envision = 25)) + 
   scale_y_continuous(expand = expansion(c(0.01, 0.18))) +
-  guides(colour = guide_legend(reverse = TRUE, override.aes = list(size = 2))) +
+  guides(fill = guide_legend(reverse = TRUE, override.aes = list(size = 3)),
+         shape = guide_legend(reverse = TRUE)) +
   theme(panel.grid.major.x = element_line(linetype = "dotted", colour = "grey"),
         panel.grid.major.y = element_blank(),
         legend.position = "right",
@@ -96,11 +98,11 @@ study_order <- filter(correlation, tool == "SIFT4G") %>%
 
 p_cor <- ggplot(correlation, aes(x = factor(study, levels = study_order), y = estimate, ymin = conf.low, ymax = conf.high, fill = p_cat)) +
   facet_wrap(~tool, nrow = 1) +
-  geom_col(width = 0.8) +
+  geom_col(width = 0.7) +
   geom_errorbar(width = 0.4, size = 0.25) +
   geom_hline(yintercept = 0, size = 0.3) +
   coord_flip() +
-  scale_fill_viridis_d() +
+  scale_fill_viridis_d(direction = -1) +
   scale_y_continuous(breaks = seq(-0.2, 0.6, 0.2), labels = c("-0.2", "0", "0.2", "0.4", "0.6"), expand = expansion(0)) +
   guides(fill = guide_legend(reverse = TRUE, nrow = 1)) +
   labs(x = "", y = "Pearson Correlation Coefficient") +
@@ -202,7 +204,8 @@ p_roc <- ggplot(mapping = aes(x = fpr, y = tpr)) +
   scale_y_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
   labs(x = "FPR", y = "TPR") +
   theme(panel.grid.major.y = element_blank(),
-        axis.line = element_line(colour = "grey"))
+        axis.line = element_line(colour = "grey"),
+        axis.text.x = element_text(size = 8))
 
 p_pr <- ggplot(mapping = aes(x = tpr, y = precision)) +
   facet_wrap(~tool, nrow = 1, scales = "free") +
@@ -214,7 +217,8 @@ p_pr <- ggplot(mapping = aes(x = tpr, y = precision)) +
   scale_y_continuous(breaks = seq(0, 1, 0.25), labels = c("0", "0.25", "0.5", "0.75", "1")) +
   labs(x = "Recall", y = "Precision") +
   theme(panel.grid.major.y = element_blank(),
-        axis.line = element_line(colour = "grey"))
+        axis.line = element_line(colour = "grey"),
+        axis.text.x = element_text(size = 8))
 
 ### Panel Overall Performance ###
 auc <- select(roc, study, tool, value = auc) %>%
@@ -237,13 +241,12 @@ stats <- select(dms, study = pretty_study, thresh, score, evcoup_epistatic:foldx
             tn = sum(!pred & !true),
             fp = sum(pred & !true),
             fn = sum(!pred & true),
-            pe = sum(true) / n(),
             .groups = "drop") %>%
   mutate(accuracy = (tp + tn) / (tp + tn + fp + fn),
          precision = tp / (tp + fp),
          recall = tp / (tp + fn),
          f1 = 2 * tp / (2 * tp + fp + fn),
-         kappa = (accuracy - pe) / (1 - pe)) %>%
+         kappa = 2 * (tp * tn - fn * fp) / ((tp + fp) * (fp + tn) + (tp + fn) * (fn + tn))) %>%
   select(study, tool, accuracy, precision, recall, f1, kappa) %>%
   pivot_longer(accuracy:kappa, names_to = "stat") %>%
   bind_rows(., auc) %>%
@@ -274,20 +277,8 @@ p_stats <- ggplot(mapping = aes(x = tool, y = value)) +
         strip.placement = "outside",
         strip.text = element_markdown(margin = margin(0, 0, 0, 0, unit = "mm")))
 
-#### Cor Figure Assembly ####
-size <- theme(text = element_text(size = 12))
-pc1 <- p_data + labs(tag = 'A') + size
-pc2 <- p_cor + labs(tag = 'B') + size
-
-figure1 <- multi_panel_figure(width = 210, height = c(120, 130), columns = 1,
-                             panel_label_type = 'none', row_spacing = 0, column_spacing = 0) %>%
-  fill_panel(pc1, row = 1, column = 1) %>%
-  fill_panel(pc2, row = 2, column = 1)
-
-ggsave('figures/thesis_figure_cor.pdf', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm', device = cairo_pdf)
-ggsave('figures/thesis_figure_cor.tiff', figure1, width = figure_width(figure1), height = figure_height(figure1), units = 'mm')
-
 ### ROC Figure Assembly
+size <- theme(text = element_text(size = 12))
 pr1 <- p_stats + labs(tag = 'A') + size
 pr2 <- p_roc + labs(tag = 'B') + size
 pr3 <- p_pr + labs(tag = 'C') + size
@@ -300,3 +291,8 @@ figure2 <- multi_panel_figure(width = 180, height = c(100, 40, 40), columns = 1,
 
 ggsave('figures/thesis_figure_roc.pdf', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm', device = cairo_pdf)
 ggsave('figures/thesis_figure_roc.tiff', figure2, width = figure_width(figure2), height = figure_height(figure2), units = 'mm')
+
+# Individual figures
+ggsave('figures/thesis_figure_data.pdf', p_data + size, width = 180, height = 180, units = 'mm', device = cairo_pdf)
+ggsave('figures/thesis_figure_cor.pdf', p_cor + size, width = 220, height = 220, units = 'mm', device = cairo_pdf)
+
