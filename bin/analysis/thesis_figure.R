@@ -247,7 +247,7 @@ stats <- select(dms, study = pretty_study, thresh, score, evcoup_epistatic:foldx
          precision = tp / (tp + fp),
          recall = tp / (tp + fn),
          f1 = 2 * tp / (2 * tp + fp + fn),
-         kappa = 2 * (tp * tn - fn * fp) / ((tp + fp) * (fp + tn) + (tp + fn) * (fn + tn))) %>%
+         kappa = 2 * (tp * tn - fn * fp) / (((as.numeric(tp) + fp) * (fp + tn)) + (tp + fn) * (fn + tn))) %>%
   select(study, tool, accuracy, precision, recall, f1, kappa) %>%
   pivot_longer(accuracy:kappa, names_to = "stat") %>%
   bind_rows(., auc) %>%
@@ -256,12 +256,12 @@ stats <- select(dms, study = pretty_study, thresh, score, evcoup_epistatic:foldx
 stat_names <- c(accuracy = '"Accuracy"', precision = '"Precision"', recall = '"Recall"',
                 f1 = '"F1 Score"', kappa = '"Cohen\'s"~kappa', auc = '"ROC AUC"')
 stat_lims <- tibble(stat = c("accuracy", "accuracy", "precision", "precision", "recall", "recall", "f1", "f1", "kappa", "kappa", "auc", "auc"),
-                    value = c(0, 1, 0, 1, 0, 1, 0, 1, -0.5, 1, 0, 1),
+                    value = c(0, 1, 0, 1, 0, 1, 0, 1, -0.04, 1, 0, 1),
                     tool = NA) %>%
   mutate(stat = factor(stat, levels = c("accuracy", "precision", "recall", "f1", "kappa", "auc")))
 
 p_stats <- ggplot(mapping = aes(x = tool, y = value)) +
-  facet_wrap(vars(stat), nrow = 2, scales = "free_y", strip.position = "left",
+  facet_wrap(vars(stat), nrow = 2, scales = "fixed", strip.position = "left",
              labeller = labeller(stat = as_labeller(stat_names, default = label_parsed))) +
   geom_boxplot(data = filter(stats, study != "Overall"), mapping = aes(fill = tool), width = 0.75, show.legend = FALSE, outlier.shape = 20) +
   geom_point(data = filter(stats, study == "Overall"), mapping = aes(shape = "All Studies"), size = 2.5) +
